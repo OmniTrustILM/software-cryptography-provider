@@ -8,7 +8,7 @@ RUN mvn -f /home/app/pom.xml clean package
 COPY docker /home/app/docker
 
 # Package stage
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:26-jre-alpine
 
 LABEL org.opencontainers.image.authors="CZERTAINLY <support@czertainly.com>"
 
