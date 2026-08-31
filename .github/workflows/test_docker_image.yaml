@@ -14,9 +14,10 @@ permissions:
   security-events: write
 
 jobs:
+  # The reusable workflow declares no secrets: it builds and scans locally and pushes
+  # nothing, so none are passed.
   test:
     uses: OmniTrustILM/.github/.github/workflows/containers-test.yml@main
-    secrets: inherit
     with:
       image: ilm/software-cryptography-provider
       cache-scope: software-cryptography-provider
