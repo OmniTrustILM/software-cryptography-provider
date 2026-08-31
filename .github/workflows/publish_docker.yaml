@@ -19,7 +19,13 @@ permissions:
 jobs:
   publish:
     uses: OmniTrustILM/.github/.github/workflows/containers-build-and-push.yml@main
-    secrets: inherit
+    # Named rather than inherited: the reusable workflow declares exactly these four, so
+    # inheriting would hand it every secret in the repository.
+    secrets:
+      CONTAINER_REGISTRY_USERNAME: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
+      CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
+      COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+      COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
     with:
       image: ilm/software-cryptography-provider
       cache-scope: software-cryptography-provider

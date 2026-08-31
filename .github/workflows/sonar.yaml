@@ -1,124 +1,254 @@
 name: Sonar
 on:
-  workflow_dispatch:
-    inputs:
-      pr_number:   { description: "PR number", required: true }
-      head_sha:    { description: "Head commit SHA", required: true }
-      head_repo:   { description: "Fork repo full_name", required: true }
-      head_branch: { description: "Fork branch", required: true }
-      base_ref:    { description: "Base branch", required: true }
-      run_id:      { description: "Upstream run ID", required: true }
+  workflow_run:
+    workflows: ["Check PR"]
+    types: [completed]
 
-# What appears in the Actions list
-run-name: >-
-  Sonar • PR #${{ inputs.pr_number }}
-  • ${{ inputs.head_repo }}@${{ inputs.head_branch }}
-  • ${{ inputs.head_sha }}
+# Analysis of pull requests from forks is supported, but this job is privileged: it holds
+# SONAR_TOKEN and the base repository token. Three rules keep that safe.
+#
+#   1. Nothing an untrusted head can write is used as configuration. The PR context comes
+#      from the workflow_run event and the API, never from an artifact the build wrote.
+#   2. Maven is never allowed to execute build configuration from a fork. For fork pull
+#      requests the trusted pom.xml, .mvn/ and settings.xml are restored from the base
+#      commit before Maven runs, so a crafted pom or extension cannot execute code with the
+#      tokens in scope. Same-repository branches are pushed by people who already have write
+#      access, so they are analysed with their own build configuration.
+#   3. Build outputs are staged rather than unpacked in place, so neither the head's working
+#      tree nor its artifacts can redirect extraction outside the workspace.
+#
+# A side effect of rule 2 is that a fork cannot weaken its own analysis by editing
+# sonar.coverage.exclusions in the pull request.
 
 permissions:
   contents: read
-  checks: write
-  pull-requests: read
-  actions: read
 
 jobs:
   sonar:
-    name: Sonar • PR #${{ inputs.pr_number }}
+    name: Sonar
     runs-on: ubuntu-latest
-
+    timeout-minutes: 30
+    if: github.event.workflow_run.conclusion == 'success'
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      pull-requests: read
+    env:
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+      BASE_REPO: ${{ github.repository }}
+      RUN_PRS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
     steps:
-      - name: Export context
-        run: |
-          echo "PR_NUMBER=${{ inputs.pr_number }}"    >> $GITHUB_ENV
-          echo "HEAD_SHA=${{ inputs.head_sha }}"      >> $GITHUB_ENV
-          echo "HEAD_REPO=${{ inputs.head_repo }}"    >> $GITHUB_ENV
-          echo "PR_BRANCH=${{ inputs.head_branch }}"  >> $GITHUB_ENV
-          echo "BASE_BRANCH=${{ inputs.base_ref }}"   >> $GITHUB_ENV
-          echo "UPSTREAM_RUN_ID=${{ inputs.run_id }}" >> $GITHUB_ENV
-
       - name: Generate token
         id: app_token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.SONAR_GH_APP_ID }}
           private-key: ${{ secrets.SONAR_GH_APP_PRIVATE_KEY }}
 
+      # Resolve the pull request from the head SHA recorded on the workflow run. The run is
+      # created by GitHub, so the SHA cannot be forged by the head repository.
+      - name: Resolve pull request
+        id: pr
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const headSha = process.env.HEAD_SHA;
+            const headRepo = process.env.HEAD_REPO;
+            const baseRepo = process.env.BASE_REPO;
+            const [owner, repo] = baseRepo.split('/');
+
+            // Same-repository pull requests are listed on the run itself. Forks are not, so
+            // fall back to the API and match on head repository as well as head SHA.
+            let candidates = JSON.parse(process.env.RUN_PRS || '[]')
+              .filter(p => p.head.sha === headSha)
+              .map(p => ({ number: p.number, base: p.base.ref, baseSha: p.base.sha, head: p.head.ref, repo: baseRepo }));
+
+            if (candidates.length === 0) {
+              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner, repo, commit_sha: headSha,
+              });
+              candidates = prs
+                .filter(p => p.state === 'open'
+                          && p.head.sha === headSha
+                          && p.head.repo
+                          && p.head.repo.full_name === headRepo)
+                .map(p => ({ number: p.number, base: p.base.ref, baseSha: p.base.sha, head: p.head.ref, repo: p.head.repo.full_name }));
+            }
+
+            if (candidates.length === 0) {
+              core.setFailed(`No open pull request found whose head is ${headSha} in ${headRepo}`);
+              return;
+            }
+            // One commit can head several open pull requests. Guessing could analyse against
+            // the wrong base, so refuse instead.
+            if (candidates.length > 1) {
+              core.setFailed(`Ambiguous: ${headSha} heads pull requests ${candidates.map(c => c.number).join(', ')}`);
+              return;
+            }
+
+            const pr = candidates[0];
+            core.setOutput('number', String(pr.number));
+            core.setOutput('base_ref', pr.base);
+            core.setOutput('base_sha', pr.baseSha);
+            core.setOutput('head_ref', pr.head);
+            core.setOutput('is_fork', String(pr.repo !== baseRepo));
+
       - name: Create GitHub Check (in_progress)
         id: create_check
-        uses: actions/github-script@v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ steps.app_token.outputs.token }}
           script: |
             const check = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              name: `SonarQube Analysis`,
+              name: 'SonarQube Analysis',
               head_sha: process.env.HEAD_SHA,
-              status: "in_progress"
+              status: 'in_progress',
             });
-            core.setOutput("check_id", check.data.id);
+            core.setOutput('check_id', String(check.data.id));
 
-      # Checkout fork PR branch + fetch base to compute diff
-      - uses: actions/checkout@v6
+      # Checks out the base repository's default branch: a static, trusted ref. Both the base
+      # branch and the analysed commit are fetched explicitly below, so no credentials are
+      # ever exposed to a fork remote and nothing untrusted reaches the checkout action.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ env.HEAD_REPO }}
-          ref: ${{ env.PR_BRANCH }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Fetch base branch
+      # Check out the exact commit the build verified. Fetching refs/pull/N/head from the
+      # base remote and asserting it equals the recorded SHA closes the window in which the
+      # head branch could be repointed between the build and this analysis.
+      - name: Check out the analysed commit
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
         run: |
-          git remote add upstream ${{ github.event.repository.clone_url }}
-          git fetch upstream $BASE_BRANCH
-          git checkout -B "$BASE_BRANCH" "upstream/$BASE_BRANCH"
-          git checkout "$PR_BRANCH"
-          git clean -ffdx && git reset --hard HEAD
+          set -euo pipefail
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+          fetched="$(git rev-parse FETCH_HEAD)"
+          if [ "$fetched" != "$HEAD_SHA" ]; then
+            echo "Refusing to analyse: refs/pull/${PR_NUMBER}/head is $fetched, expected $HEAD_SHA" >&2
+            exit 1
+          fi
+          # The base branch tip moves; the commit the pull request was opened against does
+          # not. Everything below anchors on that recorded commit so a push to the base
+          # between the build and this analysis cannot change what is analysed.
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            echo "Refusing to analyse: recorded base commit $BASE_SHA is not reachable" >&2
+            exit 1
+          fi
+          # Detach before touching the base branch ref: the checkout above left HEAD on a
+          # branch, and git refuses to force-update the branch that is currently checked out.
+          git checkout --force --detach "$HEAD_SHA"
+          git branch --force "$BASE_REF" "$BASE_SHA"
+          git clean -ffdx
 
-      - name: Download Compiled Classes from upstream run
-        uses: actions/download-artifact@v8
+      # For a fork, restore the build configuration the base repository controls so Maven
+      # cannot execute anything the head author supplied.
+      - name: Restore trusted build configuration
+        if: steps.pr.outputs.is_fork == 'true'
+        env:
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+          for path in pom.xml settings.xml .mvn; do
+            if git cat-file -e "${BASE_SHA}:${path}" 2>/dev/null; then
+              rm -rf -- "$path"
+              git checkout "$BASE_SHA" -- "$path"
+            else
+              rm -rf -- "$path"
+            fi
+          done
+          echo "Restored build configuration from base commit ${BASE_SHA}."
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          java-version: 21
+          distribution: 'temurin'
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # Unpacked under RUNNER_TEMP rather than straight into target/. The head repository
+      # controls both the working tree and, because pull_request workflows run the head's own
+      # copy of Check PR, the artifact contents. A tracked symlink at target/classes survives
+      # git clean, so extracting directly there could write through it into ~/.m2/settings.xml
+      # and make Maven resolve an attacker-supplied plugin with SONAR_TOKEN in scope.
+      - name: Download Compiled Classes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: compiled-classes
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ inputs.run_id }}
-          path: target/classes
+          run-id: ${{ github.event.workflow_run.id }}
+          path: ${{ runner.temp }}/artifacts/classes
 
-      - name: Download Coverage Reports from upstream run
-        uses: actions/download-artifact@v8
+      - name: Download Coverage Reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: coverage-reports
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ inputs.run_id }}
-          path: target/site/jacoco
+          run-id: ${{ github.event.workflow_run.id }}
+          path: ${{ runner.temp }}/artifacts/jacoco
+
+      - name: Stage build outputs
+        run: |
+          set -euo pipefail
+          # rm -rf removes a symlink itself rather than following it, so a committed
+          # target/ symlink is discarded before the real directories are created.
+          rm -rf target
+          mkdir -p target/classes target/site/jacoco
+          # Drop any symlink inside the artifacts as well, so nothing copied below can
+          # reach outside the workspace.
+          find "${RUNNER_TEMP}/artifacts" -type l -print -delete
+          cp -R "${RUNNER_TEMP}/artifacts/classes/." target/classes/
+          cp -R "${RUNNER_TEMP}/artifacts/jacoco/." target/site/jacoco/
 
       - name: SonarCloud Scan
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PR_KEY: ${{ steps.pr.outputs.number }}
+          SONAR_PR_BRANCH: ${{ steps.pr.outputs.head_ref }}
+          SONAR_PR_BASE: ${{ steps.pr.outputs.base_ref }}
         run: |
-          mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.scm.revision=${{ env.HEAD_SHA }} \
-            -Dsonar.pullrequest.key=${{ env.PR_NUMBER }} \
-            -Dsonar.pullrequest.branch=${{ env.PR_BRANCH }} \
-            -Dsonar.pullrequest.base=${{ env.BASE_BRANCH }}
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
+            -Dsonar.scm.revision="$HEAD_SHA" \
+            -Dsonar.pullrequest.key="$SONAR_PR_KEY" \
+            -Dsonar.pullrequest.branch="$SONAR_PR_BRANCH" \
+            -Dsonar.pullrequest.base="$SONAR_PR_BASE"
 
       - name: Finalize GitHub Check
         if: always()
-        uses: actions/github-script@v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          CHECK_ID: ${{ steps.create_check.outputs.check_id }}
+          JOB_STATUS: ${{ job.status }}
         with:
           github-token: ${{ steps.app_token.outputs.token }}
           script: |
-            const checkId = "${{ steps.create_check.outputs.check_id }}";
-            const status = "${{ job.status }}";
-            const conclusions = { success: "success", failure: "failure", cancelled: "cancelled" };
-            const conclusion = conclusions[status] || "failure";
+            const checkId = Number(process.env.CHECK_ID);
+            if (!checkId) return;
+            const allowed = { success: 'success', failure: 'failure', cancelled: 'cancelled' };
+            const conclusion = allowed[process.env.JOB_STATUS] || 'failure';
             await github.rest.checks.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               check_run_id: checkId,
               completed_at: new Date().toISOString(),
-              status: "completed",
+              status: 'completed',
               conclusion,
               output: {
-                title: "SonarQube Analysis Result",
-                summary: `✅ SonarQube analysis concluded with status: **${conclusion}**`,
-              }
+                title: 'SonarQube Analysis Result',
+                summary: `SonarQube analysis concluded with status: **${conclusion}**`,
+              },
             });

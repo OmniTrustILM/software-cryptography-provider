@@ -32,4 +32,7 @@ build/
 ### VS Code ###
 .vscode/
 
+### Local working documents ###
+docs/superpowers/
+
 .DS_Store

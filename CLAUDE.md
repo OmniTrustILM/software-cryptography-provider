@@ -1,0 +1,96 @@
+# CLAUDE.md
+
+Guidance for working in this repository.
+
+## What this is
+
+Software Cryptography Provider — a `Connector` implementing the `Cryptography Provider`
+function group for kind `SOFT`. Key material lives in PKCS12 keystores held in PostgreSQL,
+so this provider is intended for development and testing rather than for protecting
+production keys.
+
+Spring Boot 3 on Java 21, built with Maven.
+
+## Commands
+
+Build and run the tests:
+
+```bash
+mvn -B -U verify
+```
+
+Run one test class:
+
+```bash
+mvn -B test -Dtest=KeyManagementServiceImplTest
+```
+
+Coverage report (written by `verify`):
+
+```bash
+open target/site/jacoco/index.html
+```
+
+Local SonarQube scan:
+
+```bash
+mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar -Dsonar.token=$SONAR_TOKEN
+```
+
+## Quality gates
+
+- Coverage at least 80%, duplication under 3%, and no open Sonar issues.
+- No `TODO` or `FIXME` markers.
+- Every third-party GitHub Action is pinned to a full commit SHA with a trailing version
+  comment, for example
+  `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`. Reusable workflows
+  from `OmniTrustILM/.github` are referenced by `@main` on purpose: that is how org-wide
+  updates propagate.
+
+The SonarCloud gate measures new code only. Its conditions are the reliability, security
+and maintainability ratings, duplication density, and that every new security hotspot has
+been reviewed. There is no coverage condition, so the 80% floor is a project rule rather
+than something SonarCloud enforces.
+
+## Layout
+
+| Path | Contents |
+|---|---|
+| `api/` | Controllers implementing the connector interfaces, plus the attribute callback |
+| `attribute/` | Attribute definitions, one class per key algorithm plus the token instance ones |
+| `collection/` | Enums backing the attribute content options (curves, key sizes, security categories) |
+| `service/` | Token instance, key management, cryptographic operations and the two cache services |
+| `dao/` | JPA entities, repositories and the key algorithm/format/type converters |
+| `util/` | Keystore, cipher, signature, X.509, secret and migration helpers |
+| `src/main/java/db/migration/` | Java Flyway migrations |
+
+## Things worth knowing
+
+**Attribute identifiers are a contract.** The UUIDs and names in `attribute/` identify
+attributes in the platform database. Changing one orphans the configuration of every
+existing token instance. The same holds for kind `SOFT`, the `softcp` schema, the
+`softcp_schema_history` Flyway table, the JSON field names and the HTTP paths. Rebranding
+work must leave all of these alone.
+
+**Java migration checksums are recorded in deployed databases.** Flyway stores the value
+returned by `getChecksum()`, which comes from `DatabaseMigration.JavaMigrationChecksums`
+rather than from the file. Editing a migration's source — including rewriting its `import`
+lines — changes the CRC32 of the file but must not change the value published to Flyway, or
+validation fails on every existing installation. `DatabaseMigrationTest` asserts the two
+agree, so any deliberate divergence has to be recorded explicitly.
+
+**Two Caffeine caches sit in front of the database.** `keystores` holds decrypted key
+material per token instance (60s TTL, 500 entries); `keydata` holds key rows per key UUID
+(300s TTL, 10000 entries). Both are configured in `CacheConfig` and overridable under
+`provider.cache.*`. `KeyStoreCacheService.evictAfterCommit` defers eviction until the
+surrounding transaction commits, so a rolled-back write cannot leave a stale entry visible.
+
+**`token_instance.code` is the only encrypted column.** It holds the PKCS12 keystore
+password, is read and written only through `TokenInstance.getCode()` and `setCode()`, and
+is stored in the self-describing form `v1|ciphertext|salt|iterations`. `SecretsUtil` derives
+the key from `secrets.encryption.key`.
+
+**The default encryption key is a published constant.** `application.yml` falls back to a
+literal value when `ENCRYPTION_KEY` is unset, and both Java migrations repeat it. Any
+installation that never set `ENCRYPTION_KEY` is encrypting with a value that is public in
+this repository. Treat that as a known weakness rather than as a working default.
