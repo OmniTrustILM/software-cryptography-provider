@@ -23,7 +23,7 @@ public class EndpointsListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EndpointsListener.class);
 
-    public List<EndpointDto> endpoints = new ArrayList<>();
+    private final List<EndpointDto> endpoints = new ArrayList<>();
 
     @EventListener
     public void handleContextRefresh(ContextRefreshedEvent event) {
@@ -57,6 +57,6 @@ public class EndpointsListener {
 
         return this.endpoints.stream()
                 .filter(e -> regex.matcher(e.getContext()).matches())
-                .collect(Collectors.toList());
+                .toList();
     }
 }

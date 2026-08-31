@@ -11,14 +11,15 @@ import java.util.List;
 
 public class EcdsaKeyAttributes {
 
+    private EcdsaKeyAttributes() {
+    }
+
     public static final String ATTRIBUTE_DATA_ECDSA_CURVE = "data_ecdsaCurve";
     public static final String ATTRIBUTE_DATA_ECDSA_CURVE_UUID = "08730b36-90f3-4046-9f13-3cf827ad6cc7";
     public static final String ATTRIBUTE_DATA_ECDSA_CURVE_LABEL = "Named Curve";
     public static final String ATTRIBUTE_DATA_ECDSA_CURVE_DESCRIPTION = "Select one of the supported named curves";
 
-    /////////////////////////////////////////////////
     // ECDSA signature Attributes
-    /////////////////////////////////////////////////
 
     public static final String ATTRIBUTE_DATA_SIG_DIGEST = "data_sigDigest";
 

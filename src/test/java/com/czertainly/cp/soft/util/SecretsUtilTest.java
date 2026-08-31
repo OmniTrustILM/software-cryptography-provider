@@ -5,19 +5,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-public class SecretsUtilTest {
+class SecretsUtilTest {
 
     private static String secret = "This is my secret value I want to protect";
 
     @Test
-    public void testEncodeSecret_ok() {
+    void testEncodeSecret_ok() {
         String encodedSecret = SecretsUtil.encryptAndEncodeSecretString(secret, SecretEncodingVersion.V1);
 
         Assertions.assertEquals(encodedSecret.substring(0, 2), SecretEncodingVersion.V1.getVersion());
     }
 
     @Test
-    public void testEncryptDecrypt_ok() {
+    void testEncryptDecrypt_ok() {
         String encodedSecret = SecretsUtil.encryptAndEncodeSecretString(secret, SecretEncodingVersion.V1);
         String decodedSecret = SecretsUtil.decodeAndDecryptSecretString(encodedSecret, SecretEncodingVersion.V1);
 

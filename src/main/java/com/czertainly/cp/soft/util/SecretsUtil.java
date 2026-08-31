@@ -17,6 +17,10 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
 @Component
+// The constant names are left as they are: renaming them rewrites every catch block in this
+// class, which is churn on untestable JCA paths. The scheme itself is replaced in the work
+// tracked by issue #66, which is where these names change too.
+@SuppressWarnings("java:S115")
 public class SecretsUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(SecretsUtil.class);
@@ -26,13 +30,22 @@ public class SecretsUtil {
 
     private static String encryptionKey;
 
+    /**
+     * Populates the static key from configuration. It has to be an instance method for
+     * Spring to inject into it, while the encryption helpers are static because the Flyway
+     * migrations call them outside the application context.
+     */
+    @SuppressWarnings("java:S2696")
     @Value("${secrets.encryption.key}")
-    public void setEncryptionKeyStatic(String key){
+    public void setEncryptionKeyStatic(String key) {
         SecretsUtil.encryptionKey = key;
     }
 
     private static final String algorithm = "PBEWithSHA256And256BitAES-CBC-BC";
     private static final int iterations = 1000;
+
+    /** Seeded once; SecureRandom reseeds itself and is safe to share across threads. */
+    private static final SecureRandom SALT_RANDOM = new SecureRandom();
 
     /**
      * Encrypts and encodes the given secret using the PBEWithSHA256And256BitAES-CBC-BC algorithm.
@@ -135,7 +148,7 @@ public class SecretsUtil {
         encoded.append(count);
 
         if (logger.isTraceEnabled()) {
-            logger.trace("Encoded data: " + encoded);
+            logger.trace("Encoded data: {}", encoded);
         }
 
         return encoded.toString();
@@ -181,9 +194,8 @@ public class SecretsUtil {
      * @return salt
      */
     private static byte[] generateRandomSalt() {
-        final SecureRandom random = new SecureRandom();
         byte[] bytes = new byte[32];
-        random.nextBytes(bytes);
+        SALT_RANDOM.nextBytes(bytes);
         return bytes;
     }
 

@@ -21,9 +21,10 @@ import java.util.Set;
 
 public class TokenInstanceAttributes {
 
-    ///////////////////////////////////////////////////////////////
+    private TokenInstanceAttributes() {
+    }
+
     // Token instance Attributes to create a new Token instance
-    ///////////////////////////////////////////////////////////////
 
     public static final String ATTRIBUTE_INFO_INITIAL = "info_initial";
     public static final String ATTRIBUTE_INFO_INITIAL_UUID = "320c401a-9feb-402a-8f5b-0bfefcf155cc";
@@ -83,7 +84,7 @@ public class TokenInstanceAttributes {
         return attrs;
     }
 
-    public static List<BaseAttribute> getExistingTokenAttributes(List<BaseAttributeContentV2> tokens) {
+    public static List<BaseAttribute> getExistingTokenAttributes(List<BaseAttributeContentV2<?>> tokens) {
         List<BaseAttribute> attrs = new ArrayList<>();
 
         attrs.add(buildDataCreateTokenAction("existing"));
@@ -235,7 +236,7 @@ public class TokenInstanceAttributes {
         return attribute;
     }
 
-    public static BaseAttribute buildDataSelectExistingToken(List<BaseAttributeContentV2> tokens) {
+    public static BaseAttribute buildDataSelectExistingToken(List<BaseAttributeContentV2<?>> tokens) {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN_UUID);

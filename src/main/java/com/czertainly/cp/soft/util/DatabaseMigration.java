@@ -110,7 +110,7 @@ public class DatabaseMigration {
             return str;
         }
         StringBuilder buf = new StringBuilder(str);
-        while (buf.length() > 0 && isLineBreakCharacter(buf.charAt(buf.length() - 1))) {
+        while (!buf.isEmpty() && isLineBreakCharacter(buf.charAt(buf.length() - 1))) {
             buf.deleteCharAt(buf.length() - 1);
         }
         return buf.toString();

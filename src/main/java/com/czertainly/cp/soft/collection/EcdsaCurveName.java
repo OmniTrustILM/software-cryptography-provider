@@ -4,8 +4,13 @@ import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * Curve names are lower case on purpose: {@link #asStringAttributeContentList()} publishes
+ * {@code name()} as the attribute content reference, and that reference is stored against
+ * every ECDSA key the platform holds. Renaming a constant would orphan those keys.
+ */
+@SuppressWarnings("java:S115")
 public enum EcdsaCurveName {
     secp192r1(192, "secp192r1", "NIST/SECG curve over a 192 bit prime field"),
     secp224r1(224, "secp224r1", "NIST/SECG curve over a 224 bit prime field"),
@@ -48,9 +53,9 @@ public enum EcdsaCurveName {
         return this.name + " " + name();
     }
 
-    public static List<BaseAttributeContentV2> asStringAttributeContentList() {
+    public static List<BaseAttributeContentV2<?>> asStringAttributeContentList() {
         return List.of(values()).stream()
-                .map(curve -> new StringAttributeContentV2(curve.name(), curve.getName()))
-                .collect(Collectors.toList());
+                .<BaseAttributeContentV2<?>>map(curve -> new StringAttributeContentV2(curve.name(), curve.getName()))
+                .toList();
     }
 }

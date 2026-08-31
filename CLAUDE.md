@@ -40,6 +40,8 @@ mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar 
 ## Quality gates
 
 - Coverage at least 80%, duplication under 3%, and no open Sonar issues.
+  The floor is enforced by the JaCoCo `check-coverage` rule in `pom.xml` (80% line,
+  70% branch) so `mvn verify` fails before SonarCloud ever sees a regression.
 - No `TODO` or `FIXME` markers.
 - Every third-party GitHub Action is pinned to a full commit SHA with a trailing version
   comment, for example
@@ -72,6 +74,12 @@ existing token instance. The same holds for kind `SOFT`, the `softcp` schema, th
 `softcp_schema_history` Flyway table, the JSON field names and the HTTP paths. Rebranding
 work must leave all of these alone.
 
+**Applied migrations cannot be edited.** Because the checksum comes from the source
+file, `sonar.issue.ignore.multicriteria` in `pom.xml` suppresses Java rules for each shipped
+migration by name: a rule fix there would fail Flyway validation on upgrade. Migrations are
+listed individually rather than by directory, so a migration that has not been released yet
+is still analysed. Add an entry only once one has shipped. Coverage is measured either way.
+
 **Java migration checksums are recorded in deployed databases.** Flyway stores the value
 returned by `getChecksum()`, which comes from `DatabaseMigration.JavaMigrationChecksums`
 rather than from the file. Editing a migration's source — including rewriting its `import`
@@ -94,3 +102,13 @@ the key from `secrets.encryption.key`.
 literal value when `ENCRYPTION_KEY` is unset, and both Java migrations repeat it. Any
 installation that never set `ENCRYPTION_KEY` is encrypting with a value that is public in
 this repository. Treat that as a known weakness rather than as a working default.
+
+**`EcdsaCurveName` constants are lower case on purpose.** `asStringAttributeContentList()`
+publishes `name()` as the attribute content reference, and that reference is stored against
+every ECDSA key. The naming rule is suppressed on the enum rather than the constants
+renamed.
+
+**BouncyCastle's PKCS12 ignores the per-entry password.** Key bags are decrypted when the
+store is loaded, so `getKey(alias, anything)` returns the key. The store password checked by
+`KeyStoreUtil.loadKeystore` is the only thing protecting the material.
+`KeyStoreUtilGenerationTest` records both halves of this.

@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/cryptographyProvider/callbacks")
@@ -75,10 +74,11 @@ public class CallbackController {
 
     }
 
-    private List<BaseAttributeContentV2> tokenInstancesToStringContentList(List<TokenInstanceDto> tokenInstanceDtos) {
+    private List<BaseAttributeContentV2<?>> tokenInstancesToStringContentList(List<TokenInstanceDto> tokenInstanceDtos) {
         return tokenInstanceDtos.stream()
-                .map(tokenInstanceDto -> new StringAttributeContentV2(tokenInstanceDto.getName(), tokenInstanceDto.getUuid()))
-                .collect(Collectors.toList());
+                .<BaseAttributeContentV2<?>>map(tokenInstanceDto ->
+                        new StringAttributeContentV2(tokenInstanceDto.getName(), tokenInstanceDto.getUuid()))
+                .toList();
     }
 
 }

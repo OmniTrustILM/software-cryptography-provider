@@ -8,9 +8,10 @@ import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 
 public class TokenInstanceActivationAttributes {
 
-    /////////////////////////////////////////////////
+    private TokenInstanceActivationAttributes() {
+    }
+
     // Token instance activation Attributes
-    /////////////////////////////////////////////////
 
     public static final String ATTRIBUTE_DATA_ACTIVATION_CODE = "data_tokenActivationCode";
     public static final String ATTRIBUTE_DATA_ACTIVATION_CODE_UUID = "0d4044f0-2af0-4f10-ac09-319072eb3393";

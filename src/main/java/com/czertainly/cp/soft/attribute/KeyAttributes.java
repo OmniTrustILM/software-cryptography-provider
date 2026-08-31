@@ -18,14 +18,14 @@ import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class KeyAttributes {
 
-    /////////////////////////////////////////////////
+    private KeyAttributes() {
+    }
+
     // Cryptographic Key Attributes
-    /////////////////////////////////////////////////
 
     public static final String ATTRIBUTE_DATA_KEY_ALIAS = "data_keyAlias";
     public static final String ATTRIBUTE_DATA_KEY_ALIAS_UUID = "61a228de-c54e-461e-b0d7-ad156a547b51";
@@ -41,9 +41,7 @@ public class KeyAttributes {
     public static final String ATTRIBUTE_GROUP_KEY_SPEC_UUID = "dfcfb71f-a161-4aa7-8b1f-726b477b3492";
     public static final String ATTRIBUTE_GROUP_KEY_SPEC_LABEL = "Cryptographic Key Specification";
 
-    /////////////////////////////////////////////////
     // Cryptographic Key METADATA
-    /////////////////////////////////////////////////
 
     public static final String ATTRIBUTE_META_KEY_ALIAS = "meta_keyAlias";
     public static final String ATTRIBUTE_META_KEY_ALIAS_UUID = "a5575bb8-dd88-4b60-bb73-75b862da78aa";
@@ -93,7 +91,7 @@ public class KeyAttributes {
         attribute.setContent(
                 Stream.of(KeyAlgorithm.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .toList()
         );
 
         return attribute;
