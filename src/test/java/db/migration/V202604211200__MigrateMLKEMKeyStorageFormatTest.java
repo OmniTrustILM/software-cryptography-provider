@@ -1,7 +1,7 @@
 package db.migration;
 
-import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.X509Util;
+import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.X509Util;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERBMPString;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
