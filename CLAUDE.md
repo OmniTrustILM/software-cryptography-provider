@@ -74,11 +74,13 @@ existing token instance. The same holds for kind `SOFT`, the `softcp` schema, th
 `softcp_schema_history` Flyway table, the JSON field names and the HTTP paths. Rebranding
 work must leave all of these alone.
 
-**Applied migrations cannot be edited.** Because the checksum comes from the source
-file, `sonar.issue.ignore.multicriteria` in `pom.xml` suppresses Java rules for each shipped
-migration by name: a rule fix there would fail Flyway validation on upgrade. Migrations are
-listed individually rather than by directory, so a migration that has not been released yet
-is still analysed. Add an entry only once one has shipped. Coverage is measured either way.
+**Shipped migrations can be edited, but their published checksum cannot change.**
+`JavaMigrationChecksums` records two numbers per migration: the value `getChecksum()`
+publishes to Flyway, which every deployed database holds and which must never move, and the
+checksum of the source as it stands, which `DatabaseMigrationTest` asserts. Editing a shipped
+migration means recording the new source checksum and leaving the published one alone.
+`sonar.issue.ignore.multicriteria` in `pom.xml` exempts shipped migrations from Java rules,
+listed by name so an unreleased one is still analysed.
 
 **Java migration checksums are recorded in deployed databases.** Flyway stores the value
 returned by `getChecksum()`, which comes from `DatabaseMigration.JavaMigrationChecksums`
@@ -94,13 +96,26 @@ material per token instance (60s TTL, 500 entries); `keydata` holds key rows per
 surrounding transaction commits, so a rolled-back write cannot leave a stale entry visible.
 
 **`token_instance.code` is the only encrypted column.** It holds the PKCS12 keystore
-password, is read and written only through `TokenInstance.getCode()` and `setCode()`, and
-is stored in the self-describing form `v1|ciphertext|salt|iterations`. `SecretsUtil` derives
-the key from `secrets.encryption.key`.
+password, and `TokenInstance.getCode()`/`setCode()` do the crypto through
+`SecretsUtilHolder`, which only the Spring-managed `SecretsUtil` publishes to, from
+`@PostConstruct`. Migrations and tests build their own instances without disturbing it. A JPA `AttributeConverter` would let Spring inject properly, but a
+converter runs on every hydration, so `listTokenInstances()` would derive a key per row on a
+path that never reads the password. Everything except the entity takes `SecretsUtil` by
+injection.
+
+**Stored secrets say how to read themselves.** The first field names the encoding:
+`v2|ciphertext|salt|iv|iterations` is AES-GCM with PBKDF2-HMAC-SHA256, and is what everything
+writes. `v1|ciphertext|salt|iterations` is the earlier unauthenticated scheme, still decrypted
+so values written before the upgrade keep working. Nothing writes v1. Because decryption reads
+whichever encoding it finds, a database left part-converted works fine.
+
+**Key derivation costs about 50ms.** 600000 PBKDF2 iterations is deliberate, and lands only on
+a `keystores` cache miss.
 
 **The default encryption key is a published constant.** `application.yml` falls back to a
-literal value when `ENCRYPTION_KEY` is unset, and both Java migrations repeat it. Any
-installation that never set `ENCRYPTION_KEY` is encrypting with a value that is public in
+literal value when `ENCRYPTION_KEY` is unset, and `MigrationSecrets` repeats it so migrations
+read what the connector wrote. `SecretsUtil` warns at startup when that default is in use.
+Any installation that never set `ENCRYPTION_KEY` is encrypting with a value that is public in
 this repository. Treat that as a known weakness rather than as a working default.
 
 **`EcdsaCurveName` constants are lower case on purpose.** `asStringAttributeContentList()`

@@ -13,7 +13,8 @@ import com.czertainly.cp.soft.dao.repository.TokenInstanceRepository;
 import com.czertainly.cp.soft.exception.TokenInstanceException;
 import com.czertainly.cp.soft.service.KeyStoreCacheService;
 import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.TestEncryptionKey;
+import com.czertainly.cp.soft.util.SecretsUtil;
+import com.czertainly.cp.soft.util.SecretsUtilHolder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -51,22 +52,26 @@ class TokenInstanceLifecycleTest {
     private KeyStoreCacheService keyStoreCacheService;
     private TokenInstanceServiceImpl service;
 
-    private static String previousKey;
+
+    private static SecretsUtil previousShared;
 
     @BeforeAll
     static void prepareCrypto() {
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
-        // Restored afterwards: the key is static, and the migration tests decrypt with
-        // whatever value is left behind.
-        previousKey = TestEncryptionKey.current();
-        TestEncryptionKey.set("unit-test-encryption-key");
+        // TokenInstance encrypts through the shared instance, which only Spring publishes.
+        // This class has no context, so it publishes its own and puts back whatever was there,
+        // leaving any Spring test that runs later with the instance it expects.
+        previousShared = SecretsUtilHolder.current();
+        SecretsUtil forTest = new SecretsUtil();
+        forTest.setEncryptionKey("unit-test-encryption-key");
+        SecretsUtilHolder.configure(forTest);
     }
 
     @AfterAll
-    static void restoreKey() {
-        TestEncryptionKey.restore(previousKey);
+    static void restoreShared() {
+        SecretsUtilHolder.configure(previousShared);
     }
 
     @BeforeEach
