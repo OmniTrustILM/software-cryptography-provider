@@ -1,10 +1,10 @@
 package db.migration;
 
-import com.czertainly.cp.soft.util.DatabaseMigration;
-import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.MigrationSecrets;
-import com.czertainly.cp.soft.util.SecretsUtil;
-import com.czertainly.cp.soft.util.X509Util;
+import com.otilm.cp.soft.util.DatabaseMigration;
+import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.MigrationSecrets;
+import com.otilm.cp.soft.util.SecretsUtil;
+import com.otilm.cp.soft.util.X509Util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;

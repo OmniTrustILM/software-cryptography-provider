@@ -1,12 +1,12 @@
 package db.migration;
 
-import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
-import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
-import com.czertainly.api.model.common.enums.cryptography.KeyType;
-import com.czertainly.cp.soft.Application;
-import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.MigrationSecrets;
-import com.czertainly.cp.soft.util.X509Util;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyFormat;
+import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.cp.soft.Application;
+import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.MigrationSecrets;
+import com.otilm.cp.soft.util.X509Util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERBMPString;

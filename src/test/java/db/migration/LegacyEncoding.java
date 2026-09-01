@@ -1,6 +1,6 @@
 package db.migration;
 
-import com.czertainly.cp.soft.util.MigrationSecrets;
+import com.otilm.cp.soft.util.MigrationSecrets;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.Cipher;

@@ -1,6 +1,6 @@
-# CZERTAINLY Software Cryptography Provider
+# Software Cryptography Provider
 
-> This repository is part of the commercial open-source project CZERTAINLY. You can find more information about the project at [CZERTAINLY](https://github.com/CZERTAINLY/CZERTAINLY) repository, including the contribution guide.
+> This repository is part of the commercial open-source project ILM. You can find more information about the project at the [ILM](https://github.com/OmniTrustILM/ilm) repository, including the contribution guide.
 
 Software Cryptography Provider `Connector` is the implementation of the following `Function Groups` and `Kinds`:
 
@@ -38,13 +38,13 @@ Software Cryptography Provider `Connector` supports the following asymmetric alg
 
 ## Interfaces
 
-Software Cryptography Provider implements `Cryptography Provider` interfaces. To learn more about the interfaces and end points, refer to the [CZERTAINLY Interfaces](https://github.com/CZERTAINLY/CZERTAINLY-Interfaces).
+Software Cryptography Provider implements `Cryptography Provider` interfaces. To learn more about the interfaces and end points, refer to the [Interfaces](https://github.com/OmniTrustILM/interfaces).
 
-For more information, please refer to the [CZERTAINLY documentation](https://docs.czertainly.com).
+For more information, please refer to the [documentation](https://docs.otilm.com).
 
 ## Docker container
 
-Software Cryptography Provider `Connector` is provided as a Docker container. Use the `docker.io/czertainly/czertainly-software-cryptography-provider:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
+Software Cryptography Provider `Connector` is provided as a Docker container. Use the `hub.omnitrustregistry.com/ilm/software-cryptography-provider:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
 
 | Variable                 | Description                                                         | Required                                           | Default value |
 |--------------------------|---------------------------------------------------------------------|----------------------------------------------------|---------------|

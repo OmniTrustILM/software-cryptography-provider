@@ -4,7 +4,7 @@ Guidance for working in this repository.
 
 ## What this is
 
-Software Cryptography Provider — a `Connector` implementing the `Cryptography Provider`
+Software Cryptography Provider — an ILM `Connector` implementing the `Cryptography Provider`
 function group for kind `SOFT`. Key material lives in PKCS12 keystores held in PostgreSQL,
 so this provider is intended for development and testing rather than for protecting
 production keys.
@@ -66,7 +66,14 @@ than something SonarCloud enforces.
 | `util/` | Keystore, cipher, signature, X.509, secret and migration helpers |
 | `src/main/java/db/migration/` | Java Flyway migrations |
 
+Java packages are `com.otilm.cp.soft.*`; the migrations stay in `db.migration`, which Flyway
+resolves by name.
+
 ## Things worth knowing
+
+**The canonical style is not applied yet.** The parent binds Spotless and Checkstyle to
+`verify`, and `pom.xml` sets `spotless.skip` and `checkstyle.skip` to `true` until the
+reformat lands. That is issue #89; remove both properties with it.
 
 **Attribute identifiers are a contract.** The UUIDs and names in `attribute/` identify
 attributes in the platform database. Changing one orphans the configuration of every
@@ -81,6 +88,14 @@ checksum of the source as it stands, which `DatabaseMigrationTest` asserts. Edit
 migration means recording the new source checksum and leaving the published one alone.
 `sonar.issue.ignore.multicriteria` in `pom.xml` exempts shipped migrations from Java rules,
 listed by name so an unreleased one is still analysed.
+
+**The image trims the JRE with jlink.** `jdeps` derives the module list from bytecode
+references, so a module reached only through `ServiceLoader` has to be named in
+`ADDITIONAL_MODULES` in the `Dockerfile`. `jdk.crypto.ec` is there because JSSE needs SunEC
+for the ECDHE key exchange TLS 1.3 always uses: without it a JDBC URL requiring TLS fails
+with `handshake_failure` and the connector does not start. The key operations name
+BouncyCastle and are unaffected. Add to that variable rather than editing the jlink
+invocation, and say what needs the module.
 
 **Java migration checksums are recorded in deployed databases.** Flyway stores the value
 returned by `getChecksum()`, which comes from `DatabaseMigration.JavaMigrationChecksums`

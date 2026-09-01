@@ -1,9 +1,9 @@
 package db.migration;
 
-import com.czertainly.cp.soft.Application;
-import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.MigrationSecrets;
-import com.czertainly.cp.soft.util.SecretsUtil;
+import com.otilm.cp.soft.Application;
+import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.MigrationSecrets;
+import com.otilm.cp.soft.util.SecretsUtil;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.flywaydb.core.api.configuration.Configuration;
 import org.flywaydb.core.api.migration.Context;
