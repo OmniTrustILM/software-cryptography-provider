@@ -16,28 +16,26 @@ import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseD
 import com.otilm.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.collection.EcdsaCurveName;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Stream;
-
 class CryptographicOperationsEcdsaSignVerifyTest extends AbstractCryptographicOperationsTest {
 
     static Stream<Arguments> parameters() {
-        return Stream.of(
-                Arguments.of(EcdsaCurveName.secp256r1, DigestAlgorithm.SHA_256),
-                Arguments.of(EcdsaCurveName.secp256r1, DigestAlgorithm.SHA_384),
-                Arguments.of(EcdsaCurveName.secp384r1, DigestAlgorithm.SHA_256),
-                Arguments.of(EcdsaCurveName.secp384r1, DigestAlgorithm.SHA_384),
-                Arguments.of(EcdsaCurveName.secp384r1, DigestAlgorithm.SHA_512),
-                Arguments.of(EcdsaCurveName.secp521r1, DigestAlgorithm.SHA_384),
-                Arguments.of(EcdsaCurveName.secp521r1, DigestAlgorithm.SHA_512)
-        );
+        return Stream
+                .of(Arguments.of(EcdsaCurveName.secp256r1, DigestAlgorithm.SHA_256),
+                        Arguments.of(EcdsaCurveName.secp256r1, DigestAlgorithm.SHA_384),
+                        Arguments.of(EcdsaCurveName.secp384r1, DigestAlgorithm.SHA_256),
+                        Arguments.of(EcdsaCurveName.secp384r1, DigestAlgorithm.SHA_384),
+                        Arguments.of(EcdsaCurveName.secp384r1, DigestAlgorithm.SHA_512),
+                        Arguments.of(EcdsaCurveName.secp521r1, DigestAlgorithm.SHA_384),
+                        Arguments.of(EcdsaCurveName.secp521r1, DigestAlgorithm.SHA_512));
     }
 
     @ParameterizedTest(name = "{0} + {1}")
@@ -45,9 +43,11 @@ class CryptographicOperationsEcdsaSignVerifyTest extends AbstractCryptographicOp
     void testSignVerifyEcdsa(EcdsaCurveName curve, DigestAlgorithm digest) throws NotFoundException {
         // Create key pair
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
-        createKeyRequestDto.setCreateKeyAttributes(buildEcdsaCreateKeyAttributes("test-ecdsa-" + curve.getName(), curve));
+        createKeyRequestDto
+                .setCreateKeyAttributes(buildEcdsaCreateKeyAttributes("test-ecdsa-" + curve.getName(), curve));
 
-        KeyPairDataResponseDto keyPair = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        KeyPairDataResponseDto keyPair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
 
         Assertions.assertEquals(KeyAlgorithm.ECDSA, keyPair.getPrivateKeyData().getKeyData().getAlgorithm());
         Assertions.assertEquals(KeyAlgorithm.ECDSA, keyPair.getPublicKeyData().getKeyData().getAlgorithm());
@@ -61,8 +61,8 @@ class CryptographicOperationsEcdsaSignVerifyTest extends AbstractCryptographicOp
         signRequest.setSignatureAttributes(buildEcdsaSignatureAttributes(digest));
         signRequest.setData(List.of(new SignatureRequestData(plaintext, "item-1")));
 
-        SignDataResponseDto signResponse = cryptographicOperationsService.signData(
-                tokenInstance.getUuid(), privateKeyUuid, signRequest);
+        SignDataResponseDto signResponse = cryptographicOperationsService
+                .signData(tokenInstance.getUuid(), privateKeyUuid, signRequest);
 
         Assertions.assertNotNull(signResponse.getSignatures());
         Assertions.assertEquals(1, signResponse.getSignatures().size());
@@ -77,8 +77,8 @@ class CryptographicOperationsEcdsaSignVerifyTest extends AbstractCryptographicOp
         verifyRequest.setData(List.of(new SignatureRequestData(plaintext, "item-1")));
         verifyRequest.setSignatures(List.of(new SignatureRequestData(signatureBytes, "item-1")));
 
-        VerifyDataResponseDto verifyResponse = cryptographicOperationsService.verifyData(
-                tokenInstance.getUuid(), publicKeyUuid, verifyRequest);
+        VerifyDataResponseDto verifyResponse = cryptographicOperationsService
+                .verifyData(tokenInstance.getUuid(), publicKeyUuid, verifyRequest);
 
         Assertions.assertNotNull(verifyResponse.getVerifications());
         Assertions.assertEquals(1, verifyResponse.getVerifications().size());

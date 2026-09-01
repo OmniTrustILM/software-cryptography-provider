@@ -1,5 +1,7 @@
 package com.otilm.cp.soft.config;
 
+import java.security.Provider;
+import java.security.Security;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.slf4j.Logger;
@@ -8,9 +10,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
-
-import java.security.Provider;
-import java.security.Security;
 
 @Configuration
 @EnableJpaAuditing

@@ -19,11 +19,8 @@ public class MLKEMAttributes {
     public static final String ATTRIBUTE_DATA_MLKEM_LEVEL_LABEL = "NIST Security Category";
     public static final String ATTRIBUTE_DATA_MLKEM_LEVEL_DESCRIPTION = "Security strength according NIST definition";
 
-
     public static List<BaseAttribute> getMLKEMKeySpecAttributes() {
-        return List.of(
-                buildDataMLKEMSecurityCategory()
-        );
+        return List.of(buildDataMLKEMSecurityCategory());
     }
 
     public static BaseAttribute buildDataMLKEMSecurityCategory() {

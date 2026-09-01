@@ -88,11 +88,11 @@ public class KeyAttributes {
         attributeProperties.setReadOnly(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(
-                Stream.of(KeyAlgorithm.values())
+        attribute
+                .setContent(Stream
+                        .of(KeyAlgorithm.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .toList()
-        );
+                        .toList());
 
         return attribute;
     }
@@ -106,7 +106,9 @@ public class KeyAttributes {
         attribute.setDescription(ATTRIBUTE_GROUP_KEY_SPEC_LABEL);
         // prepare mappings for callback
         Set<AttributeCallbackMapping> mappings = new HashSet<>();
-        mappings.add(new AttributeCallbackMapping(ATTRIBUTE_DATA_KEY_ALGORITHM + ".reference", "algorithm", AttributeValueTarget.PATH_VARIABLE));
+        mappings
+                .add(new AttributeCallbackMapping(ATTRIBUTE_DATA_KEY_ALGORITHM + ".reference", "algorithm",
+                        AttributeValueTarget.PATH_VARIABLE));
         // create attribute callback
         AttributeCallback attributeCallback = new AttributeCallback();
         attributeCallback.setCallbackContext("/v1/cryptographyProvider/callbacks/keyspec/{algorithm}/attributes");

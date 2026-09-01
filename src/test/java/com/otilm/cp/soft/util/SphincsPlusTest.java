@@ -1,10 +1,5 @@
 package com.otilm.cp.soft.util;
 
-import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
-import org.bouncycastle.pqc.jcajce.spec.SPHINCSPlusParameterSpec;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -12,14 +7,18 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.Security;
 import java.security.Signature;
+import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
+import org.bouncycastle.pqc.jcajce.spec.SPHINCSPlusParameterSpec;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The SPHINCS+ provider is still registered alongside SLH-DSA, so keys generated under the
- * pre-standard name must keep working for tokens created before the rename.
+ * The SPHINCS+ provider is still registered alongside SLH-DSA, so keys generated under the pre-standard name must keep
+ * working for tokens created before the rename.
  */
 class SphincsPlusTest {
 
@@ -33,8 +32,7 @@ class SphincsPlusTest {
     @Test
     void sphincsPlusKeyPairIsGeneratedForTheRequestedParameterSet()
             throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException {
-        KeyPairGenerator generator =
-                KeyPairGenerator.getInstance("SPHINCSPlus", BouncyCastlePQCProvider.PROVIDER_NAME);
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("SPHINCSPlus", BouncyCastlePQCProvider.PROVIDER_NAME);
         generator.initialize(SPHINCSPlusParameterSpec.sha2_128f);
 
         KeyPair keyPair = generator.generateKeyPair();
@@ -48,8 +46,7 @@ class SphincsPlusTest {
 
     @Test
     void sphincsPlusKeyPairSignsAndVerifies() throws Exception {
-        KeyPairGenerator generator =
-                KeyPairGenerator.getInstance("SPHINCSPlus", BouncyCastlePQCProvider.PROVIDER_NAME);
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("SPHINCSPlus", BouncyCastlePQCProvider.PROVIDER_NAME);
         generator.initialize(SPHINCSPlusParameterSpec.sha2_128f);
         KeyPair keyPair = generator.generateKeyPair();
 

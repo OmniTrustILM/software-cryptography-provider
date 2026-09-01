@@ -8,8 +8,7 @@ import java.util.stream.Stream;
 
 public enum SLHDSAHash {
     SHA2("SHA2"),
-    SHAKE256("SHAKE")
-    ;
+    SHAKE256("SHAKE");
 
     private static final SLHDSAHash[] VALUES;
 
@@ -18,6 +17,7 @@ public enum SLHDSAHash {
     }
 
     private final String hashName;
+
     SLHDSAHash(String hashName) {
         this.hashName = hashName;
     }
@@ -32,7 +32,8 @@ public enum SLHDSAHash {
     }
 
     public static List<BaseAttributeContentV2<?>> asStringAttributeContentList() {
-        return Stream.of(values())
+        return Stream
+                .of(values())
                 .<BaseAttributeContentV2<?>>map(d -> new StringAttributeContentV2(d.name(), d.getHashName()))
                 .toList();
     }

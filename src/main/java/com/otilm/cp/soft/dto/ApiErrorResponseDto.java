@@ -1,10 +1,9 @@
 package com.otilm.cp.soft.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import org.springframework.http.HttpStatus;
-
 import java.util.Collections;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiErrorResponseDto {
@@ -23,7 +22,8 @@ public class ApiErrorResponseDto {
         super();
     }
 
-    public ApiErrorResponseDto(final int code, final HttpStatus status, final String message, final List<ErrorMessageDto> errors) {
+    public ApiErrorResponseDto(final int code, final HttpStatus status, final String message,
+            final List<ErrorMessageDto> errors) {
         super();
         this.code = code;
         this.status = status;
@@ -31,7 +31,8 @@ public class ApiErrorResponseDto {
         this.errors = errors;
     }
 
-    public ApiErrorResponseDto(final int code, final HttpStatus status, final String message, final ErrorMessageDto error) {
+    public ApiErrorResponseDto(final int code, final HttpStatus status, final String message,
+            final ErrorMessageDto error) {
         super();
         this.code = code;
         this.status = status;

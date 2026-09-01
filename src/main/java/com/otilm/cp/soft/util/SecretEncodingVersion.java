@@ -1,11 +1,13 @@
 package com.otilm.cp.soft.util;
 
 /**
- * Encoding of a stored secret. The version is the first field of the encoded value, so a
- * stored secret always says how to read itself.
+ * Encoding of a stored secret. The version is the first field of the encoded value, so a stored secret always says how
+ * to read itself.
  *
- * <p>{@link #V1} is the original scheme and is read-only: it is still decrypted so values
- * written before the upgrade remain readable, but nothing writes it any more.</p>
+ * <p>
+ * {@link #V1} is the original scheme and is read-only: it is still decrypted so values written before the upgrade
+ * remain readable, but nothing writes it any more.
+ * </p>
  */
 public enum SecretEncodingVersion {
 

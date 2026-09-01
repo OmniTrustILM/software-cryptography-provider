@@ -9,11 +9,12 @@ import com.otilm.api.model.common.attribute.common.constraint.RegexpAttributeCon
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.common.properties.InfoAttributeProperties;
-import com.otilm.api.model.common.attribute.v2.*;
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
+import com.otilm.api.model.common.attribute.v2.InfoAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.TextAttributeContentV2;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -112,9 +113,7 @@ public class TokenInstanceAttributes {
         attributeProperties.setReadOnly(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(List.of(
-                new StringAttributeContentV2(action, action)
-        ));
+        attribute.setContent(List.of(new StringAttributeContentV2(action, action)));
 
         return attribute;
     }
@@ -159,8 +158,9 @@ public class TokenInstanceAttributes {
         attribute.setProperties(attributeProperties);
         // create restrictions
         RegexpAttributeConstraint regexpAttributeConstraint = new RegexpAttributeConstraint();
-        regexpAttributeConstraint.setDescription("The name must begin with a letter and use only alphanumeric " +
-                "characters and underscores. The name cannot end with an underscore or have two consecutive underscores.");
+        regexpAttributeConstraint
+                .setDescription("The name must begin with a letter and use only alphanumeric "
+                        + "characters and underscores. The name cannot end with an underscore or have two consecutive underscores.");
         regexpAttributeConstraint.setErrorMessage("Invalid name for the Token");
         regexpAttributeConstraint.setData("^[a-zA-Z](?:_?[a-zA-Z0-9]+)*$");
         attribute.setConstraints(List.of(regexpAttributeConstraint));
@@ -228,10 +228,10 @@ public class TokenInstanceAttributes {
         attributeProperties.setMultiSelect(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(List.of(
-                new StringAttributeContentV2("Create new Token", "new"),
-                new StringAttributeContentV2("Select existing Token", "existing")
-        ));
+        attribute
+                .setContent(List
+                        .of(new StringAttributeContentV2(ATTRIBUTE_INFO_NEW_TOKEN_LABEL, "new"),
+                                new StringAttributeContentV2("Select existing Token", "existing")));
 
         return attribute;
     }
@@ -267,7 +267,9 @@ public class TokenInstanceAttributes {
         attribute.setDescription(ATTRIBUTE_GROUP_LOAD_TOKEN_LABEL);
         // prepare mappings for callback
         Set<AttributeCallbackMapping> mappings = new HashSet<>();
-        mappings.add(new AttributeCallbackMapping(ATTRIBUTE_DATA_OPTIONS + ".data", "option", AttributeValueTarget.PATH_VARIABLE));
+        mappings
+                .add(new AttributeCallbackMapping(ATTRIBUTE_DATA_OPTIONS + ".data", "option",
+                        AttributeValueTarget.PATH_VARIABLE));
         // create attribute callback
         AttributeCallback attributeCallback = new AttributeCallback();
         attributeCallback.setCallbackContext("/v1/cryptographyProvider/callbacks/token/{option}/attributes");

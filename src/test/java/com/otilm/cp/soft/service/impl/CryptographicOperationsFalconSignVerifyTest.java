@@ -15,13 +15,12 @@ import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseD
 import com.otilm.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.collection.FalconDegree;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class CryptographicOperationsFalconSignVerifyTest extends AbstractCryptographicOperationsTest {
 
@@ -30,9 +29,11 @@ class CryptographicOperationsFalconSignVerifyTest extends AbstractCryptographicO
     void testSignVerifyFalcon(FalconDegree degree) throws NotFoundException {
         // Create key pair
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
-        createKeyRequestDto.setCreateKeyAttributes(buildFalconCreateKeyAttributes("test-falcon-" + degree.getDegree(), degree));
+        createKeyRequestDto
+                .setCreateKeyAttributes(buildFalconCreateKeyAttributes("test-falcon-" + degree.getDegree(), degree));
 
-        KeyPairDataResponseDto keyPair = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        KeyPairDataResponseDto keyPair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
 
         Assertions.assertEquals(KeyAlgorithm.FALCON, keyPair.getPrivateKeyData().getKeyData().getAlgorithm());
         Assertions.assertEquals(KeyAlgorithm.FALCON, keyPair.getPublicKeyData().getKeyData().getAlgorithm());
@@ -46,8 +47,8 @@ class CryptographicOperationsFalconSignVerifyTest extends AbstractCryptographicO
         signRequest.setSignatureAttributes(List.of());
         signRequest.setData(List.of(new SignatureRequestData(plaintext, "item-1")));
 
-        SignDataResponseDto signResponse = cryptographicOperationsService.signData(
-                tokenInstance.getUuid(), privateKeyUuid, signRequest);
+        SignDataResponseDto signResponse = cryptographicOperationsService
+                .signData(tokenInstance.getUuid(), privateKeyUuid, signRequest);
 
         Assertions.assertNotNull(signResponse.getSignatures());
         Assertions.assertEquals(1, signResponse.getSignatures().size());
@@ -62,8 +63,8 @@ class CryptographicOperationsFalconSignVerifyTest extends AbstractCryptographicO
         verifyRequest.setData(List.of(new SignatureRequestData(plaintext, "item-1")));
         verifyRequest.setSignatures(List.of(new SignatureRequestData(signatureBytes, "item-1")));
 
-        VerifyDataResponseDto verifyResponse = cryptographicOperationsService.verifyData(
-                tokenInstance.getUuid(), publicKeyUuid, verifyRequest);
+        VerifyDataResponseDto verifyResponse = cryptographicOperationsService
+                .verifyData(tokenInstance.getUuid(), publicKeyUuid, verifyRequest);
 
         Assertions.assertNotNull(verifyResponse.getVerifications());
         Assertions.assertEquals(1, verifyResponse.getVerifications().size());
@@ -78,7 +79,8 @@ class CryptographicOperationsFalconSignVerifyTest extends AbstractCryptographicO
         RequestAttributeV2 degreeAttr = new RequestAttributeV2();
         degreeAttr.setName(FalconKeyAttributes.ATTRIBUTE_DATA_FALCON_DEGREE);
         degreeAttr.setContentType(AttributeContentType.INTEGER);
-        degreeAttr.setContent(List.of(new IntegerAttributeContentV2("FALCON_" + degree.getDegree(), degree.getDegree())));
+        degreeAttr
+                .setContent(List.of(new IntegerAttributeContentV2("FALCON_" + degree.getDegree(), degree.getDegree())));
         attributes.add(degreeAttr);
 
         return attributes;

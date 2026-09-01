@@ -24,9 +24,7 @@ public class EcdsaKeyAttributes {
     public static final String ATTRIBUTE_DATA_SIG_DIGEST = "data_sigDigest";
 
     public static List<BaseAttribute> getEcdsaKeySpecAttributes() {
-        return List.of(
-                buildDataEscdaNamedCurves()
-        );
+        return List.of(buildDataEscdaNamedCurves());
     }
 
     public static BaseAttribute buildDataEscdaNamedCurves() {

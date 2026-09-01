@@ -8,9 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.CRC32;
 
 /**
- * Helper class for calculating checksums of files.
- * And for storing the checksums of the Java-based migrations.
- * Inspired by <a href="https://github.com/zaunerc/flyway-checksum-tool">flyway-checksum-tool</a>
+ * Helper class for calculating checksums of files. And for storing the checksums of the Java-based migrations. Inspired
+ * by <a href="https://github.com/zaunerc/flyway-checksum-tool">flyway-checksum-tool</a>
  */
 public class DatabaseMigration {
 
@@ -24,7 +23,8 @@ public class DatabaseMigration {
         final File file = new File(filePath);
         final CRC32 crc32 = new CRC32();
 
-        try (FileReader fileReader = new FileReader(file); BufferedReader bufferedReader = new BufferedReader(fileReader, 4096)) {
+        try (FileReader fileReader = new FileReader(file);
+                BufferedReader bufferedReader = new BufferedReader(fileReader, 4096)) {
             String line;
             boolean firstLineProcessed = false;
             while ((line = bufferedReader.readLine()) != null) {
@@ -42,22 +42,24 @@ public class DatabaseMigration {
     /**
      * Checksums of the Java migrations.
      *
-     * <p>Two values are recorded per migration, and they serve different purposes.
-     * {@code checksum} is what {@code getChecksum()} publishes to Flyway; every deployed
-     * database holds it, so it must never change once a migration has shipped.
-     * {@code sourceChecksum} is what the current source file hashes to, and is asserted by
-     * {@code DatabaseMigrationTest}.</p>
+     * <p>
+     * Two values are recorded per migration, and they serve different purposes. {@code checksum} is what
+     * {@code getChecksum()} publishes to Flyway; every deployed database holds it, so it must never change once a
+     * migration has shipped. {@code sourceChecksum} is what the current source file hashes to, and is asserted by
+     * {@code DatabaseMigrationTest}.
+     * </p>
      *
-     * <p>A new migration records the same number twice, since nothing has edited it yet.
-     * Editing a shipped one, for instance to follow a package rename, moves the source
-     * checksum while the published one stays put; recording the new source value keeps the
-     * integrity check meaningful instead of switching it off.</p>
+     * <p>
+     * A new migration records the same number twice, since nothing has edited it yet. Editing a shipped one, for
+     * instance to follow a package rename, moves the source checksum while the published one stays put; recording the
+     * new source value keeps the integrity check meaningful instead of switching it off.
+     * </p>
      */
     @SuppressWarnings("java:S115")
     public enum JavaMigrationChecksums {
-        V202505121340__DeactivateTokensWithDeprecatedAlgorithms(1269234600, 480671664),
-        V202604211200__MigrateMLKEMKeyStorageFormat(187817644, 979420028),
-        V202609011200__ReencryptSecretsWithAuthenticatedEncryption(-61203048, -102577408);
+        V202505121340__DeactivateTokensWithDeprecatedAlgorithms(1269234600, 1504336175),
+        V202604211200__MigrateMLKEMKeyStorageFormat(187817644, 1468268964),
+        V202609011200__ReencryptSecretsWithAuthenticatedEncryption(-61203048, -1479060831);
 
         private final int checksum;
 

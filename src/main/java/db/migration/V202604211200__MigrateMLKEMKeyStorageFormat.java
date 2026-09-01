@@ -1,19 +1,20 @@
 package db.migration;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.cp.soft.util.DatabaseMigration;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.MigrationSecrets;
 import com.otilm.cp.soft.util.SecretsUtil;
 import com.otilm.cp.soft.util.X509Util;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.flywaydb.core.api.migration.BaseJavaMigration;
-import org.flywaydb.core.api.migration.Context;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.security.*;
+import java.security.Key;
+import java.security.KeyFactory;
+import java.security.KeyPair;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.Security;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.X509Certificate;
 import java.security.spec.X509EncodedKeySpec;
 import java.sql.PreparedStatement;
@@ -24,39 +25,45 @@ import java.util.Base64;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.flywaydb.core.api.migration.BaseJavaMigration;
+import org.flywaydb.core.api.migration.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Migrates ML-KEM private keys from the legacy 1.3.1 storage format to the 1.4.0 format.
  *
- * <p><b>Background.</b> In 1.3.1 ML-KEM private keys were stored in the PKCS12 keystore using the
- * raw-bytes overload of {@code KeyStore.setKeyEntry(alias, byte[], null)}.  That call places a bare
- * PKCS8 key bag in the PKCS12 file with <em>no</em> accompanying certificate bag, so
- * {@code KeyStore.getCertificate(alias)} returns {@code null} for those entries.  Starting with 1.4.0,
- * the provider generates an ephemeral EC-signed orphan X.509 certificate that embeds the ML-KEM
- * public key (see {@link X509Util#generateMLKEMOrphanX509Certificate}) and stores the key via
- * {@code KeyStore.setKeyEntry(alias, PrivateKey, password, chain)}. This is inline with all other key material
- * in the connector. PKCS12 files produced by 1.3.1 fail to load correctly under the 1.4.0 BouncyCastle version
- * because the key-bag OIDs changed between the draft and the final NIST FIPS 203 standard.
+ * <p>
+ * <b>Background.</b> In 1.3.1 ML-KEM private keys were stored in the PKCS12 keystore using the raw-bytes overload of
+ * {@code KeyStore.setKeyEntry(alias, byte[], null)}. That call places a bare PKCS8 key bag in the PKCS12 file with
+ * <em>no</em> accompanying certificate bag, so {@code KeyStore.getCertificate(alias)} returns {@code null} for those
+ * entries. Starting with 1.4.0, the provider generates an ephemeral EC-signed orphan X.509 certificate that embeds the
+ * ML-KEM public key (see {@link X509Util#generateMLKEMOrphanX509Certificate}) and stores the key via
+ * {@code KeyStore.setKeyEntry(alias, PrivateKey, password, chain)}. This is inline with all other key material in the
+ * connector. PKCS12 files produced by 1.3.1 fail to load correctly under the 1.4.0 BouncyCastle version because the
+ * key-bag OIDs changed between the draft and the final NIST FIPS 203 standard.
  *
- * <p><b>What this migration does.</b>
+ * <p>
+ * <b>What this migration does.</b>
  * <ol>
- *   <li>Selects every {@code token_instance} row (active and deactivated).</li>
- *   <li>Decrypts the keystore password and loads the PKCS12 blob.</li>
- *   <li>For every alias that has no associated certificate (old format) and whose recovered key
- *       algorithm starts with {@code "ML-KEM"}, the entry is identified as needing migration.</li>
- *   <li>The corresponding ML-KEM public key is fetched from the {@code key_data} table (stored there
- *       as an SPKI-encoded value when the key pair was originally created).</li>
- *   <li>A new orphan certificate is generated, the old bare key bag is removed, and a proper
- *       {@code PrivateKeyEntry} with the certificate chain is written back.</li>
- *   <li>The updated PKCS12 blob is base64-encoded and persisted to {@code token_instance.data}.</li>
+ * <li>Selects every {@code token_instance} row (active and deactivated).</li>
+ * <li>Decrypts the keystore password and loads the PKCS12 blob.</li>
+ * <li>For every alias that has no associated certificate (old format) and whose recovered key algorithm starts with
+ * {@code "ML-KEM"}, the entry is identified as needing migration.</li>
+ * <li>The corresponding ML-KEM public key is fetched from the {@code key_data} table (stored there as an SPKI-encoded
+ * value when the key pair was originally created).</li>
+ * <li>A new orphan certificate is generated, the old bare key bag is removed, and a proper {@code PrivateKeyEntry} with
+ * the certificate chain is written back.</li>
+ * <li>The updated PKCS12 blob is base64-encoded and persisted to {@code token_instance.data}.</li>
  * </ol>
  *
- * <p>Deactivated tokens (those with a {@code null} code) cannot be decrypted and are skipped.
- * A WARN is logged when such a token is found to contain ML-KEM keys, because those keys will be
- * unrecoverable if the token is reactivated after an upgrade without first re-running the migration.
- * Tokens whose keystores cannot be loaded for other reasons are also skipped with a warning.
- * Aliases whose public key cannot be reconstructed are also skipped with a warning; the corresponding private key remains
- * inaccessible until the key pair is recreated.
+ * <p>
+ * Deactivated tokens (those with a {@code null} code) cannot be decrypted and are skipped. A WARN is logged when such a
+ * token is found to contain ML-KEM keys, because those keys will be unrecoverable if the token is reactivated after an
+ * upgrade without first re-running the migration. Tokens whose keystores cannot be loaded for other reasons are also
+ * skipped with a warning. Aliases whose public key cannot be reconstructed are also skipped with a warning; the
+ * corresponding private key remains inaccessible until the key pair is recreated.
  */
 @SuppressWarnings("java:S101") // Flyway requires this naming convention (V<version>__<description>)
 public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigration {
@@ -69,8 +76,8 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * The JSON field name used by every {@code KeyValue} subtype (RawKeyValue, SpkiKeyValue, …)
-     * to carry the base64-encoded key material.
+     * The JSON field name used by every {@code KeyValue} subtype (RawKeyValue, SpkiKeyValue, …) to carry the
+     * base64-encoded key material.
      */
     private static final String JSON_VALUE_FIELD = "value";
 
@@ -85,8 +92,7 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
         Security.addProvider(new BouncyCastleProvider());
 
         try (Statement select = context.getConnection().createStatement()) {
-            ResultSet tokens = select.executeQuery(
-                    "SELECT uuid, code, data FROM token_instance");
+            ResultSet tokens = select.executeQuery("SELECT uuid, code, data FROM token_instance");
 
             String updateSql = "UPDATE token_instance SET data = ? WHERE uuid = ?";
             try (PreparedStatement update = context.getConnection().prepareStatement(updateSql)) {
@@ -108,10 +114,7 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private boolean migrateToken(Context context,
-                                 ResultSet tokens,
-                                 Object tokenUuid,
-                                 PreparedStatement update) {
+    private boolean migrateToken(Context context, ResultSet tokens, Object tokenUuid, PreparedStatement update) {
         String code;
         try {
             code = tokens.getString("code");
@@ -121,8 +124,10 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
         }
         if (code == null) {
             if (tokenHasMlkemKeys(context, tokenUuid)) {
-                logger.warn("Token {} is deactivated — its keystore cannot be migrated. "
-                        + "If it holds ML-KEM keys, reactivate and re-run migration before upgrading.", tokenUuid);
+                logger
+                        .warn("Token {} is deactivated — its keystore cannot be migrated. "
+                                + "If it holds ML-KEM keys, reactivate and re-run migration before upgrading.",
+                                tokenUuid);
             }
             return false;
         }
@@ -184,16 +189,14 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
     }
 
     /**
-     * Inspects a single keystore alias.  If it is an old-format ML-KEM entry (private key present, no certificate chain),
-     * migrates it to the new format in-place.
+     * Inspects a single keystore alias. If it is an old-format ML-KEM entry (private key present, no certificate
+     * chain), migrates it to the new format in-place.
      *
-     * @return {@code true} if the entry was migrated, {@code false} if it was already up to date or could not be migrated.
+     * @return {@code true} if the entry was migrated, {@code false} if it was already up to date or could not be
+     * migrated.
      */
-    private boolean migrateAlias(KeyStore ks,
-                                 String alias,
-                                 String password,
-                                 Object tokenUuid,
-                                 Map<String, PublicKey> mlkemPublicKeys) {
+    private boolean migrateAlias(KeyStore ks, String alias, String password, Object tokenUuid,
+            Map<String, PublicKey> mlkemPublicKeys) {
         try {
             // New-format entries always have a certificate — skip them.
             if (ks.getCertificate(alias) != null) {
@@ -209,10 +212,10 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
             PrivateKey privateKey = (PrivateKey) key;
             PublicKey publicKey = mlkemPublicKeys.get(alias);
             if (publicKey == null) {
-                logger.warn(
-                        "No ML-KEM public key found in key_data for alias '{}' in token {}. "
-                                + "The private key entry will not be migrated and will remain inaccessible.",
-                        alias, tokenUuid);
+                logger
+                        .warn("No ML-KEM public key found in key_data for alias '{}' in token {}. "
+                                + "The private key entry will not be migrated and will remain inaccessible.", alias,
+                                tokenUuid);
                 return false;
             }
 
@@ -227,11 +230,11 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
             return true;
 
         } catch (UnrecoverableKeyException e) {
-            logger.warn("Cannot recover key for alias '{}' in token {} (possibly corrupt): {}",
-                    alias, tokenUuid, e.getMessage());
+            logger
+                    .warn("Cannot recover key for alias '{}' in token {} (possibly corrupt): {}", alias, tokenUuid,
+                            e.getMessage());
         } catch (Exception e) {
-            logger.warn("Unexpected error migrating alias '{}' in token {}: {}",
-                    alias, tokenUuid, e.getMessage());
+            logger.warn("Unexpected error migrating alias '{}' in token {}: {}", alias, tokenUuid, e.getMessage());
         }
         return false;
     }
@@ -239,9 +242,10 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
     /**
      * Queries {@code key_data} for all ML-KEM public keys belonging to the given token instance.
      *
-     * <p>The {@code value} column contains JSON with a {@code "value"} field that holds the base64-encoded
-     * X.509 SubjectPublicKeyInfo (SPKI) bytes. This is the format written by {@code KeyManagementServiceImpl}
-     * when the key pair was originally created.
+     * <p>
+     * The {@code value} column contains JSON with a {@code "value"} field that holds the base64-encoded X.509
+     * SubjectPublicKeyInfo (SPKI) bytes. This is the format written by {@code KeyManagementServiceImpl} when the key
+     * pair was originally created.
      *
      * @return a map from alias ({@code key_data.name}) to the reconstructed {@link PublicKey}.
      */
@@ -285,14 +289,18 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
             JsonNode node = OBJECT_MAPPER.readTree(valueJson);
             JsonNode valueNode = node.get(JSON_VALUE_FIELD);
             if (valueNode == null || valueNode.isNull()) {
-                logger.warn("Missing '{}' field in key_data JSON for alias '{}', token {}", JSON_VALUE_FIELD, alias, tokenUuid);
+                logger
+                        .warn("Missing '{}' field in key_data JSON for alias '{}', token {}", JSON_VALUE_FIELD, alias,
+                                tokenUuid);
                 return java.util.Optional.empty();
             }
             byte[] spkiBytes = Base64.getDecoder().decode(valueNode.asText());
             KeyFactory kf = KeyFactory.getInstance("ML-KEM", BouncyCastleProvider.PROVIDER_NAME);
             return java.util.Optional.of(kf.generatePublic(new X509EncodedKeySpec(spkiBytes)));
         } catch (Exception e) {
-            logger.warn("Cannot reconstruct ML-KEM public key for alias '{}', token {}: {}", alias, tokenUuid, e.getMessage());
+            logger
+                    .warn("Cannot reconstruct ML-KEM public key for alias '{}', token {}: {}", alias, tokenUuid,
+                            e.getMessage());
             return java.util.Optional.empty();
         }
     }

@@ -10,11 +10,10 @@ import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceActivationAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
 import com.otilm.cp.soft.service.TokenInstanceService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -48,17 +47,15 @@ class AttributeServiceImplTest {
     void withoutAnyTokenTheOperatorIsAskedToCreateOne() {
         when(tokenInstanceService.listTokenInstances()).thenReturn(null);
 
-        assertEquals(names(TokenInstanceAttributes.getNewTokenAttributes()),
-                names(service.getAttributes(KIND)));
+        assertEquals(names(TokenInstanceAttributes.getNewTokenAttributes()), names(service.getAttributes(KIND)));
     }
 
     @Test
     void withTokensAvailableTheOperatorChoosesBetweenNewAndExisting() {
         when(tokenInstanceService.listTokenInstances()).thenReturn(List.of(new TokenInstanceDto()));
 
-        assertEquals(List.of(
-                        TokenInstanceAttributes.ATTRIBUTE_INFO_INITIAL,
-                        TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS,
+        assertEquals(List
+                .of(TokenInstanceAttributes.ATTRIBUTE_INFO_INITIAL, TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS,
                         TokenInstanceAttributes.ATTRIBUTE_GROUP_LOAD_TOKEN),
                 names(service.getAttributes(KIND)));
     }
@@ -81,10 +78,10 @@ class AttributeServiceImplTest {
     void createKeyAttributesRequireAnExistingToken() throws NotFoundException {
         when(tokenInstanceService.getTokenInstance(any(UUID.class))).thenReturn(null);
 
-        assertEquals(List.of(
-                        KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS,
-                        KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM,
-                        KeyAttributes.ATTRIBUTE_GROUP_KEY_SPEC),
+        assertEquals(
+                List
+                        .of(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM,
+                                KeyAttributes.ATTRIBUTE_GROUP_KEY_SPEC),
                 names(service.getCreateKeyAttributes(TOKEN_UUID)));
 
         verify(tokenInstanceService).getTokenInstance(UUID.fromString(TOKEN_UUID));
@@ -107,8 +104,8 @@ class AttributeServiceImplTest {
 
     @Test
     void activationCodeIsValidatedAgainstItsDefinition() {
-        List<RequestAttribute> request = List.of(
-                requestFor(TokenInstanceActivationAttributes.buildDataTokenActivationCode(), "secret"));
+        List<RequestAttribute> request = List
+                .of(requestFor(TokenInstanceActivationAttributes.buildDataTokenActivationCode(), "secret"));
 
         assertTrue(service.validateTokenInstanceActivationAttributes(TOKEN_UUID, request));
     }
@@ -117,8 +114,7 @@ class AttributeServiceImplTest {
     void tokenOptionsAreValidatedAgainstTheirDefinition() {
         when(tokenInstanceService.listTokenInstances()).thenReturn(List.of(new TokenInstanceDto()));
 
-        List<RequestAttribute> request = List.of(
-                requestFor(TokenInstanceAttributes.buildOptions(), "new"));
+        List<RequestAttribute> request = List.of(requestFor(TokenInstanceAttributes.buildOptions(), "new"));
 
         assertTrue(service.validateAttributes(KIND, request));
     }

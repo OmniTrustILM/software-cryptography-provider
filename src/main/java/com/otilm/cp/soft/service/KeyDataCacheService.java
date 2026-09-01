@@ -11,7 +11,9 @@ public interface KeyDataCacheService {
      * Returns the cached {@link CachedKeyData} DTO for the given key UUID, loading it from the {@code key_data} table
      * on a cache miss and serving it from the Caffeine "keydata" cache on a hit.
      *
-     * <p>The cache key is {@code keyUuid}.</p>
+     * <p>
+     * The cache key is {@code keyUuid}.
+     * </p>
      *
      * @throws NotFoundException if no row exists for the given UUID.
      */

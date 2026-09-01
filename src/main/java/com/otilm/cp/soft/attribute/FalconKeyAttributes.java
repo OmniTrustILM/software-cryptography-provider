@@ -30,9 +30,7 @@ public class FalconKeyAttributes {
     public static final String ATTRIBUTE_META_FALCON_DEGREE_DESCRIPTION = "Degree (n) of the Falcon Key";
 
     public static List<BaseAttribute> getFalconKeySpecAttributes() {
-        return List.of(
-                buildDataFalconDegree()
-        );
+        return List.of(buildDataFalconDegree());
     }
 
     public static BaseAttribute buildDataFalconDegree() {

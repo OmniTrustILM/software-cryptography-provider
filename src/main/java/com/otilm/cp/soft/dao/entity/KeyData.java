@@ -5,15 +5,24 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.connector.cryptography.key.KeyDataResponseDto;
-import com.otilm.api.model.connector.cryptography.key.value.*;
+import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.EprkiKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.PrkiKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.RawKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.cp.soft.util.KeyUtil;
-import jakarta.persistence.*;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.util.List;
 import java.util.UUID;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 @Entity
 @Table(name = "key_data")
@@ -133,8 +142,11 @@ public class KeyData extends UniquelyIdentified {
 
     public void setTokenInstance(TokenInstance tokenInstance) {
         this.tokenInstance = tokenInstance;
-        if(tokenInstance != null) this.tokenInstanceUuid = tokenInstance.getUuid();
-        else this.tokenInstanceUuid = null;
+        if (tokenInstance != null) {
+            this.tokenInstanceUuid = tokenInstance.getUuid();
+        } else {
+            this.tokenInstanceUuid = null;
+        }
     }
 
     public UUID getTokenInstanceUuid() {
@@ -171,8 +183,12 @@ public class KeyData extends UniquelyIdentified {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         KeyData that = (KeyData) o;
         return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }

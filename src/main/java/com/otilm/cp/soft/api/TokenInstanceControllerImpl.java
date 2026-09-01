@@ -12,11 +12,10 @@ import com.otilm.api.model.connector.cryptography.token.TokenInstanceStatusDto;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.service.AttributeService;
 import com.otilm.cp.soft.service.TokenInstanceService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class TokenInstanceControllerImpl implements TokenInstanceController {
@@ -47,8 +46,7 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
     @Override
     public TokenInstanceDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException {
-        if (!attributeService.validateAttributes(
-                request.getKind(), request.getAttributes())) {
+        if (!attributeService.validateAttributes(request.getKind(), request.getAttributes())) {
             throw new ValidationException("Token instance attributes validation failed.");
         }
         return tokenInstanceService.createTokenInstance(request);
@@ -76,7 +74,8 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
     }
 
     @Override
-    public void validateTokenProfileAttributes(String uuid, List<RequestAttribute> attributes) throws ValidationException, NotFoundException {
+    public void validateTokenProfileAttributes(String uuid, List<RequestAttribute> attributes)
+            throws ValidationException, NotFoundException {
         // there are no attributes needed for token profile
     }
 
@@ -86,7 +85,8 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
     }
 
     @Override
-    public void validateTokenInstanceActivationAttributes(String uuid, List<RequestAttribute> attributes) throws ValidationException, NotFoundException {
+    public void validateTokenInstanceActivationAttributes(String uuid, List<RequestAttribute> attributes)
+            throws ValidationException, NotFoundException {
         attributeService.validateTokenInstanceActivationAttributes(uuid, attributes);
     }
 

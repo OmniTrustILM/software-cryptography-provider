@@ -5,6 +5,11 @@ import com.otilm.cp.soft.collection.MLDSASecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSAHash;
 import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSASignatureMode;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.Security;
+import java.security.cert.Certificate;
+import java.util.Base64;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.junit.jupiter.api.BeforeAll;
@@ -13,21 +18,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.Security;
-import java.security.cert.Certificate;
-import java.util.Base64;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Key generation into the PKCS12 keystore. Every generator must leave an entry that can be
- * read back with its certificate, because the connector recovers the public key from that
- * certificate when the platform asks for it.
+ * Key generation into the PKCS12 keystore. Every generator must leave an entry that can be read back with its
+ * certificate, because the connector recovers the public key from that certificate when the platform asks for it.
  */
 class KeyStoreUtilGenerationTest {
 
@@ -113,16 +111,16 @@ class KeyStoreUtilGenerationTest {
         // no caller assumes the per-entry password guards anything.
         SpkiKeyValue spki = KeyStoreUtil.spkiKeyValueFromPrivateKey(keyStore, "mldsa", "wrong-password");
         assertNotNull(spki.getValue());
-        assertEquals(KeyStoreUtil.spkiKeyValueFromPrivateKey(keyStore, "mldsa", PASSWORD).getValue(),
-                spki.getValue());
+        assertEquals(KeyStoreUtil.spkiKeyValueFromPrivateKey(keyStore, "mldsa", PASSWORD).getValue(), spki.getValue());
     }
 
     @ParameterizedTest
     @EnumSource(SLHDSASecurityCategory.class)
     void generateSlhDsaKeyStoresRecoverableEntry(SLHDSASecurityCategory category) throws Exception {
         KeyStore keyStore = newKeystore();
-        KeyStoreUtil.generateSlhDsaKey(keyStore, "slhdsa", SLHDSAHash.SHA2, category,
-                SLHDSASignatureMode.FAST, false, PASSWORD);
+        KeyStoreUtil
+                .generateSlhDsaKey(keyStore, "slhdsa", SLHDSAHash.SHA2, category, SLHDSASignatureMode.FAST, false,
+                        PASSWORD);
 
         assertRecoverableEntry(keyStore, "slhdsa");
     }
@@ -130,8 +128,9 @@ class KeyStoreUtilGenerationTest {
     @Test
     void generateSlhDsaKeyAcceptsShakeAndSmallSignatures() throws Exception {
         KeyStore keyStore = newKeystore();
-        KeyStoreUtil.generateSlhDsaKey(keyStore, "slhdsa-shake", SLHDSAHash.SHAKE256,
-                SLHDSASecurityCategory.CATEGORY_1, SLHDSASignatureMode.SMALL, true, PASSWORD);
+        KeyStoreUtil
+                .generateSlhDsaKey(keyStore, "slhdsa-shake", SLHDSAHash.SHAKE256, SLHDSASecurityCategory.CATEGORY_1,
+                        SLHDSASignatureMode.SMALL, true, PASSWORD);
 
         assertRecoverableEntry(keyStore, "slhdsa-shake");
     }
@@ -141,8 +140,9 @@ class KeyStoreUtilGenerationTest {
         KeyStore keyStore = newKeystore();
         KeyStoreUtil.generateRsaKey(keyStore, "rsa", 2048, PASSWORD);
         KeyStoreUtil.generateMLDSAKey(keyStore, "mldsa", MLDSASecurityCategory.MLDSA_44, false, PASSWORD);
-        KeyStoreUtil.generateSlhDsaKey(keyStore, "slhdsa", SLHDSAHash.SHA2, SLHDSASecurityCategory.CATEGORY_1,
-                SLHDSASignatureMode.FAST, false, PASSWORD);
+        KeyStoreUtil
+                .generateSlhDsaKey(keyStore, "slhdsa", SLHDSAHash.SHA2, SLHDSASecurityCategory.CATEGORY_1,
+                        SLHDSASignatureMode.FAST, false, PASSWORD);
 
         assertEquals(3, keyStore.size());
         assertRecoverableEntry(keyStore, "rsa");

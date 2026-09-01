@@ -15,17 +15,16 @@ import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.SecretsUtil;
 import com.otilm.cp.soft.util.SecretsUtilHolder;
+import java.security.Security;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.security.Security;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,9 +38,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Token instance lifecycle. Activation stores the keystore password and deactivation clears
- * it, and both must evict the cached key material so a later operation cannot keep using a
- * keystore the operator has just locked.
+ * Token instance lifecycle. Activation stores the keystore password and deactivation clears it, and both must evict the
+ * cached key material so a later operation cannot keep using a keystore the operator has just locked.
  */
 class TokenInstanceLifecycleTest {
 
@@ -51,7 +49,6 @@ class TokenInstanceLifecycleTest {
     private TokenInstanceRepository repository;
     private KeyStoreCacheService keyStoreCacheService;
     private TokenInstanceServiceImpl service;
-
 
     private static SecretsUtil previousShared;
 

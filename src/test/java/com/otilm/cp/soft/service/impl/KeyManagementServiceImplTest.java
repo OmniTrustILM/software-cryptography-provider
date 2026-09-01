@@ -4,7 +4,10 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.*;
+import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
@@ -13,7 +16,11 @@ import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.MLDSAKeyAttributes;
 import com.otilm.cp.soft.attribute.MLKEMAttributes;
 import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
-import com.otilm.cp.soft.collection.*;
+import com.otilm.cp.soft.collection.MLDSASecurityCategory;
+import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSAHash;
+import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSASignatureMode;
 import com.otilm.cp.soft.dao.entity.KeyData;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
@@ -22,16 +29,19 @@ import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import jakarta.transaction.Transactional;
+import java.security.Key;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.security.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @SpringBootTest
 @Transactional
@@ -58,10 +68,12 @@ class KeyManagementServiceImplTest {
     }
 
     @Test
-    void testMLDSAKey() throws NotFoundException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
+    void testMLDSAKey()
+            throws NotFoundException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         String alias = "alias";
-        List<RequestAttribute> createKeyAttributes = new ArrayList<>(getCreateKeyCommonAttributes(alias, KeyAlgorithm.MLDSA.getCode()));
+        List<RequestAttribute> createKeyAttributes = new ArrayList<>(
+                getCreateKeyCommonAttributes(alias, KeyAlgorithm.MLDSA.getCode()));
 
         RequestAttributeV2 mldsaLevel = new RequestAttributeV2();
         mldsaLevel.setName(MLDSAKeyAttributes.ATTRIBUTE_DATA_MLDSA_LEVEL);
@@ -84,7 +96,8 @@ class KeyManagementServiceImplTest {
 
         createKeyRequestDto.setCreateKeyAttributes(createKeyAttributes);
 
-        KeyPairDataResponseDto response = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        KeyPairDataResponseDto response = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
 
         Assertions.assertEquals(KeyAlgorithm.MLDSA, response.getPrivateKeyData().getKeyData().getAlgorithm());
         Assertions.assertEquals(KeyAlgorithm.MLDSA, response.getPublicKeyData().getKeyData().getAlgorithm());
@@ -96,10 +109,12 @@ class KeyManagementServiceImplTest {
     }
 
     @Test
-    void testSLHDSAKey() throws NotFoundException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
+    void testSLHDSAKey()
+            throws NotFoundException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         String alias = "alias";
-        List<RequestAttribute> createKeyAttributes = new ArrayList<>(getCreateKeyCommonAttributes(alias, KeyAlgorithm.SLHDSA.getCode()));
+        List<RequestAttribute> createKeyAttributes = new ArrayList<>(
+                getCreateKeyCommonAttributes(alias, KeyAlgorithm.SLHDSA.getCode()));
 
         RequestAttributeV2 slhdsaSecurityCategory = new RequestAttributeV2();
         slhdsaSecurityCategory.setName(SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_SECURITY_CATEGORY);
@@ -134,7 +149,8 @@ class KeyManagementServiceImplTest {
 
         createKeyRequestDto.setCreateKeyAttributes(createKeyAttributes);
 
-        KeyPairDataResponseDto response = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        KeyPairDataResponseDto response = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
 
         Assertions.assertEquals(KeyAlgorithm.SLHDSA, response.getPrivateKeyData().getKeyData().getAlgorithm());
         Assertions.assertEquals(KeyAlgorithm.SLHDSA, response.getPublicKeyData().getKeyData().getAlgorithm());
@@ -145,12 +161,13 @@ class KeyManagementServiceImplTest {
         Assertions.assertEquals("SLH-DSA-SHAKE-128F-WITH-SHAKE128", privateKey.getAlgorithm());
     }
 
-
     @Test
-    void testGeneratingAndStoringMLKEMKeyPair() throws NotFoundException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
+    void testGeneratingAndStoringMLKEMKeyPair()
+            throws NotFoundException, UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException {
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         String alias = "alias";
-        List<RequestAttribute> createKeyAttributes = new ArrayList<>(getCreateKeyCommonAttributes(alias, KeyAlgorithm.MLKEM.getCode()));
+        List<RequestAttribute> createKeyAttributes = new ArrayList<>(
+                getCreateKeyCommonAttributes(alias, KeyAlgorithm.MLKEM.getCode()));
 
         RequestAttributeV2 mlkemLevel = new RequestAttributeV2();
         mlkemLevel.setName(MLKEMAttributes.ATTRIBUTE_DATA_MLKEM_LEVEL);
@@ -164,9 +181,14 @@ class KeyManagementServiceImplTest {
 
         createKeyRequestDto.setCreateKeyAttributes(createKeyAttributes);
 
-        KeyPairDataResponseDto keyPairDataResponseDto = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
-        Assertions.assertEquals(KeyAlgorithm.MLKEM, keyPairDataResponseDto.getPrivateKeyData().getKeyData().getAlgorithm());
-        Assertions.assertEquals(KeyAlgorithm.MLKEM, keyPairDataResponseDto.getPublicKeyData().getKeyData().getAlgorithm());
+        KeyPairDataResponseDto keyPairDataResponseDto = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        Assertions
+                .assertEquals(KeyAlgorithm.MLKEM,
+                        keyPairDataResponseDto.getPrivateKeyData().getKeyData().getAlgorithm());
+        Assertions
+                .assertEquals(KeyAlgorithm.MLKEM,
+                        keyPairDataResponseDto.getPublicKeyData().getKeyData().getAlgorithm());
 
         KeyStore keyStore = KeyStoreUtil.loadKeystore(tokenInstance.getData(), PASSWORD);
         Key privateKey;
@@ -206,9 +228,12 @@ class KeyManagementServiceImplTest {
 
         UUID tokenInstanceUuid = tokenInstance.getUuid();
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
-        Assertions.assertThrows(TokenInstanceException.class, () -> keyManagementService.createKeyPair(tokenInstanceUuid, createKeyRequestDto));
-        Assertions.assertThrows(TokenInstanceException.class, () -> keyManagementService.destroyKey(tokenInstanceUuid, keyUuid));
+        Assertions
+                .assertThrows(TokenInstanceException.class,
+                        () -> keyManagementService.createKeyPair(tokenInstanceUuid, createKeyRequestDto));
+        Assertions
+                .assertThrows(TokenInstanceException.class,
+                        () -> keyManagementService.destroyKey(tokenInstanceUuid, keyUuid));
     }
-
 
 }

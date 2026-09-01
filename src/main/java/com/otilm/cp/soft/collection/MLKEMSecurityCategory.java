@@ -2,16 +2,14 @@ package com.otilm.cp.soft.collection;
 
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
-import org.springframework.lang.Nullable;
-
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 public enum MLKEMSecurityCategory {
 
     CATEGORY_1(1, 6400, 13056, "ML-KEM-512"),
     CATEGORY_3(3, 9472, 19200, "ML-KEM-768"),
-    CATEGORY_5(5, 12544, 253444, "ML-KEM-1024")
-    ;
+    CATEGORY_5(5, 12544, 253444, "ML-KEM-1024");
 
     private static final MLKEMSecurityCategory[] VALUES;
 
@@ -43,7 +41,9 @@ public enum MLKEMSecurityCategory {
         return privateKeySize;
     }
 
-    public String getParameterSet() {return parameterSet;}
+    public String getParameterSet() {
+        return parameterSet;
+    }
 
     @Override
     public String toString() {
@@ -70,8 +70,11 @@ public enum MLKEMSecurityCategory {
     }
 
     public static List<BaseAttributeContentV2<?>> asIntegerAttributeContentList() {
-        return List.of(values()).stream()
-                .<BaseAttributeContentV2<?>>map(d -> new IntegerAttributeContentV2(d.name(), d.getNistSecurityCategory()))
+        return List
+                .of(values())
+                .stream()
+                .<BaseAttributeContentV2<?>>map(
+                        d -> new IntegerAttributeContentV2(d.name(), d.getNistSecurityCategory()))
                 .toList();
     }
 }

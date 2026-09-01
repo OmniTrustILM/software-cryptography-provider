@@ -1,14 +1,13 @@
 package com.otilm.cp.soft.util;
 
+import java.security.Security;
+import java.util.Base64;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import java.security.Security;
-import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -19,9 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Encryption of stored secrets.
  *
- * <p>The encoded value is what lands in {@code token_instance.code}, so its shape is asserted
- * rather than only its round trip: it has to stay readable by later releases, and values
- * written by earlier ones have to stay readable now.</p>
+ * <p>
+ * The encoded value is what lands in {@code token_instance.code}, so its shape is asserted rather than only its round
+ * trip: it has to stay readable by later releases, and values written by earlier ones have to stay readable now.
+ * </p>
  */
 class SecretsUtilTest {
 
@@ -95,8 +95,8 @@ class SecretsUtilTest {
         // makes that possible; the scheme this replaced would have returned altered plaintext.
         byte[] ciphertext = Base64.getDecoder().decode(parts[1]);
         ciphertext[0] ^= (byte) 0x01;
-        String tampered = parts[0] + "|" + Base64.getEncoder().encodeToString(ciphertext)
-                + "|" + parts[2] + "|" + parts[3] + "|" + parts[4];
+        String tampered = parts[0] + "|" + Base64.getEncoder().encodeToString(ciphertext) + "|" + parts[2] + "|"
+                + parts[3] + "|" + parts[4];
 
         IllegalStateException thrown = assertThrows(IllegalStateException.class,
                 () -> secretsUtil.decodeAndDecryptSecretString(tampered));
@@ -121,11 +121,9 @@ class SecretsUtilTest {
             "v1|Y2lwaGVy|c2FsdA==",
             "|||",
             "v2|not-base64!|c2FsdA==|aXY=|600000",
-            "v2|Y2lwaGVy|c2FsdA==|aXY=|not-a-number"
-    })
+            "v2|Y2lwaGVy|c2FsdA==|aXY=|not-a-number"})
     void malformedValuesAreRejected(String malformed) {
-        assertThrows(IllegalArgumentException.class,
-                () -> secretsUtil.decodeAndDecryptSecretString(malformed));
+        assertThrows(IllegalArgumentException.class, () -> secretsUtil.decodeAndDecryptSecretString(malformed));
     }
 
     @Test
@@ -148,8 +146,7 @@ class SecretsUtilTest {
         String shortIv = parts[0] + "|" + parts[1] + "|" + parts[2] + "|"
                 + Base64.getEncoder().encodeToString(new byte[8]) + "|" + parts[4];
 
-        assertThrows(IllegalArgumentException.class,
-                () -> secretsUtil.decodeAndDecryptSecretString(shortIv));
+        assertThrows(IllegalArgumentException.class, () -> secretsUtil.decodeAndDecryptSecretString(shortIv));
     }
 
     @Test

@@ -27,7 +27,6 @@ public class MLDSAKeyAttributes {
     public static final String ATTRIBUTE_DATA_MLDSA_PREHASH_LABEL = "For Pre-Hash use";
     public static final String ATTRIBUTE_DATA_MLDSA_PREHASH_DESCRIPTION = "When checked, the key will be intended for SHA-512 pre-hash of the signature, otherwise it is intended for the pure version of algorithm";
 
-
     public static DataAttribute buildBooleanPreHash() {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
@@ -53,12 +52,8 @@ public class MLDSAKeyAttributes {
         return attribute;
     }
 
-
     public static List<BaseAttribute> getMldsaKeySpecAttributes() {
-        return List.of(
-                buildDataMLDSASecurityCategory(),
-                buildBooleanPreHash()
-        );
+        return List.of(buildDataMLDSASecurityCategory(), buildBooleanPreHash());
     }
 
     public static BaseAttribute buildDataMLDSASecurityCategory() {

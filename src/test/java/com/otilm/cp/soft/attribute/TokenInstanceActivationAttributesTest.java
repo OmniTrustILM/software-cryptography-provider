@@ -17,8 +17,7 @@ class TokenInstanceActivationAttributesTest {
         DataAttributeV2 attribute = assertDataAttribute(
                 TokenInstanceActivationAttributes.buildDataTokenActivationCode(),
                 TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE_UUID,
-                TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE,
-                AttributeContentType.SECRET,
+                TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE, AttributeContentType.SECRET,
                 TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE_LABEL);
 
         // This attribute carries the keystore password on every activation. Any content type

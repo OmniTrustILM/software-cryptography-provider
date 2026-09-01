@@ -24,15 +24,14 @@ import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenInstanceService;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import jakarta.transaction.Transactional;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 @Transactional
@@ -51,41 +50,48 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         List<TokenInstance> tokens;
         tokens = tokenInstanceRepository.findAll();
         if (!tokens.isEmpty()) {
-            return tokens
-                    .stream().map(TokenInstance::mapToDto)
-                    .toList();
+            return tokens.stream().map(TokenInstance::mapToDto).toList();
         }
         return null;
     }
 
     @Override
     public TokenInstanceDto getTokenInstance(UUID uuid) throws NotFoundException {
-        return tokenInstanceRepository.findByUuid(uuid)
+        return tokenInstanceRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid))
                 .mapToDto();
     }
 
     @Override
     public TokenInstance getTokenInstanceEntity(UUID uuid) throws NotFoundException {
-        return tokenInstanceRepository.findByUuid(uuid)
+        return tokenInstanceRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid));
     }
 
     @Override
     public TokenInstanceDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException {
-        final String action = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION, request.getAttributes(), StringAttributeContentV2.class).getData();
+        final String action = AttributeDefinitionUtils
+                .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
+                        request.getAttributes(), StringAttributeContentV2.class)
+                .getData();
 
         if (action.equals("new")) {
-            final String tokenName = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                    TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME, request.getAttributes(), StringAttributeContentV2.class).getData();
+            final String tokenName = AttributeDefinitionUtils
+                    .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME,
+                            request.getAttributes(), StringAttributeContentV2.class)
+                    .getData();
 
             if (tokenInstanceRepository.findByName(tokenName).isPresent()) {
                 throw new AlreadyExistException(TokenInstance.class, request.getName());
             }
 
-            final String tokenCode = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                    TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE, request.getAttributes(), SecretAttributeContentV2.class).getData().getSecret();
+            final String tokenCode = AttributeDefinitionUtils
+                    .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE,
+                            request.getAttributes(), SecretAttributeContentV2.class)
+                    .getData()
+                    .getSecret();
 
             byte[] tokenData = KeyStoreUtil.createNewKeystore("PKCS12", tokenCode);
 
@@ -104,23 +110,33 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
             return instance.mapToDto();
         } else if (action.equals("existing")) {
-            final String tokenUuid = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                    TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN, request.getAttributes(), StringAttributeContentV2.class).getData();
+            final String tokenUuid = AttributeDefinitionUtils
+                    .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN,
+                            request.getAttributes(), StringAttributeContentV2.class)
+                    .getData();
 
-            final String tokenName = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                    TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN, request.getAttributes(), StringAttributeContentV2.class).getReference();
+            final String tokenName = AttributeDefinitionUtils
+                    .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN,
+                            request.getAttributes(), StringAttributeContentV2.class)
+                    .getReference();
 
-            TokenInstance tokenInstance = tokenInstanceRepository.findByUuid(UUID.fromString(tokenUuid))
-                    .orElseThrow(() -> new TokenInstanceException("Token " + tokenName + "(" + tokenUuid + ") not found"));
+            TokenInstance tokenInstance = tokenInstanceRepository
+                    .findByUuid(UUID.fromString(tokenUuid))
+                    .orElseThrow(
+                            () -> new TokenInstanceException("Token " + tokenName + "(" + tokenUuid + ") not found"));
 
             // try to activate token using provided code
-            final String tokenCode = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                    TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE, request.getAttributes(), SecretAttributeContentV2.class).getData().getSecret();
+            final String tokenCode = AttributeDefinitionUtils
+                    .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE,
+                            request.getAttributes(), SecretAttributeContentV2.class)
+                    .getData()
+                    .getSecret();
             try {
                 KeyStoreUtil.loadKeystore(tokenInstance.getData(), tokenCode);
             } catch (IllegalStateException e) {
                 logger.debug("Token activation failed", e);
-                throw new TokenInstanceException("Cannot activate token " + tokenInstance.getName() + ": " + e.getMessage());
+                throw new TokenInstanceException(
+                        "Cannot activate token " + tokenInstance.getName() + ": " + e.getMessage());
             }
 
             return tokenInstance.mapToDto();
@@ -131,7 +147,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     public void removeTokenInstance(UUID uuid) throws NotFoundException {
-        TokenInstance token =  tokenInstanceRepository.findByUuid(uuid)
+        TokenInstance token = tokenInstanceRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid));
 
         if (deleteOnRemove) {
@@ -145,7 +162,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     public TokenInstanceStatusDto getTokenInstanceStatus(UUID uuid) throws NotFoundException {
-        TokenInstance token =  tokenInstanceRepository.findByUuid(uuid)
+        TokenInstance token = tokenInstanceRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid));
 
         TokenInstanceStatusDto status = new TokenInstanceStatusDto();
@@ -160,16 +178,22 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
-    public void activateTokenInstance(UUID uuid, List<RequestAttribute> attributes) throws NotFoundException, TokenInstanceException {
-        TokenInstance token =  tokenInstanceRepository.findByUuid(uuid)
+    public void activateTokenInstance(UUID uuid, List<RequestAttribute> attributes)
+            throws NotFoundException, TokenInstanceException {
+        TokenInstance token = tokenInstanceRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid));
 
         // if the activation code is present, we assume it is correct, not checking the activation of the Token
         if (token.getCode() != null) {
             throw new TokenInstanceException("Token instance already activated");
         } else {
-            final String tokenCode = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                    TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE, attributes, SecretAttributeContentV2.class).getData().getSecret();
+            final String tokenCode = AttributeDefinitionUtils
+                    .getSingleItemAttributeContentValue(
+                            TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE, attributes,
+                            SecretAttributeContentV2.class)
+                    .getData()
+                    .getSecret();
             try {
                 KeyStoreUtil.loadKeystore(token.getData(), tokenCode);
             } catch (IllegalStateException e) {
@@ -186,7 +210,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     public void deactivateTokenInstance(UUID uuid) throws NotFoundException, TokenInstanceException {
-        TokenInstance token =  tokenInstanceRepository.findByUuid(uuid)
+        TokenInstance token = tokenInstanceRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid));
 
         if (token.getCode() == null) {

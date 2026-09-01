@@ -15,13 +15,12 @@ import com.otilm.api.model.common.attribute.v2.InfoAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.core.util.AttributeDefinitionUtils;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static com.otilm.cp.soft.attribute.AttributeAssert.assertDataAttribute;
 import static com.otilm.cp.soft.attribute.AttributeAssert.assertSelectionList;
@@ -37,11 +36,9 @@ class TokenInstanceAttributesTest {
 
     @Test
     void createTokenActionCarriesTheActionAsItsOwnContent() {
-        DataAttributeV2 attribute = assertDataAttribute(
-                TokenInstanceAttributes.buildDataCreateTokenAction("new"),
+        DataAttributeV2 attribute = assertDataAttribute(TokenInstanceAttributes.buildDataCreateTokenAction("new"),
                 TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION_UUID,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
-                AttributeContentType.STRING,
+                TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION, AttributeContentType.STRING,
                 TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION_LABEL);
 
         // Carries the action the platform is to perform, and is hidden from the operator.
@@ -53,11 +50,9 @@ class TokenInstanceAttributesTest {
 
     @Test
     void tokenCodeIsCarriedAsASecret() {
-        DataAttributeV2 attribute = assertDataAttribute(
-                TokenInstanceAttributes.buildDataTokenCode(),
+        DataAttributeV2 attribute = assertDataAttribute(TokenInstanceAttributes.buildDataTokenCode(),
                 TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE_UUID,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE,
-                AttributeContentType.SECRET,
+                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE, AttributeContentType.SECRET,
                 TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE_LABEL);
 
         // The keystore password reaches the connector through this attribute. A content type
@@ -68,16 +63,14 @@ class TokenInstanceAttributesTest {
 
     @Test
     void newTokenNameRestrictsTheAcceptedForm() {
-        DataAttributeV2 attribute = assertDataAttribute(
-                TokenInstanceAttributes.buildDataNewTokenName(),
+        DataAttributeV2 attribute = assertDataAttribute(TokenInstanceAttributes.buildDataNewTokenName(),
                 TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME_UUID,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME,
-                AttributeContentType.STRING,
+                TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME, AttributeContentType.STRING,
                 TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME_LABEL);
 
         assertEquals(1, attribute.getConstraints().size());
-        RegexpAttributeConstraint constraint =
-                assertInstanceOf(RegexpAttributeConstraint.class, attribute.getConstraints().get(0));
+        RegexpAttributeConstraint constraint = assertInstanceOf(RegexpAttributeConstraint.class,
+                attribute.getConstraints().get(0));
         assertEquals("^[a-zA-Z](?:_?[a-zA-Z0-9]+)*$", constraint.getData());
         assertEquals("Invalid name for the Token", constraint.getErrorMessage());
     }
@@ -96,8 +89,7 @@ class TokenInstanceAttributesTest {
 
     private static Pattern tokenNamePattern() {
         DataAttributeV2 attribute = (DataAttributeV2) TokenInstanceAttributes.buildDataNewTokenName();
-        RegexpAttributeConstraint constraint =
-                (RegexpAttributeConstraint) attribute.getConstraints().get(0);
+        RegexpAttributeConstraint constraint = (RegexpAttributeConstraint) attribute.getConstraints().get(0);
         return Pattern.compile(constraint.getData());
     }
 
@@ -119,12 +111,9 @@ class TokenInstanceAttributesTest {
 
     @Test
     void optionsOfferCreatingOrSelectingAToken() {
-        DataAttributeV2 attribute = assertDataAttribute(
-                TokenInstanceAttributes.buildOptions(),
-                TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS_UUID,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS,
-                AttributeContentType.STRING,
-                "Select the options to add Token");
+        DataAttributeV2 attribute = assertDataAttribute(TokenInstanceAttributes.buildOptions(),
+                TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS_UUID, TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS,
+                AttributeContentType.STRING, "Select the options to add Token");
         assertSelectionList(attribute, true);
 
         // The data of the selected option becomes the {option} path variable of the callback.
@@ -170,15 +159,13 @@ class TokenInstanceAttributesTest {
 
     @Test
     void selectExistingTokenOffersTheSuppliedTokens() {
-        List<BaseAttributeContentV2<?>> tokens = List.of(
-                new StringAttributeContentV2("first", "11111111-1111-1111-1111-111111111111"),
-                new StringAttributeContentV2("second", "22222222-2222-2222-2222-222222222222"));
+        List<BaseAttributeContentV2<?>> tokens = List
+                .of(new StringAttributeContentV2("first", "11111111-1111-1111-1111-111111111111"),
+                        new StringAttributeContentV2("second", "22222222-2222-2222-2222-222222222222"));
 
-        DataAttributeV2 attribute = assertDataAttribute(
-                TokenInstanceAttributes.buildDataSelectExistingToken(tokens),
+        DataAttributeV2 attribute = assertDataAttribute(TokenInstanceAttributes.buildDataSelectExistingToken(tokens),
                 TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN_UUID,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN,
-                AttributeContentType.STRING,
+                TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN, AttributeContentType.STRING,
                 TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN_DESCRIPTION);
         assertSelectionList(attribute, true);
         assertEquals(2, attribute.getContent().size());
@@ -187,8 +174,7 @@ class TokenInstanceAttributesTest {
 
     @Test
     void selectExistingTokenToleratesAnEmptyTokenList() {
-        DataAttributeV2 attribute =
-                (DataAttributeV2) TokenInstanceAttributes.buildDataSelectExistingToken(List.of());
+        DataAttributeV2 attribute = (DataAttributeV2) TokenInstanceAttributes.buildDataSelectExistingToken(List.of());
         assertNotNull(attribute.getContent());
         assertTrue(attribute.getContent().isEmpty());
     }
@@ -196,21 +182,23 @@ class TokenInstanceAttributesTest {
     @Test
     void newTokenSetAsksForNameAndActivationCode() {
         List<BaseAttribute> attributes = TokenInstanceAttributes.getNewTokenAttributes();
-        assertEquals(List.of(
-                TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
-                TokenInstanceAttributes.ATTRIBUTE_INFO_NEW_TOKEN,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE),
+        assertEquals(
+                List
+                        .of(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
+                                TokenInstanceAttributes.ATTRIBUTE_INFO_NEW_TOKEN,
+                                TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME,
+                                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE),
                 attributes.stream().map(BaseAttribute::getName).toList());
     }
 
     @Test
     void newTokenSetWithoutInfoDropsOnlyTheInformationalAttribute() {
         List<BaseAttribute> attributes = TokenInstanceAttributes.getNewTokenAttributesWithoutInfo();
-        assertEquals(List.of(
-                TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE),
+        assertEquals(
+                List
+                        .of(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
+                                TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME,
+                                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE),
                 attributes.stream().map(BaseAttribute::getName).toList());
     }
 
@@ -218,10 +206,11 @@ class TokenInstanceAttributesTest {
     void existingTokenSetSelectsATokenAndAsksForItsCode() {
         List<BaseAttributeContentV2<?>> tokens = List.of(new StringAttributeContentV2("only", "only"));
         List<BaseAttribute> attributes = TokenInstanceAttributes.getExistingTokenAttributes(tokens);
-        assertEquals(List.of(
-                TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN,
-                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE),
+        assertEquals(
+                List
+                        .of(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
+                                TokenInstanceAttributes.ATTRIBUTE_DATA_SELECT_EXISTING_TOKEN,
+                                TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE),
                 attributes.stream().map(BaseAttribute::getName).toList());
 
         DataAttributeV2 action = (DataAttributeV2) attributes.get(0);

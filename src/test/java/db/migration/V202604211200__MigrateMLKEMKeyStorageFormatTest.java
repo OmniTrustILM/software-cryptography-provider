@@ -2,8 +2,19 @@ package db.migration;
 
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.X509Util;
-import org.bouncycastle.asn1.DEROctetString;
+import java.security.Key;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+import java.util.Enumeration;
 import org.bouncycastle.asn1.DERBMPString;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
@@ -18,23 +29,23 @@ import org.bouncycastle.pkcs.jcajce.JcePKCSPBEOutputEncryptorBuilder;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.security.*;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
-import java.util.Enumeration;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit tests for the ML-KEM keystore-format migration logic.
  *
- * <p>These tests work directly with {@link KeyStore} / {@link KeyStoreUtil} and do not require a
- * Spring context or a database. They verify:
+ * <p>
+ * These tests work directly with {@link KeyStore} / {@link KeyStoreUtil} and do not require a Spring context or a
+ * database. They verify:
  * <ol>
- *   <li>That a keystore carrying an old-format ML-KEM entry (bare PKCS8 key bag, no certificate)
- *       is correctly identified and migrated to the new format (PrivateKeyEntry + orphan cert).</li>
- *   <li>That a keystore that already uses the new format is left untouched.</li>
- *   <li>That the migration does not touch non-ML-KEM entries stored without a certificate.</li>
+ * <li>That a keystore carrying an old-format ML-KEM entry (bare PKCS8 key bag, no certificate) is correctly identified
+ * and migrated to the new format (PrivateKeyEntry + orphan cert).</li>
+ * <li>That a keystore that already uses the new format is left untouched.</li>
+ * <li>That the migration does not touch non-ML-KEM entries stored without a certificate.</li>
  * </ol>
  */
 class V202604211200__MigrateMLKEMKeyStorageFormatTest {
@@ -63,20 +74,21 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
     }
 
     /**
-     * Creates a PKCS12 keystore that stores an ML-KEM private key in the <em>old</em> (1.3.1)
-     * format: a bare PKCS8ShroudedKeyBag with no certificate chain.
+     * Creates a PKCS12 keystore that stores an ML-KEM private key in the <em>old</em> (1.3.1) format: a bare
+     * PKCS8ShroudedKeyBag with no certificate chain.
      *
-     * <p>BouncyCastle 1.73+ no longer supports {@code setKeyEntry(alias, byte[], null)} on a PKCS12
-     * keystore; we use the low-level {@link PKCS12PfxPduBuilder} to construct the binary directly
-     * and then load it back through BC's standard {@link KeyStoreUtil#loadKeystore}.
+     * <p>
+     * BouncyCastle 1.73+ no longer supports {@code setKeyEntry(alias, byte[], null)} on a PKCS12 keystore; we use the
+     * low-level {@link PKCS12PfxPduBuilder} to construct the binary directly and then load it back through BC's
+     * standard {@link KeyStoreUtil#loadKeystore}.
      */
     private static byte[] buildLegacyKeystore(KeyPair mlkemPair) throws Exception {
         return buildBareKeyPkcs12(ALIAS, mlkemPair.getPrivate(), PASSWORD.toCharArray());
     }
 
     /**
-     * Creates a PKCS12 keystore that stores an ML-KEM private key in the <em>new</em> (1.4.0)
-     * format: {@code setKeyEntry(alias, PrivateKey, password, chain)}.
+     * Creates a PKCS12 keystore that stores an ML-KEM private key in the <em>new</em> (1.4.0) format:
+     * {@code setKeyEntry(alias, PrivateKey, password, chain)}.
      */
     private static byte[] buildNewFormatKeystore(KeyPair mlkemPair) throws Exception {
         KeyStore ks = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
@@ -87,11 +99,10 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
     }
 
     /**
-     * Builds a PKCS12 containing a single encrypted key bag for the given private key with no
-     * associated certificate bag — i.e. the legacy 1.3.1 storage format.
+     * Builds a PKCS12 containing a single encrypted key bag for the given private key with no associated certificate
+     * bag — i.e. the legacy 1.3.1 storage format.
      */
-    private static byte[] buildBareKeyPkcs12(String alias, PrivateKey privateKey, char[] password)
-            throws Exception {
+    private static byte[] buildBareKeyPkcs12(String alias, PrivateKey privateKey, char[] password) throws Exception {
         PrivateKeyInfo pkInfo = PrivateKeyInfo.getInstance(privateKey.getEncoded());
         OutputEncryptor keyEncryptor = new JcePKCSPBEOutputEncryptorBuilder(
                 PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC)
@@ -108,9 +119,8 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
         PKCS12PfxPduBuilder pfxBuilder = new PKCS12PfxPduBuilder();
         pfxBuilder.addData(keyBagBuilder.build());
 
-        PKCS12PfxPdu pfx = pfxBuilder.build(
-                new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME),
-                password);
+        PKCS12PfxPdu pfx = pfxBuilder
+                .build(new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME), password);
 
         return pfx.getEncoded("DER");
     }
@@ -118,13 +128,13 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
     /**
      * Builds a PKCS12 containing:
      * <ul>
-     *   <li>A bare (cert-less) key bag for {@code legacyAlias/legacyKey} — legacy format.</li>
-     *   <li>A key bag and certificate bag linked by {@code LocalKeyId} for
-     *       {@code newAlias/newKey/newCert} — new format.</li>
+     * <li>A bare (cert-less) key bag for {@code legacyAlias/legacyKey} — legacy format.</li>
+     * <li>A key bag and certificate bag linked by {@code LocalKeyId} for {@code newAlias/newKey/newCert} — new
+     * format.</li>
      * </ul>
      */
     private static byte[] buildMixedPkcs12(String legacyAlias, PrivateKey legacyKey, String newAlias, PrivateKey newKey,
-                                           X509Certificate newCert) throws Exception {
+            X509Certificate newCert) throws Exception {
         char[] password = PASSWORD.toCharArray();
 
         OutputEncryptor keyEncryptor = new JcePKCSPBEOutputEncryptorBuilder(
@@ -161,23 +171,25 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
         pfxBuilder.addData(newKeyBag.build());
         pfxBuilder.addEncryptedData(certEncryptor, newCertBag.build());
 
-        PKCS12PfxPdu pfx = pfxBuilder.build(new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME), password);
+        PKCS12PfxPdu pfx = pfxBuilder
+                .build(new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME), password);
 
         return pfx.getEncoded("DER");
     }
 
     /**
-     * Applies the same in-process migration logic used by
-     * {@link V202604211200__MigrateMLKEMKeyStorageFormat}: for every alias that has no certificate
-     * and whose recovered key has an algorithm starting with {@code "ML-KEM"}, replaces the bare
-     * key bag with a proper PrivateKeyEntry + orphan cert.
+     * Applies the same in-process migration logic used by {@link V202604211200__MigrateMLKEMKeyStorageFormat}: for
+     * every alias that has no certificate and whose recovered key has an algorithm starting with {@code "ML-KEM"},
+     * replaces the bare key bag with a proper PrivateKeyEntry + orphan cert.
      *
-     * <p>The public key is supplied via the {@code publicKeys} map (simulating the lookup that the
-     * real migration performs against the {@code key_data} table).
+     * <p>
+     * The public key is supplied via the {@code publicKeys} map (simulating the lookup that the real migration performs
+     * against the {@code key_data} table).
      *
      * @return {@code true} if at least one entry was migrated.
      */
-    private static boolean applyMigrationLogic(KeyStore ks, java.util.Map<String, PublicKey> publicKeys) throws Exception {
+    private static boolean applyMigrationLogic(KeyStore ks, java.util.Map<String, PublicKey> publicKeys)
+            throws Exception {
         boolean modified = false;
         Enumeration<String> aliases = ks.aliases();
         while (aliases.hasMoreElements()) {
@@ -212,8 +224,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
 
         // Verify the legacy keystore really has no certificate for the alias.
         KeyStore legacyKs = KeyStoreUtil.loadKeystore(legacyBytes, PASSWORD);
-        assertNull(legacyKs.getCertificate(ALIAS),
-                "Legacy keystore must have no certificate for ML-KEM alias");
+        assertNull(legacyKs.getCertificate(ALIAS), "Legacy keystore must have no certificate for ML-KEM alias");
 
         // Run migration logic.
         java.util.Map<String, PublicKey> publicKeys = new java.util.HashMap<>();
@@ -227,19 +238,14 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
         assertNotNull(migratedCert, "Migrated keystore must have a certificate for ML-KEM alias");
 
         // The certificate's public key must match the original ML-KEM public key.
-        assertArrayEquals(
-                mlkemPair.getPublic().getEncoded(),
-                migratedCert.getPublicKey().getEncoded(),
+        assertArrayEquals(mlkemPair.getPublic().getEncoded(), migratedCert.getPublicKey().getEncoded(),
                 "Certificate public key must match the original ML-KEM public key");
 
         // The private key must still be recoverable after migration.
         Key recoveredKey = legacyKs.getKey(ALIAS, PASSWORD.toCharArray());
         assertNotNull(recoveredKey, "Private key must be recoverable after migration");
-        assertTrue(recoveredKey.getAlgorithm().startsWith("ML-KEM"),
-                "Recovered key algorithm must start with ML-KEM");
-        assertArrayEquals(
-                mlkemPair.getPrivate().getEncoded(),
-                recoveredKey.getEncoded(),
+        assertTrue(recoveredKey.getAlgorithm().startsWith("ML-KEM"), "Recovered key algorithm must start with ML-KEM");
+        assertArrayEquals(mlkemPair.getPrivate().getEncoded(), recoveredKey.getEncoded(),
                 "Recovered private key bytes must match original");
     }
 
@@ -249,8 +255,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
         byte[] newFormatBytes = buildNewFormatKeystore(mlkemPair);
 
         KeyStore newKs = KeyStoreUtil.loadKeystore(newFormatBytes, PASSWORD);
-        assertNotNull(newKs.getCertificate(ALIAS),
-                "New-format keystore must already have a certificate");
+        assertNotNull(newKs.getCertificate(ALIAS), "New-format keystore must already have a certificate");
 
         java.util.Map<String, PublicKey> publicKeys = new java.util.HashMap<>();
         publicKeys.put(ALIAS, mlkemPair.getPublic());
@@ -275,8 +280,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatTest {
         boolean modified = applyMigrationLogic(ks, publicKeys);
 
         assertFalse(modified, "Migration must not touch non-ML-KEM bare key entries");
-        assertNull(ks.getCertificate("ec-key"),
-                "EC bare entry must remain untouched (no certificate added)");
+        assertNull(ks.getCertificate("ec-key"), "EC bare entry must remain untouched (no certificate added)");
     }
 
     @Test

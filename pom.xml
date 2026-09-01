@@ -18,21 +18,13 @@
 
         <java.version>21</java.version>
 
-        <!-- The parent binds Spotless and Checkstyle to verify. Applying the canonical style
-             is a whole-codebase reformat, which would bury this rename; it is issue #89. -->
-        <spotless.skip>true</spotless.skip>
-        <checkstyle.skip>true</checkstyle.skip>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.organization>ilm</sonar.organization>
         <sonar.projectKey>ilm_software-cryptography-provider</sonar.projectKey>
 
-        <!-- Shipped Java migrations are exempt from Java rules. Flyway compares the value a
-             migration reports against the one recorded when it was applied, and that value
-             comes from JavaMigrationChecksums rather than from the file, so the source can be
-             edited; what must never change is the published number. Rule fixes there are
-             still avoided, because churn in a migration that has already run everywhere buys
-             nothing and risks the one value that matters. Listed file by file so a migration
-             that has not shipped yet keeps being analysed. Coverage is measured either way. -->
+        <!-- Java rules are ignored for migrations that have already been applied, so a rule
+             fix cannot churn a file every deployed database has run. Listed one by one, so a
+             migration that has not shipped yet is still analysed. Coverage is unaffected. -->
         <sonar.issue.ignore.multicriteria>frozenMigration1,frozenMigration2</sonar.issue.ignore.multicriteria>
         <sonar.issue.ignore.multicriteria.frozenMigration1.ruleKey>java:*</sonar.issue.ignore.multicriteria.frozenMigration1.ruleKey>
         <sonar.issue.ignore.multicriteria.frozenMigration1.resourceKey>src/main/java/db/migration/V202505121340__DeactivateTokensWithDeprecatedAlgorithms.java</sonar.issue.ignore.multicriteria.frozenMigration1.resourceKey>
@@ -194,9 +186,7 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <executions>
-                    <!-- Holds the coverage floor in the build itself. The SonarCloud quality
-                         gate measures new code only and has no coverage condition, so without
-                         this the project-wide figure could drift down unnoticed. -->
+                    <!-- Fails the build when project-wide coverage drops below the floor. -->
                     <execution>
                         <id>check-coverage</id>
                         <phase>verify</phase>
@@ -224,6 +214,28 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <!-- The format gates skip the Flyway Java migrations. A shipped migration's source is
+                 frozen: reformatting one moves the source checksum recorded for it, so a future
+                 rule change must not be able to rewrite a file every deployed database has run. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <configuration>
+                    <java>
+                        <excludes>
+                            <exclude>src/main/java/db/migration/**</exclude>
+                        </excludes>
+                    </java>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <configuration>
+                    <excludes>db/migration/**</excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>

@@ -7,6 +7,12 @@ import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
+import java.security.KeyStore;
+import java.security.Security;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.bouncycastle.jcajce.provider.asymmetric.mlkem.BCMLKEMPublicKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
@@ -15,14 +21,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import java.security.KeyStore;
-import java.security.Security;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KeyStoreUtilTest {
 
@@ -100,7 +105,8 @@ class KeyStoreUtilTest {
     void spkiKeyValueFromKeyStoreMatchesGeneratedPublicKey() {
         byte[] bytes = KeyStoreUtil.createNewKeystore("PKCS12", PASSWORD);
         KeyStore ks = KeyStoreUtil.loadKeystore(bytes, PASSWORD);
-        BCMLKEMPublicKey publicKey = KeyStoreUtil.generateMLKEMKey(ks, "mlkem", MLKEMSecurityCategory.CATEGORY_3, PASSWORD);
+        BCMLKEMPublicKey publicKey = KeyStoreUtil
+                .generateMLKEMKey(ks, "mlkem", MLKEMSecurityCategory.CATEGORY_3, PASSWORD);
 
         SpkiKeyValue spki = KeyStoreUtil.spkiKeyValueFromKeyStore(ks, "mlkem");
 
@@ -174,21 +180,19 @@ class KeyStoreUtilTest {
 
     @Test
     void getPrivateKey_missingAlias_throwsCryptographicOperationException() {
-        CachedKeyData key = new CachedKeyData(UUID.randomUUID(), UUID.randomUUID(), "ghost-alias",
-                null, null, null, null, null, 0, List.of());
+        CachedKeyData key = new CachedKeyData(UUID.randomUUID(), UUID.randomUUID(), "ghost-alias", null, null, null,
+                null, null, 0, List.of());
         CachedKeyMaterial material = new CachedKeyMaterial(Map.of(), Map.of());
 
-        assertThrows(CryptographicOperationException.class,
-                () -> KeyStoreUtil.getPrivateKey(key, material));
+        assertThrows(CryptographicOperationException.class, () -> KeyStoreUtil.getPrivateKey(key, material));
     }
 
     @Test
     void getPublicKey_missingAlias_throwsCryptographicOperationException() {
-        CachedKeyData key = new CachedKeyData(UUID.randomUUID(), UUID.randomUUID(), "ghost-alias",
-                null, null, null, null, null, 0, List.of());
+        CachedKeyData key = new CachedKeyData(UUID.randomUUID(), UUID.randomUUID(), "ghost-alias", null, null, null,
+                null, null, 0, List.of());
         CachedKeyMaterial material = new CachedKeyMaterial(Map.of(), Map.of());
 
-        assertThrows(CryptographicOperationException.class,
-                () -> KeyStoreUtil.getPublicKey(key, material));
+        assertThrows(CryptographicOperationException.class, () -> KeyStoreUtil.getPublicKey(key, material));
     }
 }

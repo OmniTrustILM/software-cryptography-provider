@@ -3,10 +3,11 @@ package com.otilm.cp.soft.util;
 /**
  * Builds a {@link SecretsUtil} for the Flyway Java migrations.
  *
- * <p>Migrations run before and outside the application context, so they cannot have one
- * injected. They read the key from the environment exactly as the application does, falling
- * back to the same published default when {@code ENCRYPTION_KEY} is unset, so a migration
- * decrypts what the running connector wrote.</p>
+ * <p>
+ * Migrations run before and outside the application context, so they cannot have one injected. They read the key from
+ * the environment exactly as the application does, falling back to the same published default when
+ * {@code ENCRYPTION_KEY} is unset, so a migration decrypts what the running connector wrote.
+ * </p>
  */
 public final class MigrationSecrets {
 

@@ -36,10 +36,9 @@ public class SLHDSAKeyAttributes {
     public static final String ATTRIBUTE_DATA_SLHDSA_PREHASH = "data_slhdsaPrehash";
     public static final String ATTRIBUTE_DATA_SLHDSA_PREHASH_UUID = "81f20bdd-ec84-4a7f-9c9d-13efce16665a";
     public static final String ATTRIBUTE_DATA_SLHDSA_PREHASH_LABEL = "For Pre-Hash use";
-    public static final String ATTRIBUTE_DATA_SLHDSA_PREHASH_DESCRIPTION = "When checked, pre-hash will be used for signature when signing with this key. Hash algorithm depends on other SLH-DSA parameters - SHA2 will be used when SHA2 is used in algorithm (SHA2-256 for security category 1, SHA-512 for categories 3 and 5) " +
-            "and SHAKE for SHAKE used in algorithm (SHAKE128 for security category 1, SHAKE256 for categories 3 and 5)." +
-            "Otherwise the pure version of algorithm will be used.";
-
+    public static final String ATTRIBUTE_DATA_SLHDSA_PREHASH_DESCRIPTION = "When checked, pre-hash will be used for signature when signing with this key. Hash algorithm depends on other SLH-DSA parameters - SHA2 will be used when SHA2 is used in algorithm (SHA2-256 for security category 1, SHA-512 for categories 3 and 5) "
+            + "and SHAKE for SHAKE used in algorithm (SHAKE128 for security category 1, SHAKE256 for categories 3 and 5)."
+            + "Otherwise the pure version of algorithm will be used.";
 
     public static DataAttribute buildBooleanPreHash() {
         // define Data Attribute
@@ -65,14 +64,8 @@ public class SLHDSAKeyAttributes {
         return attribute;
     }
 
-
     public static List<BaseAttribute> getSlhDsaKeySpecAttributes() {
-        return List.of(
-                buildDataSecurityCategory(),
-                buildDataHash(),
-                buildDataSignatureMode(),
-                buildBooleanPreHash()
-        );
+        return List.of(buildDataSecurityCategory(), buildDataHash(), buildDataSignatureMode(), buildBooleanPreHash());
     }
 
     public static BaseAttribute buildDataHash() {

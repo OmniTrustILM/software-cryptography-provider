@@ -11,11 +11,10 @@ import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.service.AttributeService;
 import com.otilm.cp.soft.service.KeyManagementService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class KeyManagementControllerImpl implements KeyManagementController {
@@ -34,14 +33,14 @@ public class KeyManagementControllerImpl implements KeyManagementController {
         this.keyManagementService = keyManagementService;
     }
 
-
     @Override
     public List<BaseAttribute> listCreateSecretKeyAttributes(String uuid) throws NotFoundException {
         throw new NotSupportedException("Secret keys are not supported.");
     }
 
     @Override
-    public void validateCreateSecretKeyAttributes(String uuid, List<RequestAttribute> attributes) throws NotFoundException, ValidationException {
+    public void validateCreateSecretKeyAttributes(String uuid, List<RequestAttribute> attributes)
+            throws NotFoundException, ValidationException {
         throw new NotSupportedException("Secret keys are not supported.");
     }
 
@@ -56,7 +55,8 @@ public class KeyManagementControllerImpl implements KeyManagementController {
     }
 
     @Override
-    public void validateCreateKeyPairAttributes(String uuid, List<RequestAttribute> attributes) throws NotFoundException, ValidationException {
+    public void validateCreateKeyPairAttributes(String uuid, List<RequestAttribute> attributes)
+            throws NotFoundException, ValidationException {
         attributeService.validateCreateKeyAttributes(uuid, attributes);
     }
 
