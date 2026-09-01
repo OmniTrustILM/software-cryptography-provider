@@ -1,7 +1,6 @@
 package com.czertainly.cp.soft.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.interfaces.connector.AttributesController;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -21,7 +20,7 @@ import java.util.UUID;
 
 @Service
 public class AttributeServiceImpl implements AttributeService {
-    private static final Logger logger = LoggerFactory.getLogger(AttributesController.class);
+    private static final Logger logger = LoggerFactory.getLogger(AttributeServiceImpl.class);
 
     private TokenInstanceService tokenInstanceService;
 

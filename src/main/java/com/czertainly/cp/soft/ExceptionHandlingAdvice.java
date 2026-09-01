@@ -25,12 +25,13 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
 
     private static final Logger log = LoggerFactory.getLogger(ExceptionHandlingAdvice.class);
+
+    private static final String ARGUMENTS_NOT_VALID = "Arguments not valid";
 
     @ExceptionHandler({ MethodArgumentNotValidException.class })
     protected ResponseEntity<Object> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
@@ -49,7 +50,7 @@ public class ExceptionHandlingAdvice {
             }
             errors.add(errorMessage);
         }
-        ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(80, HttpStatus.BAD_REQUEST, "Arguments not valid", errors);
+        ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(80, HttpStatus.BAD_REQUEST, ARGUMENTS_NOT_VALID, errors);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -60,9 +61,9 @@ public class ExceptionHandlingAdvice {
         if (log.isDebugEnabled()) {
             errorMessage.setStacktrace(ExceptionUtils.getStackTrace(ex));
         }
-        ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(81, HttpStatus.BAD_REQUEST, "Arguments not valid", errorMessage);
+        ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(81, HttpStatus.BAD_REQUEST, ARGUMENTS_NOT_VALID, errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error(apiErrorResponseDto.getMessage() + ": " + ExceptionUtils.getStackTrace(ex));
+        log.error("{}", apiErrorResponseDto.getMessage(), ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -83,9 +84,9 @@ public class ExceptionHandlingAdvice {
                 errorMessage.setStacktrace(ExceptionUtils.getStackTrace(ex));
             }
         }
-        ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(81, HttpStatus.BAD_REQUEST, "Arguments not valid", errorMessage);
+        ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(81, HttpStatus.BAD_REQUEST, ARGUMENTS_NOT_VALID, errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error(apiErrorResponseDto.getMessage() + ": " + ExceptionUtils.getStackTrace(ex));
+        log.error("{}", apiErrorResponseDto.getMessage(), ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -98,7 +99,7 @@ public class ExceptionHandlingAdvice {
         }
         ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(404, HttpStatus.NOT_FOUND, "Object not found", errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error(apiErrorResponseDto.getMessage() + ": " + ExceptionUtils.getStackTrace(ex));
+        log.error("{}", apiErrorResponseDto.getMessage(), ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -111,7 +112,7 @@ public class ExceptionHandlingAdvice {
         }
         ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(405, HttpStatus.BAD_REQUEST, "Object already exists", errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error(apiErrorResponseDto.getMessage() + ": " + ExceptionUtils.getStackTrace(ex));
+        log.error("{}", apiErrorResponseDto.getMessage(), ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -124,7 +125,7 @@ public class ExceptionHandlingAdvice {
         }
         ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(406, HttpStatus.BAD_REQUEST, "Object cannot be deleted", errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error(apiErrorResponseDto.getMessage() + ": " + ExceptionUtils.getStackTrace(ex));
+        log.error("{}", apiErrorResponseDto.getMessage(), ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -136,7 +137,7 @@ public class ExceptionHandlingAdvice {
 
         return ex.getErrors().stream()
                 .map(ValidationError::getErrorDescription)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @ExceptionHandler(CryptographicOperationException.class)
@@ -147,7 +148,7 @@ public class ExceptionHandlingAdvice {
         }
         ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(702, HttpStatus.BAD_REQUEST, "Cryptographic operation problem", errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error("{}: {}", apiErrorResponseDto.getMessage(), ExceptionUtils.getStackTrace(ex));
+        log.error("{}", apiErrorResponseDto.getMessage(), ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -160,7 +161,7 @@ public class ExceptionHandlingAdvice {
         }
         ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(701, HttpStatus.BAD_REQUEST, "Token instance problem", errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error(apiErrorResponseDto.getMessage() + ": " + ExceptionUtils.getStackTrace(ex));
+        log.error("{}", apiErrorResponseDto.getMessage(), ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }
@@ -184,7 +185,7 @@ public class ExceptionHandlingAdvice {
         }
         ApiErrorResponseDto apiErrorResponseDto = new ApiErrorResponseDto(99, HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected exception occurred", errorMessage);
         apiErrorResponseDto.setTimestamp(Instant.now().toEpochMilli());
-        log.error("Unexpected exception occurred: " + ex.getMessage());
+        log.error("Unexpected exception occurred", ex);
         return new ResponseEntity<>(
                 apiErrorResponseDto, new HttpHeaders(), apiErrorResponseDto.getStatus());
     }

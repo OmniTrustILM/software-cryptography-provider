@@ -21,7 +21,6 @@ public class ApplicationConfig {
     @Bean
     public Provider securityProvider() {
         Provider provider = Security.getProvider(BouncyCastleProvider.PROVIDER_NAME);
-        Provider pqcProvider = Security.getProvider(BouncyCastlePQCProvider.PROVIDER_NAME);
         if (provider == null) {
             logger.info("Registering security provider {}.", BouncyCastleProvider.PROVIDER_NAME);
             provider = new BouncyCastleProvider();

@@ -27,6 +27,9 @@ import java.util.List;
 
 public class SignatureUtil {
 
+    private SignatureUtil() {
+    }
+
     public static Signature prepareSignature(CachedKeyData key, List<RequestAttribute> signatureAttributes) {
         String signatureAlgorithm;
 
@@ -63,13 +66,6 @@ public class SignatureUtil {
             }
             case FALCON -> {
                 return getInstanceSignature("FALCON", BouncyCastlePQCProvider.PROVIDER_NAME);
-                /*
-                if (key.getLength() == 512) {
-                    return getInstanceSignature("Falcon-512", BouncyCastlePQCProvider.PROVIDER_NAME);
-                } else {
-                    return getInstanceSignature("Falcon-1024", BouncyCastlePQCProvider.PROVIDER_NAME);
-                }
-                */
             }
             case MLDSA -> {
                 signatureAlgorithm = (isMlDsaPrehash(key) ? "HASH-" : "") + "ML-DSA";

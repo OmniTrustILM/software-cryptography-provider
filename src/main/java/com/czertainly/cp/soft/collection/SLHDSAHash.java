@@ -4,7 +4,6 @@ import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public enum SLHDSAHash {
@@ -32,9 +31,9 @@ public enum SLHDSAHash {
         return name();
     }
 
-    public static List<BaseAttributeContentV2> asStringAttributeContentList() {
+    public static List<BaseAttributeContentV2<?>> asStringAttributeContentList() {
         return Stream.of(values())
-                .map(d -> new StringAttributeContentV2(d.name(), d.getHashName()))
-                .collect(Collectors.toList());
+                .<BaseAttributeContentV2<?>>map(d -> new StringAttributeContentV2(d.name(), d.getHashName()))
+                .toList();
     }
 }

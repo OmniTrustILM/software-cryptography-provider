@@ -33,7 +33,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -54,7 +53,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         if (!tokens.isEmpty()) {
             return tokens
                     .stream().map(TokenInstance::mapToDto)
-                    .collect(Collectors.toList());
+                    .toList();
         }
         return null;
     }

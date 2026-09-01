@@ -38,7 +38,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -80,7 +79,7 @@ public class KeyManagementServiceImpl implements KeyManagementService {
         List<MetadataAttribute> metadata = new ArrayList<>();
         metadata.add(KeyAttributes.buildAliasMetadata(alias));
 
-        String association = RandomStringUtils.randomAlphanumeric(16);
+        String association = RandomStringUtils.secure().nextAlphanumeric(16);
 
         switch (cryptographicAlgorithm) {
             case RSA -> {
@@ -307,7 +306,7 @@ public class KeyManagementServiceImpl implements KeyManagementService {
     @Override
     public List<KeyDataResponseDto> listKeys(UUID uuid) throws NotFoundException {
         List<KeyData> keys = listKeyEntities(uuid);
-        return keys.stream().map(KeyData::toKeyDataResponseDto).collect(Collectors.toList());
+        return keys.stream().map(KeyData::toKeyDataResponseDto).toList();
     }
 
     @Override

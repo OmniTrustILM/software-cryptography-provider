@@ -5,7 +5,6 @@ import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeCont
 import org.springframework.lang.Nullable;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public enum RsaKeySize {
     RSA_1024(1024),
@@ -52,9 +51,9 @@ public enum RsaKeySize {
         return null;
     }
 
-    public static List<BaseAttributeContentV2> asIntegerAttributeContentList() {
+    public static List<BaseAttributeContentV2<?>> asIntegerAttributeContentList() {
         return List.of(values()).stream()
-                .map(size -> new IntegerAttributeContentV2(size.name(), size.getSize()))
-                .collect(Collectors.toList());
+                .<BaseAttributeContentV2<?>>map(size -> new IntegerAttributeContentV2(size.name(), size.getSize()))
+                .toList();
     }
 }

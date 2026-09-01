@@ -6,6 +6,9 @@ import java.security.SecureRandom;
 
 public class SecureRandomUtil {
 
+    private SecureRandomUtil() {
+    }
+
     public static SecureRandom prepareSecureRandom(String algorithm, String provider) {
         try {
             return SecureRandom.getInstance(algorithm, provider);

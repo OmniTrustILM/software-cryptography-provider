@@ -15,6 +15,9 @@ import java.util.List;
 
 public class RsaKeyAttributes {
 
+    private RsaKeyAttributes() {
+    }
+
     // RSA Attributes
     public static final String ATTRIBUTE_DATA_RSA_KEY_SIZE = "data_rsaKeySize";
     public static final String ATTRIBUTE_DATA_RSA_KEY_SIZE_UUID = "aa7df6ff-1d64-4a1a-96d6-6c7aeadfbdf3";
@@ -26,9 +29,7 @@ public class RsaKeyAttributes {
     public static final String ATTRIBUTE_META_RSA_KEY_SIZE_LABEL = "RSA Key Size";
     public static final String ATTRIBUTE_META_RSA_KEY_SIZE_DESCRIPTION = "Size of the RSA Key in bits";
 
-    /////////////////////////////////////////////////
     // RSA signature Attributes
-    /////////////////////////////////////////////////
 
     public static final String ATTRIBUTE_DATA_RSA_SIG_SCHEME = "data_rsaSigScheme";
 

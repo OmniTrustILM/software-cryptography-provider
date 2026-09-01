@@ -24,6 +24,19 @@
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.organization>ilm</sonar.organization>
         <sonar.projectKey>ilm_software-cryptography-provider</sonar.projectKey>
+
+        <!-- Java migrations that have already shipped are checksum-frozen: Flyway compares
+             the value recorded in every deployed database against the one the migration
+             reports, and that value is derived from the source file. Editing one to satisfy
+             a rule would fail validation on upgrade, so their findings are ignored rather
+             than fixed. Listed file by file on purpose - a migration that has not been
+             released yet is still freely editable and must keep being analysed. Add an entry
+             here only once a migration has shipped. Coverage is measured either way. -->
+        <sonar.issue.ignore.multicriteria>frozenMigration1,frozenMigration2</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.frozenMigration1.ruleKey>java:*</sonar.issue.ignore.multicriteria.frozenMigration1.ruleKey>
+        <sonar.issue.ignore.multicriteria.frozenMigration1.resourceKey>src/main/java/db/migration/V202505121340__DeactivateTokensWithDeprecatedAlgorithms.java</sonar.issue.ignore.multicriteria.frozenMigration1.resourceKey>
+        <sonar.issue.ignore.multicriteria.frozenMigration2.ruleKey>java:*</sonar.issue.ignore.multicriteria.frozenMigration2.ruleKey>
+        <sonar.issue.ignore.multicriteria.frozenMigration2.resourceKey>src/main/java/db/migration/V202604211200__MigrateMLKEMKeyStorageFormat.java</sonar.issue.ignore.multicriteria.frozenMigration2.resourceKey>
     </properties>
 
     <dependencies>
@@ -179,6 +192,37 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <!-- Holds the coverage floor in the build itself. The SonarCloud quality
+                         gate measures new code only and has no coverage condition, so without
+                         this the project-wide figure could drift down unnoticed. -->
+                    <execution>
+                        <id>check-coverage</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

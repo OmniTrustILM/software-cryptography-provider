@@ -19,24 +19,26 @@ import java.security.cert.X509Certificate;
 import java.util.Date;
 
 public class X509Util {
+
+    private X509Util() {
+    }
     private static final SecureRandom random = new SecureRandom();
 
-    public static X509Certificate generateRsaOrphanX509Certificate(KeyPair keyPair) {;
+    public static X509Certificate generateRsaOrphanX509Certificate(KeyPair keyPair) {
         return generateOrphanX509Certificate(keyPair, "SHA512WithRSAEncryption", BouncyCastleProvider.PROVIDER_NAME);
     }
 
-    public static X509Certificate generateEcdsaOrphanX509Certificate(KeyPair keyPair) {;
+    public static X509Certificate generateEcdsaOrphanX509Certificate(KeyPair keyPair) {
         return generateOrphanX509Certificate(keyPair, "SHA512WithECDSA", BouncyCastleProvider.PROVIDER_NAME);
     }
 
     public static X509Certificate generateFalconOrphanX509Certificate(KeyPair keyPair, FalconDegree degree) {
-        if (degree == FalconDegree.FALCON_512) {
-            return generateOrphanX509Certificate(keyPair, "Falcon-512", BouncyCastlePQCProvider.PROVIDER_NAME);
-        } else if (degree == FalconDegree.FALCON_1024) {
-            return generateOrphanX509Certificate(keyPair, "Falcon-1024", BouncyCastlePQCProvider.PROVIDER_NAME);
-        } else {
-            throw new IllegalArgumentException("Unknown Falcon degree");
-        }
+        return switch (degree) {
+            case FALCON_512 ->
+                    generateOrphanX509Certificate(keyPair, "Falcon-512", BouncyCastlePQCProvider.PROVIDER_NAME);
+            case FALCON_1024 ->
+                    generateOrphanX509Certificate(keyPair, "Falcon-1024", BouncyCastlePQCProvider.PROVIDER_NAME);
+        };
     }
 
     /**

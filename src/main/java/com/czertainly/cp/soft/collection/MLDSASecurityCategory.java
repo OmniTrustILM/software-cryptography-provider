@@ -5,7 +5,6 @@ import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeCont
 import org.springframework.lang.Nullable;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public enum MLDSASecurityCategory {
     MLDSA_44(2, 10496, 20480, "44"),
@@ -68,9 +67,9 @@ public enum MLDSASecurityCategory {
         return null;
     }
 
-    public static List<BaseAttributeContentV2> asIntegerAttributeContentList() {
+    public static List<BaseAttributeContentV2<?>> asIntegerAttributeContentList() {
         return List.of(values()).stream()
-                .map(d -> new IntegerAttributeContentV2(d.name(), d.getNistSecurityCategory()))
-                .collect(Collectors.toList());
+                .<BaseAttributeContentV2<?>>map(d -> new IntegerAttributeContentV2(d.name(), d.getNistSecurityCategory()))
+                .toList();
     }
 }

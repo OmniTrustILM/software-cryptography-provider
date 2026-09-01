@@ -39,33 +39,33 @@ class TokenInstanceServiceImplTest {
 
         List<RequestAttribute> attributes = new ArrayList<>();
 
-        RequestAttributeV2 data_newTokenName = new RequestAttributeV2();
-        data_newTokenName.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME);
-        data_newTokenName.setContent(List.of(
+        RequestAttributeV2 newTokenName = new RequestAttributeV2();
+        newTokenName.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME);
+        newTokenName.setContent(List.of(
                 new StringAttributeContentV2( "DummyToken")
         ));
-        attributes.add(data_newTokenName);
+        attributes.add(newTokenName);
 
-        RequestAttributeV2 data_createTokenAction = new RequestAttributeV2();
-        data_createTokenAction.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION);
-        data_createTokenAction.setContent(List.of(
+        RequestAttributeV2 createTokenAction = new RequestAttributeV2();
+        createTokenAction.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION);
+        createTokenAction.setContent(List.of(
                 new StringAttributeContentV2( "new", "new")
         ));
-        attributes.add(data_createTokenAction);
+        attributes.add(createTokenAction);
 
-        RequestAttributeV2 data_options = new RequestAttributeV2();
-        data_options.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS);
-        data_options.setContent(List.of(
+        RequestAttributeV2 options = new RequestAttributeV2();
+        options.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS);
+        options.setContent(List.of(
                 new StringAttributeContentV2( "new", "Create new Token")
         ));
-        attributes.add(data_options);
+        attributes.add(options);
 
-        RequestAttributeV2 data_tokenCode = new RequestAttributeV2();
-        data_tokenCode.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE);
-        data_tokenCode.setContent(List.of(
+        RequestAttributeV2 tokenCode = new RequestAttributeV2();
+        tokenCode.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE);
+        tokenCode.setContent(List.of(
                 new SecretAttributeContentV2("DummyToken", new SecretAttributeContentData("00000000"))
         ));
-        attributes.add(data_tokenCode);
+        attributes.add(tokenCode);
 
         request.setAttributes(attributes);
 

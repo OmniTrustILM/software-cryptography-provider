@@ -15,6 +15,9 @@ import java.util.List;
 
 public class FalconKeyAttributes {
 
+    private FalconKeyAttributes() {
+    }
+
     // Falcon Attributes
     public static final String ATTRIBUTE_DATA_FALCON_DEGREE = "data_falconDegree";
     public static final String ATTRIBUTE_DATA_FALCON_DEGREE_UUID = "d4d86b9a-b5df-4a1b-8d9d-1671cfb4b496";
