@@ -2,24 +2,28 @@ package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
-import com.otilm.api.model.connector.cryptography.operations.*;
+import com.otilm.api.model.connector.cryptography.operations.CipherDataRequestDto;
+import com.otilm.api.model.connector.cryptography.operations.DecryptDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.EncryptDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.RandomDataRequestDto;
+import com.otilm.api.model.connector.cryptography.operations.RandomDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
+import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.VerifyDataRequestDto;
+import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.otilm.api.model.connector.cryptography.operations.data.SignatureResponseData;
 import com.otilm.api.model.connector.cryptography.operations.data.VerificationResponseData;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
+import com.otilm.cp.soft.model.CachedKeyData;
+import com.otilm.cp.soft.model.CachedKeyMaterial;
 import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
-import com.otilm.cp.soft.model.CachedKeyData;
-import com.otilm.cp.soft.model.CachedKeyMaterial;
 import com.otilm.cp.soft.util.CipherUtil;
 import com.otilm.cp.soft.util.SecureRandomUtil;
 import com.otilm.cp.soft.util.SignatureUtil;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.SignatureException;
@@ -27,6 +31,9 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class CryptographicOperationsServiceImpl implements CryptographicOperationsService {
@@ -72,7 +79,8 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     }
 
     @Override
-    public VerifyDataResponseDto verifyData(UUID uuid, UUID keyUuid, VerifyDataRequestDto request) throws NotFoundException {
+    public VerifyDataResponseDto verifyData(UUID uuid, UUID keyUuid, VerifyDataRequestDto request)
+            throws NotFoundException {
         CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
 
         if (!uuid.equals(key.tokenInstanceUuid())) {
@@ -127,7 +135,8 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     }
 
     @Override
-    public DecryptDataResponseDto decryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request) throws NotFoundException {
+    public DecryptDataResponseDto decryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
+            throws NotFoundException {
         CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
 
         if (!uuid.equals(key.tokenInstanceUuid())) {
@@ -144,7 +153,8 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     }
 
     @Override
-    public EncryptDataResponseDto encryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request) throws NotFoundException {
+    public EncryptDataResponseDto encryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
+            throws NotFoundException {
         CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
 
         if (!uuid.equals(key.tokenInstanceUuid())) {

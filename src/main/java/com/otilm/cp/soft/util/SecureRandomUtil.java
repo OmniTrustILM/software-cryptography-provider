@@ -13,9 +13,9 @@ public class SecureRandomUtil {
         try {
             return SecureRandom.getInstance(algorithm, provider);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Invalid algorithm '"+algorithm+"' for SecureRandom", e);
+            throw new IllegalStateException("Invalid algorithm '" + algorithm + "' for SecureRandom", e);
         } catch (NoSuchProviderException e) {
-            throw new IllegalStateException("Invalid provider '"+provider+"' for SecureRandom", e);
+            throw new IllegalStateException("Invalid provider '" + provider + "' for SecureRandom", e);
         }
     }
 

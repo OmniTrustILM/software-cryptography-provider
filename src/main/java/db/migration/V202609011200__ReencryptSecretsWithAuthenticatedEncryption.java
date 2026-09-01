@@ -5,42 +5,44 @@ import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.MigrationSecrets;
 import com.otilm.cp.soft.util.SecretEncodingVersion;
 import com.otilm.cp.soft.util.SecretsUtil;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.flywaydb.core.api.migration.BaseJavaMigration;
-import org.flywaydb.core.api.migration.Context;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.security.Security;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.Base64;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.flywaydb.core.api.migration.BaseJavaMigration;
+import org.flywaydb.core.api.migration.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Re-encrypts stored keystore passwords with the authenticated scheme.
  *
- * <p>Values written before this release use PBE with AES-CBC, which is unauthenticated and
- * derives its key with far too few iterations. This rewrites every one of them in the current
- * scheme and widens the column, which the longer encoding needs.</p>
+ * <p>
+ * Values written before this release use PBE with AES-CBC, which is unauthenticated and derives its key with far too
+ * few iterations. This rewrites every one of them in the current scheme and widens the column, which the longer
+ * encoding needs.
+ * </p>
  *
- * <p>A row that cannot be decrypted is left alone rather than failing the upgrade. That is
- * safe because decryption reads whichever encoding a value declares, so a row left in the old
- * form keeps working exactly as before; it simply does not gain the stronger protection. Such
- * a row could not have been decrypted by the running connector either, so the migration is not
- * what broke it.</p>
+ * <p>
+ * A row that cannot be decrypted is left alone rather than failing the upgrade. That is safe because decryption reads
+ * whichever encoding a value declares, so a row left in the old form keeps working exactly as before; it simply does
+ * not gain the stronger protection. Such a row could not have been decrypted by the running connector either, so the
+ * migration is not what broke it.
+ * </p>
  */
 @SuppressWarnings("java:S101")
 public class V202609011200__ReencryptSecretsWithAuthenticatedEncryption extends BaseJavaMigration {
 
-    private static final Logger logger =
-            LoggerFactory.getLogger(V202609011200__ReencryptSecretsWithAuthenticatedEncryption.class);
+    private static final Logger logger = LoggerFactory
+            .getLogger(V202609011200__ReencryptSecretsWithAuthenticatedEncryption.class);
 
     @Override
     public Integer getChecksum() {
-        return DatabaseMigration.JavaMigrationChecksums
-                .V202609011200__ReencryptSecretsWithAuthenticatedEncryption.getChecksum();
+        return DatabaseMigration.JavaMigrationChecksums.V202609011200__ReencryptSecretsWithAuthenticatedEncryption
+                .getChecksum();
     }
 
     @Override
@@ -61,15 +63,15 @@ public class V202609011200__ReencryptSecretsWithAuthenticatedEncryption extends 
 
         String update = "UPDATE token_instance SET code = ? WHERE uuid = ?;";
         try (Statement select = context.getConnection().createStatement();
-             PreparedStatement statement = context.getConnection().prepareStatement(update)) {
+                PreparedStatement statement = context.getConnection().prepareStatement(update)) {
 
-            ResultSet tokens = select.executeQuery(
-                    "SELECT uuid, code, data FROM token_instance WHERE code IS NOT NULL;");
+            ResultSet tokens = select
+                    .executeQuery("SELECT uuid, code, data FROM token_instance WHERE code IS NOT NULL;");
 
             while (tokens.next()) {
                 Object uuid = tokens.getObject("uuid");
-                String password =
-                        recoverPassword(secretsUtil, uuid, tokens.getString("code"), tokens.getString("data"));
+                String password = recoverPassword(secretsUtil, uuid, tokens.getString("code"),
+                        tokens.getString("data"));
 
                 if (password == null) {
                     skipped++;
@@ -88,16 +90,16 @@ public class V202609011200__ReencryptSecretsWithAuthenticatedEncryption extends 
             }
         }
 
-        logger.info("Re-encrypted {} keystore password(s) with authenticated encryption, {} left "
-                + "in the previous encoding.", converted, skipped);
+        logger
+                .info("Re-encrypted {} keystore password(s) with authenticated encryption, {} left "
+                        + "in the previous encoding.", converted, skipped);
     }
 
     /**
-     * The password of a row that should be rewritten, or {@code null} to leave the row alone.
-     * A row already in the current encoding also returns {@code null}, since it needs no work.
+     * The password of a row that should be rewritten, or {@code null} to leave the row alone. A row already in the
+     * current encoding also returns {@code null}, since it needs no work.
      */
-    private static String recoverPassword(SecretsUtil secretsUtil, Object uuid,
-                                          String stored, String base64Keystore) {
+    private static String recoverPassword(SecretsUtil secretsUtil, Object uuid, String stored, String base64Keystore) {
         if (stored == null || stored.isBlank()) {
             // The query excludes null codes, but a blank one would otherwise reach decryption
             // and be reported as a failure rather than simply having nothing to convert.
@@ -111,8 +113,9 @@ public class V202609011200__ReencryptSecretsWithAuthenticatedEncryption extends 
         try {
             password = secretsUtil.decodeAndDecryptSecretString(stored);
         } catch (RuntimeException e) {
-            logger.error("Keystore password of token instance {} was left in the previous encoding "
-                    + "because it could not be decrypted: {}", uuid, e.getMessage());
+            logger
+                    .error("Keystore password of token instance {} was left in the previous encoding "
+                            + "because it could not be decrypted: {}", uuid, e.getMessage());
             return null;
         }
 
@@ -121,8 +124,9 @@ public class V202609011200__ReencryptSecretsWithAuthenticatedEncryption extends 
         // replace a password that is still recoverable with one that is not, so the candidate
         // has to open the keystore before anything is overwritten.
         if (!opensKeystore(base64Keystore, password)) {
-            logger.error("Keystore password of token instance {} was left in the previous "
-                    + "encoding: what it decrypted to does not open the keystore.", uuid);
+            logger
+                    .error("Keystore password of token instance {} was left in the previous "
+                            + "encoding: what it decrypted to does not open the keystore.", uuid);
             return null;
         }
         return password;

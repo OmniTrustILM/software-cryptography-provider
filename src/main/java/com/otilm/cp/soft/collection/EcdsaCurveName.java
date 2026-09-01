@@ -6,9 +6,9 @@ import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import java.util.List;
 
 /**
- * Curve names are lower case on purpose: {@link #asStringAttributeContentList()} publishes
- * {@code name()} as the attribute content reference, and that reference is stored against
- * every ECDSA key the platform holds. Renaming a constant would orphan those keys.
+ * Curve names are lower case on purpose: {@link #asStringAttributeContentList()} publishes {@code name()} as the
+ * attribute content reference, and that reference is stored against every ECDSA key the platform holds. Renaming a
+ * constant would orphan those keys.
  */
 @SuppressWarnings("java:S115")
 public enum EcdsaCurveName {
@@ -54,7 +54,9 @@ public enum EcdsaCurveName {
     }
 
     public static List<BaseAttributeContentV2<?>> asStringAttributeContentList() {
-        return List.of(values()).stream()
+        return List
+                .of(values())
+                .stream()
                 .<BaseAttributeContentV2<?>>map(curve -> new StringAttributeContentV2(curve.name(), curve.getName()))
                 .toList();
     }

@@ -9,8 +9,7 @@ import java.util.stream.Stream;
 public enum SLHDSASecurityCategory {
     CATEGORY_1("1", 256, 512, "128"),
     CATEGORY_3("3", 384, 768, "192"),
-    CATEGORY_5("5", 512, 1024, "256")
-    ;
+    CATEGORY_5("5", 512, 1024, "256");
 
     private static final SLHDSASecurityCategory[] VALUES;
 
@@ -23,8 +22,8 @@ public enum SLHDSASecurityCategory {
     private final int privateKeySize;
     private final String securityParameterLength;
 
-
-    SLHDSASecurityCategory(String nistSecurityCategory, int publicKeySize, int privateKeySize, String securityParameterLength) {
+    SLHDSASecurityCategory(String nistSecurityCategory, int publicKeySize, int privateKeySize,
+            String securityParameterLength) {
         this.nistSecurityCategory = nistSecurityCategory;
         this.publicKeySize = publicKeySize;
         this.privateKeySize = privateKeySize;
@@ -53,8 +52,10 @@ public enum SLHDSASecurityCategory {
     }
 
     public static List<BaseAttributeContentV2<?>> asStringAttributeContentList() {
-        return Stream.of(values())
-                .<BaseAttributeContentV2<?>>map(d -> new StringAttributeContentV2(d.name(), d.getNistSecurityCategory()))
+        return Stream
+                .of(values())
+                .<BaseAttributeContentV2<?>>map(
+                        d -> new StringAttributeContentV2(d.name(), d.getNistSecurityCategory()))
                 .toList();
     }
 }

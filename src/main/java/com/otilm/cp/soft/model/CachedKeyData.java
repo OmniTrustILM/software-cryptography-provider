@@ -12,16 +12,6 @@ import java.util.UUID;
 /**
  * Immutable, session-detached snapshot of a {@code KeyData} row for the crypto hot path.
  */
-public record CachedKeyData(
-        UUID uuid,
-        UUID tokenInstanceUuid,
-        String alias,
-        String association,
-        KeyType type,
-        KeyAlgorithm algorithm,
-        KeyFormat format,
-        KeyValue value,
-        int length,
-        List<MetadataAttribute> metadata
-) {
+public record CachedKeyData(UUID uuid, UUID tokenInstanceUuid, String alias, String association, KeyType type,
+        KeyAlgorithm algorithm, KeyFormat format, KeyValue value, int length, List<MetadataAttribute> metadata) {
 }

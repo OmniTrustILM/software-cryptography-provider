@@ -2,9 +2,8 @@ package com.otilm.cp.soft.collection;
 
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
-import org.springframework.lang.Nullable;
-
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 public enum FalconDegree {
     FALCON_512(512, 7176, 10088),
@@ -63,8 +62,11 @@ public enum FalconDegree {
     }
 
     public static List<BaseAttributeContentV2<?>> asIntegerAttributeContentList() {
-        return List.of(values()).stream()
-                .<BaseAttributeContentV2<?>>map(degree -> new IntegerAttributeContentV2(degree.name(), degree.getDegree()))
+        return List
+                .of(values())
+                .stream()
+                .<BaseAttributeContentV2<?>>map(
+                        degree -> new IntegerAttributeContentV2(degree.name(), degree.getDegree()))
                 .toList();
     }
 }

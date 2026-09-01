@@ -1,10 +1,33 @@
 package com.otilm.cp.soft.util;
 
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
-import com.otilm.cp.soft.collection.*;
+import com.otilm.cp.soft.collection.EcdsaCurveName;
+import com.otilm.cp.soft.collection.FalconDegree;
+import com.otilm.cp.soft.collection.MLDSASecurityCategory;
+import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSAHash;
+import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSASignatureMode;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.security.spec.ECGenParameterSpec;
+import java.util.Base64;
 import org.bouncycastle.jcajce.interfaces.MLDSAPrivateKey;
 import org.bouncycastle.jcajce.provider.asymmetric.mlkem.BCMLKEMPublicKey;
 import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
@@ -12,15 +35,6 @@ import org.bouncycastle.jcajce.spec.MLKEMParameterSpec;
 import org.bouncycastle.jcajce.spec.SLHDSAParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.pqc.jcajce.spec.FalconParameterSpec;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.security.*;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.security.spec.ECGenParameterSpec;
-import java.util.Base64;
 
 public class KeyStoreUtil {
 
@@ -75,7 +89,6 @@ public class KeyStoreUtil {
             throw new IllegalStateException(INVALID_ALGORITHM_FOR_KEY_STORE, e);
         }
     }
-
 
     public static KeyStore loadKeystore(byte[] data, String code) {
         try {
@@ -190,7 +203,8 @@ public class KeyStoreUtil {
         }
     }
 
-    public static void generateMLDSAKey(KeyStore keyStore, String alias, MLDSASecurityCategory level, boolean forPreHash, String password) {
+    public static void generateMLDSAKey(KeyStore keyStore, String alias, MLDSASecurityCategory level,
+            boolean forPreHash, String password) {
         try {
             final KeyPairGenerator kpg = KeyPairGenerator.getInstance("ML-DSA", BouncyCastleProvider.PROVIDER_NAME);
 
@@ -199,7 +213,8 @@ public class KeyStoreUtil {
             kpg.initialize(MLDSAParameterSpec.fromName(algorithm));
 
             final KeyPair kp = kpg.generateKeyPair();
-            final X509Certificate cert = X509Util.generateOrphanX509Certificate(kp, algorithm, BouncyCastleProvider.PROVIDER_NAME);
+            final X509Certificate cert = X509Util
+                    .generateOrphanX509Certificate(kp, algorithm, BouncyCastleProvider.PROVIDER_NAME);
             final X509Certificate[] chain = new X509Certificate[]{cert};
 
             keyStore.setKeyEntry(alias, kp.getPrivate(), password.toCharArray(), chain);
@@ -214,18 +229,23 @@ public class KeyStoreUtil {
         }
     }
 
-    public static void generateSlhDsaKey(KeyStore keyStore, String alias, SLHDSAHash hash, SLHDSASecurityCategory securityCategory, SLHDSASignatureMode tradeoff, boolean preHashKey, String password) {
+    public static void generateSlhDsaKey(KeyStore keyStore, String alias, SLHDSAHash hash,
+            SLHDSASecurityCategory securityCategory, SLHDSASignatureMode tradeoff, boolean preHashKey,
+            String password) {
         try {
             final KeyPairGenerator kpg = KeyPairGenerator.getInstance("SLH-DSA", BouncyCastleProvider.PROVIDER_NAME);
 
-            String algorithm = "SLH-DSA-%s-%s%s".formatted(hash.getHashName(), securityCategory.getSecurityParameterLength(), tradeoff.getParameterName());
+            String algorithm = "SLH-DSA-%s-%s%s"
+                    .formatted(hash.getHashName(), securityCategory.getSecurityParameterLength(),
+                            tradeoff.getParameterName());
 
             algorithm = addPreHashSuffix(hash, securityCategory, preHashKey, algorithm);
 
             kpg.initialize(SLHDSAParameterSpec.fromName(algorithm));
 
             final KeyPair kp = kpg.generateKeyPair();
-            final X509Certificate cert = X509Util.generateOrphanX509Certificate(kp, "SLH-DSA", BouncyCastleProvider.PROVIDER_NAME);
+            final X509Certificate cert = X509Util
+                    .generateOrphanX509Certificate(kp, "SLH-DSA", BouncyCastleProvider.PROVIDER_NAME);
             final X509Certificate[] chain = new X509Certificate[]{cert};
 
             keyStore.setKeyEntry(alias, kp.getPrivate(), password.toCharArray(), chain);
@@ -240,26 +260,35 @@ public class KeyStoreUtil {
         }
     }
 
-    private static String addPreHashSuffix(SLHDSAHash hash, SLHDSASecurityCategory securityCategory, boolean preHashKey, String algorithm) {
+    private static String addPreHashSuffix(SLHDSAHash hash, SLHDSASecurityCategory securityCategory, boolean preHashKey,
+            String algorithm) {
         if (preHashKey) {
             String hashSuffix = "-WITH-";
             if (hash == SLHDSAHash.SHA2) {
                 hashSuffix += "SHA";
-                if (securityCategory == SLHDSASecurityCategory.CATEGORY_1) hashSuffix += "256";
-                else hashSuffix += "512";
+                if (securityCategory == SLHDSASecurityCategory.CATEGORY_1) {
+                    hashSuffix += "256";
+                } else {
+                    hashSuffix += "512";
+                }
             } else {
                 hashSuffix += "SHAKE";
-                if (securityCategory == SLHDSASecurityCategory.CATEGORY_1) hashSuffix += "128";
-                else hashSuffix += "256";
+                if (securityCategory == SLHDSASecurityCategory.CATEGORY_1) {
+                    hashSuffix += "128";
+                } else {
+                    hashSuffix += "256";
+                }
             }
             algorithm += hashSuffix;
         }
         return algorithm;
     }
 
-    public static BCMLKEMPublicKey generateMLKEMKey(KeyStore keyStore, String alias, MLKEMSecurityCategory securityCategory, String password) {
+    public static BCMLKEMPublicKey generateMLKEMKey(KeyStore keyStore, String alias,
+            MLKEMSecurityCategory securityCategory, String password) {
         try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("ML-KEM", BouncyCastleProvider.PROVIDER_NAME);
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator
+                    .getInstance("ML-KEM", BouncyCastleProvider.PROVIDER_NAME);
             keyPairGenerator.initialize(MLKEMParameterSpec.fromName(securityCategory.getParameterSet()));
 
             KeyPair keyPair = keyPairGenerator.generateKeyPair();
@@ -300,8 +329,7 @@ public class KeyStoreUtil {
     public static PrivateKey getPrivateKey(CachedKeyData key, CachedKeyMaterial material) {
         PrivateKey pk = material.privateKeys().get(key.alias());
         if (pk == null) {
-            throw new CryptographicOperationException(
-                    "No private key for alias '" + key.alias()
+            throw new CryptographicOperationException("No private key for alias '" + key.alias()
                     + "' in cached material for token " + key.tokenInstanceUuid());
         }
         return pk;
@@ -313,8 +341,7 @@ public class KeyStoreUtil {
     public static PublicKey getPublicKey(CachedKeyData key, CachedKeyMaterial material) {
         PublicKey pub = material.publicKeys().get(key.alias());
         if (pub == null) {
-            throw new CryptographicOperationException(
-                    "No public key for alias '" + key.alias()
+            throw new CryptographicOperationException("No public key for alias '" + key.alias()
                     + "' in cached material for token " + key.tokenInstanceUuid());
         }
         return pub;

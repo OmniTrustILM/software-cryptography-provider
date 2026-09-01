@@ -1,15 +1,14 @@
 package com.otilm.cp.soft.util;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,9 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Checksum computation for Java migrations. Flyway compares the value a migration reports
- * against the one recorded in the database, so the way a checksum is derived from source
- * must not drift: line endings and a byte order mark are deliberately ignored.
+ * Checksum computation for Java migrations. Flyway compares the value a migration reports against the one recorded in
+ * the database, so the way a checksum is derived from source must not drift: line endings and a byte order mark are
+ * deliberately ignored.
  */
 class DatabaseMigrationChecksumTest {
 
@@ -41,8 +40,7 @@ class DatabaseMigrationChecksumTest {
             "'line\r', 'line'",
             "'line\n\n', 'line'",
             "'line', 'line'",
-            "'', ''"
-    })
+            "'', ''"})
     void trailingLineBreaksAreTrimmed(String input, String expected) {
         assertEquals(expected, DatabaseMigration.trimLineBreak(input));
     }
@@ -100,8 +98,7 @@ class DatabaseMigrationChecksumTest {
 
     @Test
     void everyRecordedMigrationChecksumIsReadable() {
-        for (DatabaseMigration.JavaMigrationChecksums checksum
-                : DatabaseMigration.JavaMigrationChecksums.values()) {
+        for (DatabaseMigration.JavaMigrationChecksums checksum : DatabaseMigration.JavaMigrationChecksums.values()) {
             assertNotEquals(0, checksum.getChecksum(), checksum.name() + " has no recorded checksum");
         }
     }

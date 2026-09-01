@@ -18,14 +18,16 @@ class CryptographicOperationsRandomDataTest extends AbstractCryptographicOperati
         RandomDataRequestDto request = new RandomDataRequestDto();
         request.setLength(requestedLength);
 
-        RandomDataResponseDto response = cryptographicOperationsService.randomData(tokenInstance.getUuid().toString(), request);
+        RandomDataResponseDto response = cryptographicOperationsService
+                .randomData(tokenInstance.getUuid().toString(), request);
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getData(), "Response data should not be null");
-        Assertions.assertEquals(requestedLength, response.getData().length,
-                "Data length should match requested length");
-        Assertions.assertFalse(isAllZeros(response.getData()),
-                "Data should not be all zeros (probabilistic sanity check)");
+        Assertions
+                .assertEquals(requestedLength, response.getData().length, "Data length should match requested length");
+        Assertions
+                .assertFalse(isAllZeros(response.getData()),
+                        "Data should not be all zeros (probabilistic sanity check)");
     }
 
     private boolean isAllZeros(byte[] data) {

@@ -49,11 +49,6 @@ mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar 
   from `OmniTrustILM/.github` are referenced by `@main` on purpose: that is how org-wide
   updates propagate.
 
-The SonarCloud gate measures new code only. Its conditions are the reliability, security
-and maintainability ratings, duplication density, and that every new security hotspot has
-been reviewed. There is no coverage condition, so the 80% floor is a project rule rather
-than something SonarCloud enforces.
-
 ## Layout
 
 | Path | Contents |
@@ -71,9 +66,10 @@ resolves by name.
 
 ## Things worth knowing
 
-**The canonical style is not applied yet.** The parent binds Spotless and Checkstyle to
-`verify`, and `pom.xml` sets `spotless.skip` and `checkstyle.skip` to `true` until the
-reformat lands. That is issue #89; remove both properties with it.
+**The canonical style is enforced.** The parent binds Spotless and Checkstyle to `verify`,
+so `mvn verify` fails on a formatting or lint violation. `mvn spotless:apply` fixes the
+formatting; Checkstyle covers what Spotless cannot, notably wildcard imports and braces. The
+parent also installs a pre-commit hook on the first build that formats staged Java files.
 
 **Attribute identifiers are a contract.** The UUIDs and names in `attribute/` identify
 attributes in the platform database. Changing one orphans the configuration of every

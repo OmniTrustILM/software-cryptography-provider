@@ -1,13 +1,12 @@
 package com.otilm.cp.soft.util;
 
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.Arrays;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -73,9 +72,8 @@ class SecureRandomAndKeyValueTest {
     void unknownPropertiesAreIgnoredOnDeserialization() {
         // The mapper is configured to tolerate unknown fields so a value written by a newer
         // release still loads.
-        SpkiKeyValue restored =
-                KeyUtil.deserializeKeyValue("{\"value\":\"bWF0ZXJpYWw=\",\"unexpected\":\"ignored\"}",
-                        SpkiKeyValue.class);
+        SpkiKeyValue restored = KeyUtil
+                .deserializeKeyValue("{\"value\":\"bWF0ZXJpYWw=\",\"unexpected\":\"ignored\"}", SpkiKeyValue.class);
         assertEquals("bWF0ZXJpYWw=", restored.getValue());
     }
 

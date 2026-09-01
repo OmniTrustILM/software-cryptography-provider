@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Key material sizes and parameter set names for the post-quantum algorithms. These are
- * fixed by the relevant standards and are used to size buffers and to label generated keys,
- * so they are pinned here rather than left to be changed by accident.
+ * Key material sizes and parameter set names for the post-quantum algorithms. These are fixed by the relevant standards
+ * and are used to size buffers and to label generated keys, so they are pinned here rather than left to be changed by
+ * accident.
  */
 class CollectionKeySizeTest {
 

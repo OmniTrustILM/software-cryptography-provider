@@ -11,11 +11,10 @@ import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import jakarta.transaction.Transactional;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.util.List;
 
 @SpringBootTest
 @Transactional

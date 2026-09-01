@@ -12,9 +12,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Shared assertions for attribute definitions. The identity of an attribute, its UUID and
- * name, is what the platform stores against an instance configuration, so every definition
- * test pins those together with the content type the platform renders.
+ * Shared assertions for attribute definitions. The identity of an attribute, its UUID and name, is what the platform
+ * stores against an instance configuration, so every definition test pins those together with the content type the
+ * platform renders.
  */
 final class AttributeAssert {
 
@@ -22,9 +22,8 @@ final class AttributeAssert {
     }
 
     static DataAttributeV2 assertDataAttribute(BaseAttribute attribute, String uuid, String name,
-                                               AttributeContentType contentType, String label) {
-        DataAttributeV2 data = assertInstanceOf(DataAttributeV2.class, attribute,
-                name + " must be a data attribute");
+            AttributeContentType contentType, String label) {
+        DataAttributeV2 data = assertInstanceOf(DataAttributeV2.class, attribute, name + " must be a data attribute");
         assertEquals(uuid, data.getUuid(), name + " changed UUID, which orphans existing configuration");
         assertEquals(name, data.getName(), "attribute name changed, which orphans existing configuration");
         assertEquals(AttributeType.DATA, data.getType());

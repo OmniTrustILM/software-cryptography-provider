@@ -3,7 +3,6 @@ package com.otilm.cp.soft.service.impl;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
-import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
@@ -16,11 +15,16 @@ import com.otilm.cp.soft.config.CacheConfig;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
+import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenInstanceService;
 import com.otilm.cp.soft.util.KeyStoreUtil;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,11 +33,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,21 +40,29 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * Verifies cache-invalidation semantics for the {@code keystores} and {@code keydata} caches.
  *
- * <p>This class is intentionally <strong>not</strong> annotated with {@code @Transactional}.
+ * <p>
+ * This class is intentionally <strong>not</strong> annotated with {@code @Transactional}.
  */
 @SpringBootTest
 class CacheInvalidationTest {
 
-    private static final String PASSWORD    = "123";
-    private static final int    RSA_KEY_SIZE = 2048;
+    private static final String PASSWORD = "123";
+    private static final int RSA_KEY_SIZE = 2048;
 
-    @Autowired private KeyManagementService    keyManagementService;
-    @Autowired private KeyStoreCacheService    keyStoreCacheService;
-    @Autowired private KeyDataCacheService     keyDataCacheService;
-    @Autowired private TokenInstanceService    tokenInstanceService;
-    @Autowired private TokenInstanceRepository tokenInstanceRepository;
-    @Autowired private KeyDataRepository       keyDataRepository;
-    @Autowired private CacheManager            cacheManager;
+    @Autowired
+    private KeyManagementService keyManagementService;
+    @Autowired
+    private KeyStoreCacheService keyStoreCacheService;
+    @Autowired
+    private KeyDataCacheService keyDataCacheService;
+    @Autowired
+    private TokenInstanceService tokenInstanceService;
+    @Autowired
+    private TokenInstanceRepository tokenInstanceRepository;
+    @Autowired
+    private KeyDataRepository keyDataRepository;
+    @Autowired
+    private CacheManager cacheManager;
 
     private TokenInstance tokenInstance;
 
@@ -81,8 +88,8 @@ class CacheInvalidationTest {
     // -----------------------------------------------------------------------
 
     /**
-     * After the private key is destroyed, the keystore cache entry for the owning token instance must be evicted
-     * so that the next access re-reads a consistent keystore from the database.
+     * After the private key is destroyed, the keystore cache entry for the owning token instance must be evicted so
+     * that the next access re-reads a consistent keystore from the database.
      */
     @Test
     void destroyPrivateKey_shouldEvictKeystoreCache() throws NotFoundException {
@@ -162,8 +169,7 @@ class CacheInvalidationTest {
         UUID nonExistentUuid = UUID.randomUUID();
 
         // First call: no token instance in DB or cache — must throw
-        assertThrows(NotFoundException.class,
-                () -> keyStoreCacheService.loadKeyMaterial(nonExistentUuid));
+        assertThrows(NotFoundException.class, () -> keyStoreCacheService.loadKeyMaterial(nonExistentUuid));
 
         // The cache must remain empty for this key (exception was not cached)
         assertCacheMiss(CacheConfig.KEYSTORES_CACHE, nonExistentUuid);
@@ -174,8 +180,8 @@ class CacheInvalidationTest {
     // -----------------------------------------------------------------------
 
     /**
-     * When {@code evictAfterCommit} is called with no active transaction, it must evict immediately
-     * rather than scheduling a post-commit callback.
+     * When {@code evictAfterCommit} is called with no active transaction, it must evict immediately rather than
+     * scheduling a post-commit callback.
      */
     @Test
     void keystoreEvictAfterCommit_outsideTransaction_evictsImmediately() throws NotFoundException {
@@ -198,7 +204,8 @@ class CacheInvalidationTest {
     void keydataEvictAfterCommit_outsideTransaction_evictsImmediately() throws NotFoundException {
         UUID tokenUuid = tokenInstance.getUuid();
 
-        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("kd-outside-tx"));
+        KeyPairDataResponseDto created = keyManagementService
+                .createKeyPair(tokenUuid, buildRsa2048Request("kd-outside-tx"));
         UUID privateKeyUuid = UUID.fromString(created.getPrivateKeyData().getUuid());
 
         // Warm the keydata cache
@@ -216,8 +223,8 @@ class CacheInvalidationTest {
     // -----------------------------------------------------------------------
 
     /**
-     * Loading key material for a token whose activation code is null must throw
-     * {@link TokenInstanceException} and must not populate the cache.
+     * Loading key material for a token whose activation code is null must throw {@link TokenInstanceException} and must
+     * not populate the cache.
      */
     @Test
     void loadKeyMaterial_tokenNotActivated_throwsTokenInstanceException() {
@@ -228,8 +235,7 @@ class CacheInvalidationTest {
 
         UUID inactiveUuid = inactiveToken.getUuid();
 
-        assertThrows(TokenInstanceException.class,
-                () -> keyStoreCacheService.loadKeyMaterial(inactiveUuid));
+        assertThrows(TokenInstanceException.class, () -> keyStoreCacheService.loadKeyMaterial(inactiveUuid));
 
         // Exception must not have been cached
         assertCacheMiss(CacheConfig.KEYSTORES_CACHE, inactiveUuid);

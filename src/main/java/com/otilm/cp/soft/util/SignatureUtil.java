@@ -14,16 +14,19 @@ import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.Signature;
+import java.security.SignatureException;
+import java.util.Base64;
+import java.util.List;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.jcajce.provider.asymmetric.mldsa.BCMLDSAPublicKey;
 import org.bouncycastle.jcajce.provider.asymmetric.slhdsa.BCSLHDSAPublicKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
-
-import java.io.IOException;
-import java.security.*;
-import java.util.Base64;
-import java.util.List;
 
 public class SignatureUtil {
 
@@ -35,16 +38,16 @@ public class SignatureUtil {
 
         switch (key.algorithm()) {
             case RSA -> {
-                final RsaSignatureScheme scheme = RsaSignatureScheme.findByCode(
-                        AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                                        RsaKeyAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, signatureAttributes, StringAttributeContentV2.class)
-                                .getData()
-                );
-                final DigestAlgorithm digest = DigestAlgorithm.findByCode(
-                        AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                                        RsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContentV2.class)
-                                .getData()
-                );
+                final RsaSignatureScheme scheme = RsaSignatureScheme
+                        .findByCode(AttributeDefinitionUtils
+                                .getSingleItemAttributeContentValue(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME,
+                                        signatureAttributes, StringAttributeContentV2.class)
+                                .getData());
+                final DigestAlgorithm digest = DigestAlgorithm
+                        .findByCode(AttributeDefinitionUtils
+                                .getSingleItemAttributeContentValue(RsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
+                                        signatureAttributes, StringAttributeContentV2.class)
+                                .getData());
 
                 signatureAlgorithm = digest.getProviderName() + "WITHRSA";
                 if (scheme == RsaSignatureScheme.PSS) {
@@ -54,11 +57,11 @@ public class SignatureUtil {
                 return getInstanceSignature(signatureAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
             }
             case ECDSA -> {
-                final DigestAlgorithm digest = DigestAlgorithm.findByCode(
-                        AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                                        EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContentV2.class)
-                                .getData()
-                );
+                final DigestAlgorithm digest = DigestAlgorithm
+                        .findByCode(AttributeDefinitionUtils
+                                .getSingleItemAttributeContentValue(EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
+                                        signatureAttributes, StringAttributeContentV2.class)
+                                .getData());
 
                 signatureAlgorithm = digest.getProviderName() + "WITHECDSA";
 
@@ -90,7 +93,8 @@ public class SignatureUtil {
             return pk.getParameterSpec().getName().contains("WITH");
         } catch (IOException e) {
             throw new CryptographicOperationException(
-                    "Could not create BCMLDSAPublicKey instance from ML-DSA Public Key value: " + spkiKeyValue.getValue());
+                    "Could not create BCMLDSAPublicKey instance from ML-DSA Public Key value: "
+                            + spkiKeyValue.getValue());
         }
     }
 
@@ -105,7 +109,8 @@ public class SignatureUtil {
             return pk.getParameterSpec().getName().contains("WITH");
         } catch (IOException e) {
             throw new CryptographicOperationException(
-                    "Could not create BCSLHDSAPublicKey instance from SLH-DSA Public Key value: " + spkiKeyValue.getValue());
+                    "Could not create BCSLHDSAPublicKey instance from SLH-DSA Public Key value: "
+                            + spkiKeyValue.getValue());
         }
     }
 

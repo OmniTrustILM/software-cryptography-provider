@@ -1,5 +1,6 @@
 package com.otilm.cp.soft;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotDeletableException;
 import com.otilm.api.exception.NotFoundException;
@@ -9,7 +10,9 @@ import com.otilm.cp.soft.dto.ApiErrorResponseDto;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.TokenInstanceException;
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -24,10 +27,6 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.List;
-import java.util.function.Function;
-import java.util.stream.Stream;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -35,8 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The mapping from exception to HTTP status and error code. Clients switch on the code, so
- * both halves are part of the connector's contract and are pinned here.
+ * The mapping from exception to HTTP status and error code. Clients switch on the code, so both halves are part of the
+ * connector's contract and are pinned here.
  */
 class ExceptionHandlingAdviceMappingTest {
 
@@ -51,31 +50,38 @@ class ExceptionHandlingAdviceMappingTest {
 
     private static Stream<Arguments> simpleMappings() {
         ExceptionHandlingAdvice advice = new ExceptionHandlingAdvice();
-        return Stream.of(
-                Arguments.of("NotFoundException", HttpStatus.NOT_FOUND, 404, "Object not found",
-                        (Function<Void, ResponseEntity<Object>>) v ->
-                                advice.handleNotFoundException(new NotFoundException("token", "abc"))),
-                Arguments.of("AlreadyExistException", HttpStatus.BAD_REQUEST, 405, "Object already exists",
-                        (Function<Void, ResponseEntity<Object>>) v ->
-                                advice.handleAlreadyExistException(new AlreadyExistException("token", "abc"))),
-                Arguments.of("NotDeletableException", HttpStatus.BAD_REQUEST, 406, "Object cannot be deleted",
-                        (Function<Void, ResponseEntity<Object>>) v ->
-                                advice.handleNotDeletableException(new NotDeletableException("token", "abc"))),
-                Arguments.of("TokenInstanceException", HttpStatus.BAD_REQUEST, 701, "Token instance problem",
-                        (Function<Void, ResponseEntity<Object>>) v ->
-                                advice.handleTokenInstanceException(new TokenInstanceException("token broken"))),
-                Arguments.of("CryptographicOperationException", HttpStatus.BAD_REQUEST, 702,
-                        "Cryptographic operation problem",
-                        (Function<Void, ResponseEntity<Object>>) v ->
-                                advice.handleCryptographicOperationException(
-                                        new CryptographicOperationException("signing failed")))
-        );
+        return Stream
+                .of(Arguments
+                        .of("NotFoundException", HttpStatus.NOT_FOUND, 404, "Object not found",
+                                (Function<Void, ResponseEntity<Object>>) v -> advice
+                                        .handleNotFoundException(new NotFoundException("token", "abc"))),
+                        Arguments
+                                .of("AlreadyExistException", HttpStatus.BAD_REQUEST, 405, "Object already exists",
+                                        (Function<Void, ResponseEntity<Object>>) v -> advice
+                                                .handleAlreadyExistException(
+                                                        new AlreadyExistException("token", "abc"))),
+                        Arguments
+                                .of("NotDeletableException", HttpStatus.BAD_REQUEST, 406, "Object cannot be deleted",
+                                        (Function<Void, ResponseEntity<Object>>) v -> advice
+                                                .handleNotDeletableException(
+                                                        new NotDeletableException("token", "abc"))),
+                        Arguments
+                                .of("TokenInstanceException", HttpStatus.BAD_REQUEST, 701, "Token instance problem",
+                                        (Function<Void, ResponseEntity<Object>>) v -> advice
+                                                .handleTokenInstanceException(
+                                                        new TokenInstanceException("token broken"))),
+                        Arguments
+                                .of("CryptographicOperationException", HttpStatus.BAD_REQUEST, 702,
+                                        "Cryptographic operation problem",
+                                        (Function<Void, ResponseEntity<Object>>) v -> advice
+                                                .handleCryptographicOperationException(
+                                                        new CryptographicOperationException("signing failed"))));
     }
 
     @ParameterizedTest(name = "{0} -> {1} / {2}")
     @MethodSource("simpleMappings")
     void exceptionMapsToItsStatusAndCode(String label, HttpStatus status, int code, String message,
-                                         Function<Void, ResponseEntity<Object>> handler) {
+            Function<Void, ResponseEntity<Object>> handler) {
         ResponseEntity<Object> response = handler.apply(null);
 
         assertEquals(status, response.getStatusCode(), label + " status changed");
@@ -87,8 +93,8 @@ class ExceptionHandlingAdviceMappingTest {
 
     @Test
     void notSupportedIsReportedAsNotImplemented() {
-        ResponseEntity<Object> response = advice.handleNotSupportedException(
-                new NotSupportedException("symmetric keys are not supported"));
+        ResponseEntity<Object> response = advice
+                .handleNotSupportedException(new NotSupportedException("symmetric keys are not supported"));
 
         assertEquals(HttpStatus.NOT_IMPLEMENTED, response.getStatusCode());
         ApiErrorResponseDto body = bodyOf(response);
@@ -125,8 +131,7 @@ class ExceptionHandlingAdviceMappingTest {
     void bindingFailuresAreReportedPerField() throws NoSuchMethodException {
         BindingResult binding = new BeanPropertyBindingResult(new Object(), "request");
         binding.rejectValue(null, "code", "the object is wrong");
-        binding.addError(new org.springframework.validation.FieldError(
-                "request", "name", "the name is wrong"));
+        binding.addError(new org.springframework.validation.FieldError("request", "name", "the name is wrong"));
 
         MethodParameter parameter = new MethodParameter(
                 ExceptionHandlingAdviceMappingTest.class.getDeclaredMethod("sampleMethod", String.class), 0);
@@ -150,8 +155,8 @@ class ExceptionHandlingAdviceMappingTest {
     void typeMismatchReportsTheOffendingValue() throws NoSuchMethodException {
         MethodParameter parameter = new MethodParameter(
                 ExceptionHandlingAdviceMappingTest.class.getDeclaredMethod("sampleMethod", String.class), 0);
-        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
-                "not-a-uuid", java.util.UUID.class, "uuid", parameter, new IllegalArgumentException("bad"));
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException("not-a-uuid",
+                java.util.UUID.class, "uuid", parameter, new IllegalArgumentException("bad"));
 
         ResponseEntity<Object> response = advice.handleMethodArgumentTypeMismatchException(ex);
 
@@ -164,9 +169,9 @@ class ExceptionHandlingAdviceMappingTest {
 
     @Test
     void unreadableBodyWithAnInvalidFormatNamesTheField() throws Exception {
-        InvalidFormatException cause = InvalidFormatException.from(
-                new com.fasterxml.jackson.core.JsonFactory().createParser("{}"),
-                "not an integer", "abc", Integer.class);
+        InvalidFormatException cause = InvalidFormatException
+                .from(new com.fasterxml.jackson.core.JsonFactory().createParser("{}"), "not an integer", "abc",
+                        Integer.class);
         cause.prependPath(new Object(), "keySize");
 
         HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read", cause);
@@ -182,8 +187,8 @@ class ExceptionHandlingAdviceMappingTest {
 
     @Test
     void unreadableBodyWithoutAnInvalidFormatFallsBackToTheRootCause() {
-        HttpMessageNotReadableException ex = new HttpMessageNotReadableException(
-                "cannot read body", new BeanInstantiationException(Object.class, "root cause message"));
+        HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read body",
+                new BeanInstantiationException(Object.class, "root cause message"));
 
         ResponseEntity<Object> response = advice.handleHttpMessageNotReadableException(ex);
 

@@ -7,13 +7,12 @@ import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.PrkiKeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.RawKeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.UUID;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,8 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Entity identity and key value serialization. Both entities compare on UUID alone, so two
- * rows loaded separately for the same key are the same entity to the persistence context.
+ * Entity identity and key value serialization. Both entities compare on UUID alone, so two rows loaded separately for
+ * the same key are the same entity to the persistence context.
  */
 class EntityIdentityTest {
 
@@ -70,10 +69,11 @@ class EntityIdentityTest {
     /**
      * The reflexive, null and foreign-type branches of {@code equals}.
      *
-     * <p>Called through {@code equals} rather than through the assertion helpers: those
-     * helpers delegate to the very method being tested, which both obscures the intent and
-     * cannot express "not equal to a value of another type" without comparing dissimilar
-     * types.</p>
+     * <p>
+     * Called through {@code equals} rather than through the assertion helpers: those helpers delegate to the very
+     * method being tested, which both obscures the intent and cannot express "not equal to a value of another type"
+     * without comparing dissimilar types.
+     * </p>
      */
     @SuppressWarnings("java:S5785")
     private static void assertEqualsContract(Object entity) {
@@ -83,13 +83,12 @@ class EntityIdentityTest {
     }
 
     private static Stream<Arguments> keyFormats() {
-        return Stream.of(
-                Arguments.of(KeyFormat.RAW, new RawKeyValue("cmF3"), RawKeyValue.class),
-                Arguments.of(KeyFormat.SPKI, new SpkiKeyValue("c3BraQ=="), SpkiKeyValue.class),
-                Arguments.of(KeyFormat.PRKI, new PrkiKeyValue("cHJraQ=="), PrkiKeyValue.class),
-                Arguments.of(KeyFormat.EPRKI, new EprkiKeyValue("ZXBya2k="), EprkiKeyValue.class),
-                Arguments.of(KeyFormat.CUSTOM, new CustomKeyValue(), CustomKeyValue.class)
-        );
+        return Stream
+                .of(Arguments.of(KeyFormat.RAW, new RawKeyValue("cmF3"), RawKeyValue.class),
+                        Arguments.of(KeyFormat.SPKI, new SpkiKeyValue("c3BraQ=="), SpkiKeyValue.class),
+                        Arguments.of(KeyFormat.PRKI, new PrkiKeyValue("cHJraQ=="), PrkiKeyValue.class),
+                        Arguments.of(KeyFormat.EPRKI, new EprkiKeyValue("ZXBya2k="), EprkiKeyValue.class),
+                        Arguments.of(KeyFormat.CUSTOM, new CustomKeyValue(), CustomKeyValue.class));
     }
 
     @ParameterizedTest(name = "{0}")

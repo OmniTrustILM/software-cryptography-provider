@@ -4,16 +4,6 @@ import com.otilm.cp.soft.Application;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.MigrationSecrets;
 import com.otilm.cp.soft.util.SecretsUtil;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.flywaydb.core.api.configuration.Configuration;
-import org.flywaydb.core.api.migration.Context;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
-import javax.sql.DataSource;
 import java.security.Security;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -22,6 +12,15 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import javax.sql.DataSource;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.flywaydb.core.api.configuration.Configuration;
+import org.flywaydb.core.api.migration.Context;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,9 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Re-encryption of stored keystore passwords.
  *
- * <p>The passwords are what unlock every token's key material, so the migration is asserted on
- * the property that matters: whatever it writes must still decrypt to the original password.
- * A row it cannot read must be left exactly as it was rather than emptied or corrupted.</p>
+ * <p>
+ * The passwords are what unlock every token's key material, so the migration is asserted on the property that matters:
+ * whatever it writes must still decrypt to the original password. A row it cannot read must be left exactly as it was
+ * rather than emptied or corrupted.
+ * </p>
  */
 @SpringBootTest(classes = Application.class)
 class V202609011200__ReencryptSecretsWithAuthenticatedEncryptionITest {
@@ -60,8 +61,7 @@ class V202609011200__ReencryptSecretsWithAuthenticatedEncryptionITest {
         }
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
-            try (PreparedStatement ps =
-                         conn.prepareStatement("DELETE FROM token_instance WHERE uuid = ?")) {
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM token_instance WHERE uuid = ?")) {
                 for (UUID uuid : created) {
                     ps.setObject(1, uuid);
                     ps.executeUpdate();
@@ -185,8 +185,7 @@ class V202609011200__ReencryptSecretsWithAuthenticatedEncryptionITest {
     }
 
     private void migrate(Connection conn) throws Exception {
-        new V202609011200__ReencryptSecretsWithAuthenticatedEncryption()
-                .migrate(new JdbcMigrationContext(conn));
+        new V202609011200__ReencryptSecretsWithAuthenticatedEncryption().migrate(new JdbcMigrationContext(conn));
     }
 
     private UUID insertToken(Connection conn, String code) throws Exception {
@@ -194,8 +193,8 @@ class V202609011200__ReencryptSecretsWithAuthenticatedEncryptionITest {
     }
 
     /**
-     * @param keystorePassword the password the stored keystore actually opens with; the
-     *                         migration verifies the decrypted code against it before rewriting
+     * @param keystorePassword the password the stored keystore actually opens with; the migration verifies the
+     * decrypted code against it before rewriting
      */
     private UUID insertToken(Connection conn, String code, String keystorePassword) throws Exception {
         UUID uuid = UUID.randomUUID();
@@ -205,8 +204,11 @@ class V202609011200__ReencryptSecretsWithAuthenticatedEncryptionITest {
             ps.setObject(1, uuid);
             ps.setString(2, "reencrypt-test-" + uuid);
             ps.setString(3, code);
-            ps.setString(4, Base64.getEncoder().encodeToString(
-                    KeyStoreUtil.createNewKeystore("PKCS12", keystorePassword)));
+            ps
+                    .setString(4,
+                            Base64
+                                    .getEncoder()
+                                    .encodeToString(KeyStoreUtil.createNewKeystore("PKCS12", keystorePassword)));
             ps.executeUpdate();
         }
         created.add(uuid);
@@ -214,8 +216,7 @@ class V202609011200__ReencryptSecretsWithAuthenticatedEncryptionITest {
     }
 
     private String storedCode(Connection conn, UUID uuid) throws Exception {
-        try (PreparedStatement ps =
-                     conn.prepareStatement("SELECT code FROM token_instance WHERE uuid = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT code FROM token_instance WHERE uuid = ?")) {
             ps.setObject(1, uuid);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getString("code") : null;

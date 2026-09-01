@@ -10,9 +10,8 @@ import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static com.otilm.cp.soft.attribute.AttributeAssert.assertDataAttribute;
 import static com.otilm.cp.soft.attribute.AttributeAssert.assertSelectionList;
@@ -27,12 +26,9 @@ class KeyAttributesTest {
 
     @Test
     void keyAliasIsSuppliedByTheClient() {
-        DataAttributeV2 attribute = assertDataAttribute(
-                KeyAttributes.buildDataKeyAlias(),
-                KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID,
-                KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS,
-                AttributeContentType.STRING,
-                KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_LABEL);
+        DataAttributeV2 attribute = assertDataAttribute(KeyAttributes.buildDataKeyAlias(),
+                KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID, KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS,
+                AttributeContentType.STRING, KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_LABEL);
 
         assertTrue(attribute.getProperties().isRequired());
         assertFalse(attribute.getProperties().isList(), "the alias is free text, not a selection");
@@ -41,12 +37,9 @@ class KeyAttributesTest {
 
     @Test
     void keyAlgorithmOffersEverySupportedAlgorithmByCode() {
-        DataAttributeV2 attribute = assertDataAttribute(
-                KeyAttributes.buildDataKeyAlgorithmSelect(),
-                KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM_UUID,
-                KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM,
-                AttributeContentType.STRING,
-                KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM_LABEL);
+        DataAttributeV2 attribute = assertDataAttribute(KeyAttributes.buildDataKeyAlgorithmSelect(),
+                KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM_UUID, KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM,
+                AttributeContentType.STRING, KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM_LABEL);
         assertSelectionList(attribute, true);
 
         assertEquals(KeyAlgorithm.values().length, attribute.getContent().size());

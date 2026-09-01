@@ -2,9 +2,8 @@ package com.otilm.cp.soft.collection;
 
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
-import org.springframework.lang.Nullable;
-
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 public enum RsaKeySize {
     RSA_1024(1024),
@@ -52,7 +51,9 @@ public enum RsaKeySize {
     }
 
     public static List<BaseAttributeContentV2<?>> asIntegerAttributeContentList() {
-        return List.of(values()).stream()
+        return List
+                .of(values())
+                .stream()
                 .<BaseAttributeContentV2<?>>map(size -> new IntegerAttributeContentV2(size.name(), size.getSize()))
                 .toList();
     }

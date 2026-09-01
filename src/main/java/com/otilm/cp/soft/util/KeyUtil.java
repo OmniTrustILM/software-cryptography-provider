@@ -1,15 +1,16 @@
 package com.otilm.cp.soft.util;
 
-import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
 
 public class KeyUtil {
 
     private KeyUtil() {
     }
 
-    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     public static String serializeKeyValue(KeyValue keyValue) {
         if (keyValue == null) {

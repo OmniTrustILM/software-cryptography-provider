@@ -2,9 +2,8 @@ package com.otilm.cp.soft.collection;
 
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
-import org.springframework.lang.Nullable;
-
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 public enum MLDSASecurityCategory {
     MLDSA_44(2, 10496, 20480, "44"),
@@ -41,7 +40,9 @@ public enum MLDSASecurityCategory {
         return privateKeySize;
     }
 
-    public String getParameterSet() {return parameterSet;}
+    public String getParameterSet() {
+        return parameterSet;
+    }
 
     @Override
     public String toString() {
@@ -68,8 +69,11 @@ public enum MLDSASecurityCategory {
     }
 
     public static List<BaseAttributeContentV2<?>> asIntegerAttributeContentList() {
-        return List.of(values()).stream()
-                .<BaseAttributeContentV2<?>>map(d -> new IntegerAttributeContentV2(d.name(), d.getNistSecurityCategory()))
+        return List
+                .of(values())
+                .stream()
+                .<BaseAttributeContentV2<?>>map(
+                        d -> new IntegerAttributeContentV2(d.name(), d.getNistSecurityCategory()))
                 .toList();
     }
 }

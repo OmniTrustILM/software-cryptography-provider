@@ -6,13 +6,12 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.token.TokenInstanceDto;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.service.TokenInstanceService;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -22,9 +21,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * The two attribute callbacks the platform invokes while an operator fills in a form. Their
- * paths and the shape of what they return are part of the connector's contract, and the
- * key specification callback is keyed on the selected algorithm.
+ * The two attribute callbacks the platform invokes while an operator fills in a form. Their paths and the shape of what
+ * they return are part of the connector's contract, and the key specification callback is keyed on the selected
+ * algorithm.
  */
 class CallbackControllerTest {
 
@@ -45,8 +44,7 @@ class CallbackControllerTest {
             "FALCON,  data_falconDegree",
             "MLDSA,   data_mldsaLevel",
             "SLHDSA,  data_slhdsaSecurityCategory",
-            "MLKEM,   data_mlkemLevel"
-    })
+            "MLKEM,   data_mlkemLevel"})
     void eachAlgorithmReturnsItsOwnSpecificationAttributes(KeyAlgorithm algorithm, String firstAttribute) {
         List<BaseAttribute> attributes = controller.getKeySpecAttributes(algorithm);
 
@@ -84,8 +82,7 @@ class CallbackControllerTest {
 
         // Each token is offered by name, carrying its UUID as the value that gets stored.
         DataAttributeV2 selection = (DataAttributeV2) attributes.get(1);
-        assertEquals(List.of("first", "second"),
-                selection.getContent().stream().map(c -> c.getReference()).toList());
+        assertEquals(List.of("first", "second"), selection.getContent().stream().map(c -> c.getReference()).toList());
         assertEquals(List.of(first.getUuid(), second.getUuid()),
                 selection.getContent().stream().map(c -> c.getData()).toList());
     }

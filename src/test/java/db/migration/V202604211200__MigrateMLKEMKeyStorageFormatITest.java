@@ -1,5 +1,6 @@
 package db.migration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
@@ -7,9 +8,28 @@ import com.otilm.cp.soft.Application;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.MigrationSecrets;
 import com.otilm.cp.soft.util.X509Util;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.bouncycastle.asn1.DEROctetString;
+import java.security.Key;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import javax.sql.DataSource;
 import org.bouncycastle.asn1.DERBMPString;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
@@ -29,34 +49,27 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import javax.sql.DataSource;
-import java.security.*;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Spring Boot integration test for {@link V202604211200__MigrateMLKEMKeyStorageFormat}.
  *
- * <p>The test seeds the in-memory HSQL database with a {@code token_instance} row that contains a
- * legacy ML-KEM keystore (private key stored as raw PKCS8 bytes, no certificate chain) and a
- * corresponding {@code key_data} row that holds the public key in SPKI format — exactly the state
- * that would be present after upgrading from 1.3.1 to 1.4.0 without running any migration.
+ * <p>
+ * The test seeds the in-memory HSQL database with a {@code token_instance} row that contains a legacy ML-KEM keystore
+ * (private key stored as raw PKCS8 bytes, no certificate chain) and a corresponding {@code key_data} row that holds the
+ * public key in SPKI format — exactly the state that would be present after upgrading from 1.3.1 to 1.4.0 without
+ * running any migration.
  *
- * <p>After running the migration, it asserts that:
+ * <p>
+ * After running the migration, it asserts that:
  * <ul>
- *   <li>The keystore blob in {@code token_instance.data} now contains an orphan certificate for every ML-KEM alias.</li>
- *   <li>The private key is still recoverable and its bytes are unchanged.</li>
- *   <li>Non-ML-KEM entries in the same keystore are untouched.</li>
- *   <li>Token instances that already use the new format are not re-written.</li>
+ * <li>The keystore blob in {@code token_instance.data} now contains an orphan certificate for every ML-KEM alias.</li>
+ * <li>The private key is still recoverable and its bytes are unchanged.</li>
+ * <li>Non-ML-KEM entries in the same keystore are untouched.</li>
+ * <li>Token instances that already use the new format are not re-written.</li>
  * </ul>
  */
 @SpringBootTest(classes = Application.class)
@@ -73,7 +86,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     /**
      * UUIDs of rows created during a test — cleaned up in @AfterEach.
      */
-    private final Map<UUID, UUID> createdTokens = new HashMap<>();  // tokenUuid → tokenUuid
+    private final Set<UUID> createdTokens = new HashSet<>();
 
     @BeforeAll
     static void ensureBouncyCastle() {
@@ -84,18 +97,19 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
 
     @AfterEach
     void cleanUp() throws Exception {
-        if (createdTokens.isEmpty()) return;
-        try (Connection conn = dataSource.getConnection()) {
+        if (createdTokens.isEmpty()) {
+            return;
+        }
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement deleteKeys = conn
+                        .prepareStatement("DELETE FROM key_data WHERE token_instance_uuid = ?");
+                PreparedStatement deleteToken = conn.prepareStatement("DELETE FROM token_instance WHERE uuid = ?")) {
             conn.setAutoCommit(true);
-            for (UUID tokenUuid : createdTokens.keySet()) {
-                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM key_data WHERE token_instance_uuid = ?")) {
-                    ps.setObject(1, tokenUuid);
-                    ps.executeUpdate();
-                }
-                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM token_instance WHERE uuid = ?")) {
-                    ps.setObject(1, tokenUuid);
-                    ps.executeUpdate();
-                }
+            for (UUID tokenUuid : createdTokens) {
+                deleteKeys.setObject(1, tokenUuid);
+                deleteKeys.executeUpdate();
+                deleteToken.setObject(1, tokenUuid);
+                deleteToken.executeUpdate();
             }
         }
         createdTokens.clear();
@@ -121,7 +135,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             // Seed the key_data row (public key in SPKI format, as written by KeyManagementServiceImpl).
             UUID keyDataUuid = UUID.randomUUID();
             insertMlkemPublicKeyData(conn, keyDataUuid, tokenUuid, MLKEM_ALIAS, mlkemPair.getPublic());
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             // Run the migration.
             V202604211200__MigrateMLKEMKeyStorageFormat migration = new V202604211200__MigrateMLKEMKeyStorageFormat();
@@ -157,7 +171,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             byte[] newFormatKeystore = buildNewFormatKeystore(mlkemPair, PASSWORD);
             String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, newFormatKeystore);
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             // Record the data blob before the migration.
             String dataBefore = queryKeystoreData(conn, tokenUuid);
@@ -183,8 +197,8 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
         KeyPair ecPair = ecKpg.generateKeyPair();
         X509Certificate ecCert = X509Util.generateEcdsaOrphanX509Certificate(ecPair);
 
-        byte[] keystoreBytes = buildMixedPkcs12(MLKEM_ALIAS, mlkemPair.getPrivate(), ECDSA_ALIAS,
-                ecPair.getPrivate(), ecCert, PASSWORD.toCharArray());
+        byte[] keystoreBytes = buildMixedPkcs12(MLKEM_ALIAS, mlkemPair.getPrivate(), ECDSA_ALIAS, ecPair.getPrivate(),
+                ecCert, PASSWORD.toCharArray());
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -193,7 +207,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, keystoreBytes);
             insertMlkemPublicKeyData(conn, UUID.randomUUID(), tokenUuid, MLKEM_ALIAS, mlkemPair.getPublic());
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             V202604211200__MigrateMLKEMKeyStorageFormat migration = new V202604211200__MigrateMLKEMKeyStorageFormat();
             migration.migrate(new JdbcMigrationContext(conn));
@@ -222,7 +236,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             String invalidCode = "this-is-not-a-valid-encrypted-password";
             byte[] someKeystore = KeyStoreUtil.createNewKeystore("PKCS12", "anypassword");
             insertTokenInstance(conn, tokenUuid, invalidCode, someKeystore);
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             String dataBefore = queryKeystoreData(conn, tokenUuid);
 
@@ -245,7 +259,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             // Bytes that decode correctly from base64 but are not a PKCS12 keystore.
             byte[] garbage = "not-a-pkcs12-keystore".getBytes(java.nio.charset.StandardCharsets.UTF_8);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, garbage);
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             String dataBefore = queryKeystoreData(conn, tokenUuid);
 
@@ -270,7 +284,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, legacyKeystore);
             // Intentionally no key_data row → public key cannot be reconstructed.
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             String dataBefore = queryKeystoreData(conn, tokenUuid);
 
@@ -294,7 +308,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             // code = null → deactivated token; migration must detect ML-KEM keys and log a warning but not modify data.
             insertTokenInstance(conn, tokenUuid, null, KeyStoreUtil.createNewKeystore("PKCS12", "any"));
             insertMlkemPublicKeyData(conn, UUID.randomUUID(), tokenUuid, MLKEM_ALIAS, mlkemPair.getPublic());
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             String dataBefore = queryKeystoreData(conn, tokenUuid);
 
@@ -315,7 +329,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             UUID tokenUuid = UUID.randomUUID();
             // code = null → deactivated token with no ML-KEM keys; must be skipped silently.
             insertTokenInstance(conn, tokenUuid, null, KeyStoreUtil.createNewKeystore("PKCS12", "any"));
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             String dataBefore = queryKeystoreData(conn, tokenUuid);
 
@@ -356,7 +370,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
                 ps.setObject(8, tokenUuid);
                 ps.executeUpdate();
             }
-            createdTokens.put(tokenUuid, tokenUuid);
+            createdTokens.add(tokenUuid);
 
             String dataBefore = queryKeystoreData(conn, tokenUuid);
 
@@ -382,8 +396,9 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     /**
      * Builds a PKCS12 keystore in the <em>old</em> (1.3.1) format: bare PKCS8ShroudedKeyBag, no cert.
      *
-     * <p>BouncyCastle 1.73+ no longer supports {@code setKeyEntry(alias, byte[], null)} on PKCS12;
-     * this method uses the low-level {@link PKCS12PfxPduBuilder} instead.
+     * <p>
+     * BouncyCastle 1.73+ no longer supports {@code setKeyEntry(alias, byte[], null)} on PKCS12; this method uses the
+     * low-level {@link PKCS12PfxPduBuilder} instead.
      */
     private static byte[] buildLegacyKeystore(KeyPair mlkemPair, String password) throws Exception {
         return buildBareKeyPkcs12(MLKEM_ALIAS, mlkemPair.getPrivate(), password.toCharArray());
@@ -401,11 +416,10 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     }
 
     /**
-     * Builds a PKCS12 containing a single encrypted key bag for the given private key with no
-     * associated certificate bag — i.e. the legacy 1.3.1 storage format.
+     * Builds a PKCS12 containing a single encrypted key bag for the given private key with no associated certificate
+     * bag — i.e. the legacy 1.3.1 storage format.
      */
-    private static byte[] buildBareKeyPkcs12(String alias, PrivateKey privateKey, char[] password)
-            throws Exception {
+    private static byte[] buildBareKeyPkcs12(String alias, PrivateKey privateKey, char[] password) throws Exception {
         PrivateKeyInfo pkInfo = PrivateKeyInfo.getInstance(privateKey.getEncoded());
         OutputEncryptor keyEncryptor = new JcePKCSPBEOutputEncryptorBuilder(
                 PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC)
@@ -422,9 +436,8 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
         PKCS12PfxPduBuilder pfxBuilder = new PKCS12PfxPduBuilder();
         pfxBuilder.addData(keyBagBuilder.build());
 
-        PKCS12PfxPdu pfx = pfxBuilder.build(
-                new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME),
-                password);
+        PKCS12PfxPdu pfx = pfxBuilder
+                .build(new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME), password);
 
         return pfx.getEncoded("DER");
     }
@@ -432,14 +445,13 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     /**
      * Builds a PKCS12 containing:
      * <ul>
-     *   <li>A bare (cert-less) key bag for {@code legacyAlias/legacyKey} — legacy format.</li>
-     *   <li>A key bag and certificate bag linked by {@code LocalKeyId} for
-     *       {@code newAlias/newKey/newCert} — new format.</li>
+     * <li>A bare (cert-less) key bag for {@code legacyAlias/legacyKey} — legacy format.</li>
+     * <li>A key bag and certificate bag linked by {@code LocalKeyId} for {@code newAlias/newKey/newCert} — new
+     * format.</li>
      * </ul>
      */
-    private static byte[] buildMixedPkcs12(String legacyAlias, PrivateKey legacyKey, String newAlias,
-                                           PrivateKey newKey, X509Certificate newCert, char[] password)
-            throws Exception {
+    private static byte[] buildMixedPkcs12(String legacyAlias, PrivateKey legacyKey, String newAlias, PrivateKey newKey,
+            X509Certificate newCert, char[] password) throws Exception {
         OutputEncryptor keyEncryptor = new JcePKCSPBEOutputEncryptorBuilder(
                 PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC)
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME)
@@ -474,7 +486,8 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
         pfxBuilder.addData(newKeyBag.build());
         pfxBuilder.addEncryptedData(certEncryptor, newCertBag.build());
 
-        PKCS12PfxPdu pfx = pfxBuilder.build(new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME), password);
+        PKCS12PfxPdu pfx = pfxBuilder
+                .build(new JcePKCS12MacCalculatorBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME), password);
 
         return pfx.getEncoded("DER");
     }
@@ -483,8 +496,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     // Helpers — JDBC data setup / query
     // -------------------------------------------------------------------------
 
-    private static void insertTokenInstance(Connection conn, UUID tokenUuid,
-                                            String encryptedCode, byte[] keystoreBytes)
+    private static void insertTokenInstance(Connection conn, UUID tokenUuid, String encryptedCode, byte[] keystoreBytes)
             throws Exception {
         String data = Base64.getEncoder().encodeToString(keystoreBytes);
         String sql = "INSERT INTO token_instance (uuid, name, code, data, timestamp) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
@@ -498,7 +510,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     }
 
     private static void insertMlkemPublicKeyData(Connection conn, UUID keyDataUuid, UUID tokenInstanceUuid,
-                                                 String alias, PublicKey publicKey) throws Exception {
+            String alias, PublicKey publicKey) throws Exception {
         String base64Spki = Base64.getEncoder().encodeToString(publicKey.getEncoded());
         Map<String, String> valueMap = new HashMap<>();
         valueMap.put("value", base64Spki);
@@ -521,8 +533,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     }
 
     private static String queryKeystoreData(Connection conn, UUID tokenUuid) throws Exception {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT data FROM token_instance WHERE uuid = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT data FROM token_instance WHERE uuid = ?")) {
             ps.setObject(1, tokenUuid);
             try (ResultSet rs = ps.executeQuery()) {
                 assertTrue(rs.next(), "token_instance row must exist");
@@ -542,9 +553,9 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
     // -------------------------------------------------------------------------
 
     /**
-     * Minimal implementation of {@link Context} that wraps an existing JDBC {@link Connection}.
-     * Flyway's {@link org.flywaydb.core.api.migration.BaseJavaMigration#migrate} only uses
-     * {@link Context#getConnection()}, so a stub for {@link Context#getConfiguration()} suffices.
+     * Minimal implementation of {@link Context} that wraps an existing JDBC {@link Connection}. Flyway's
+     * {@link org.flywaydb.core.api.migration.BaseJavaMigration#migrate} only uses {@link Context#getConnection()}, so a
+     * stub for {@link Context#getConfiguration()} suffices.
      */
     private record JdbcMigrationContext(Connection connection) implements Context {
         @Override

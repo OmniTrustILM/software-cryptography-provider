@@ -4,8 +4,11 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.cp.soft.config.CacheConfig;
 import com.otilm.cp.soft.dao.entity.KeyData;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
-import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.model.CachedKeyData;
+import com.otilm.cp.soft.service.KeyDataCacheService;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
@@ -14,10 +17,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 public class KeyDataCacheServiceImpl implements KeyDataCacheService {
@@ -37,22 +36,14 @@ public class KeyDataCacheServiceImpl implements KeyDataCacheService {
     public CachedKeyData getCachedKeyData(UUID keyUuid) throws NotFoundException {
         logger.debug("Cache miss — loading KeyData {} from database", keyUuid);
 
-        KeyData entity = keyDataRepository.findByUuid(keyUuid)
+        KeyData entity = keyDataRepository
+                .findByUuid(keyUuid)
                 .orElseThrow(() -> new NotFoundException(KeyData.class, keyUuid));
 
         var md = entity.getMetadata();
-        return new CachedKeyData(
-                entity.getUuid(),
-                entity.getTokenInstanceUuid(),
-                entity.getName(),
-                entity.getAssociation(),
-                entity.getType(),
-                entity.getAlgorithm(),
-                entity.getFormat(),
-                entity.getValue(),
-                entity.getLength(),
-                md != null ? Collections.unmodifiableList(md) : List.of()
-        );
+        return new CachedKeyData(entity.getUuid(), entity.getTokenInstanceUuid(), entity.getName(),
+                entity.getAssociation(), entity.getType(), entity.getAlgorithm(), entity.getFormat(), entity.getValue(),
+                entity.getLength(), md != null ? Collections.unmodifiableList(md) : List.of());
     }
 
     @Override

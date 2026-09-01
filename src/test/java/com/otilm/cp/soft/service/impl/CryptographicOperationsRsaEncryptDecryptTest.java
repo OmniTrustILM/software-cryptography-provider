@@ -19,16 +19,15 @@ import com.otilm.api.model.connector.cryptography.operations.data.CipherRequestD
 import com.otilm.cp.soft.attribute.RsaCipherAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Stream;
 
 class CryptographicOperationsRsaEncryptDecryptTest extends AbstractCryptographicOperationsTest {
 
@@ -39,42 +38,43 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractCryptographic
         // 2 * hLen + 2 = 2 * 64 + 2 = 130 bytes, which already exceeds the 128-byte (1024-bit)
         // RSA block size, leaving no room for any plaintext.
         // BouncyCastle rejects this at encryption time with "too much data for RSA block".
-        return Stream.of(
-                // PKCS1_v1_5 — no digest, no MGF flag
-                Arguments.of(1024, RsaEncryptionScheme.PKCS1_v1_5, null,                   false),
-                Arguments.of(2048, RsaEncryptionScheme.PKCS1_v1_5, null,                   false),
-                Arguments.of(4096, RsaEncryptionScheme.PKCS1_v1_5, null,                   false),
-                // OAEP — 1024-bit key
-                Arguments.of(1024, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_256, true),
-                Arguments.of(1024, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_256, false),
-                Arguments.of(1024, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_384, true),
-                Arguments.of(1024, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_384, false),
-                // OAEP — 2048-bit key
-                Arguments.of(2048, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_256, true),
-                Arguments.of(2048, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_256, false),
-                Arguments.of(2048, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_384, true),
-                Arguments.of(2048, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_384, false),
-                Arguments.of(2048, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_512, true),
-                Arguments.of(2048, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_512, false),
-                // OAEP — 4096-bit key
-                Arguments.of(4096, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_256, true),
-                Arguments.of(4096, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_256, false),
-                Arguments.of(4096, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_384, true),
-                Arguments.of(4096, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_384, false),
-                Arguments.of(4096, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_512, true),
-                Arguments.of(4096, RsaEncryptionScheme.OAEP,       DigestAlgorithm.SHA_512, false)
-        );
+        return Stream
+                .of(
+                        // PKCS1_v1_5 — no digest, no MGF flag
+                        Arguments.of(1024, RsaEncryptionScheme.PKCS1_v1_5, null, false),
+                        Arguments.of(2048, RsaEncryptionScheme.PKCS1_v1_5, null, false),
+                        Arguments.of(4096, RsaEncryptionScheme.PKCS1_v1_5, null, false),
+                        // OAEP — 1024-bit key
+                        Arguments.of(1024, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_256, true),
+                        Arguments.of(1024, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_256, false),
+                        Arguments.of(1024, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_384, true),
+                        Arguments.of(1024, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_384, false),
+                        // OAEP — 2048-bit key
+                        Arguments.of(2048, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_256, true),
+                        Arguments.of(2048, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_256, false),
+                        Arguments.of(2048, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_384, true),
+                        Arguments.of(2048, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_384, false),
+                        Arguments.of(2048, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_512, true),
+                        Arguments.of(2048, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_512, false),
+                        // OAEP — 4096-bit key
+                        Arguments.of(4096, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_256, true),
+                        Arguments.of(4096, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_256, false),
+                        Arguments.of(4096, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_384, true),
+                        Arguments.of(4096, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_384, false),
+                        Arguments.of(4096, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_512, true),
+                        Arguments.of(4096, RsaEncryptionScheme.OAEP, DigestAlgorithm.SHA_512, false));
     }
 
     @ParameterizedTest(name = "RSA-{0} {1} {2} mgf={3}")
     @MethodSource("parameters")
-    void testEncryptDecryptRsa(int keySize, RsaEncryptionScheme scheme,
-                               DigestAlgorithm hash, boolean useMgf) throws NotFoundException {
+    void testEncryptDecryptRsa(int keySize, RsaEncryptionScheme scheme, DigestAlgorithm hash, boolean useMgf)
+            throws NotFoundException {
         // Create key pair
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         createKeyRequestDto.setCreateKeyAttributes(buildRsaCreateKeyAttributes("test-rsa-" + keySize, keySize));
 
-        KeyPairDataResponseDto keyPair = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        KeyPairDataResponseDto keyPair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
 
         UUID privateKeyUuid = UUID.fromString(keyPair.getPrivateKeyData().getUuid());
         UUID publicKeyUuid = UUID.fromString(keyPair.getPublicKeyData().getUuid());
@@ -88,14 +88,15 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractCryptographic
         }
         encryptRequest.setCipherData(List.of(new CipherRequestData(PLAINTEXT, "item-1")));
 
-        EncryptDataResponseDto encryptResponse = cryptographicOperationsService.encryptData(
-                tokenInstance.getUuid(), publicKeyUuid, encryptRequest);
+        EncryptDataResponseDto encryptResponse = cryptographicOperationsService
+                .encryptData(tokenInstance.getUuid(), publicKeyUuid, encryptRequest);
 
         Assertions.assertNotNull(encryptResponse.getEncryptedData());
         Assertions.assertFalse(encryptResponse.getEncryptedData().isEmpty());
         byte[] encryptedBytes = encryptResponse.getEncryptedData().getFirst().getData();
-        Assertions.assertFalse(java.util.Arrays.equals(encryptedBytes, PLAINTEXT),
-                "Encrypted data should differ from plaintext");
+        Assertions
+                .assertFalse(java.util.Arrays.equals(encryptedBytes, PLAINTEXT),
+                        "Encrypted data should differ from plaintext");
 
         // Decrypt with private key
         CipherDataRequestDto decryptRequest = new CipherDataRequestDto();
@@ -106,21 +107,21 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractCryptographic
         }
         decryptRequest.setCipherData(List.of(new CipherRequestData(encryptedBytes, "item-1")));
 
-        DecryptDataResponseDto decryptResponse = cryptographicOperationsService.decryptData(
-                tokenInstance.getUuid(), privateKeyUuid, decryptRequest);
+        DecryptDataResponseDto decryptResponse = cryptographicOperationsService
+                .decryptData(tokenInstance.getUuid(), privateKeyUuid, decryptRequest);
 
         Assertions.assertNotNull(decryptResponse.getDecryptedData());
         Assertions.assertFalse(decryptResponse.getDecryptedData().isEmpty());
         byte[] decryptedBytes = decryptResponse.getDecryptedData().getFirst().getData();
-        Assertions.assertArrayEquals(PLAINTEXT, decryptedBytes,
-                "Decrypted data should match original plaintext");
+        Assertions.assertArrayEquals(PLAINTEXT, decryptedBytes, "Decrypted data should match original plaintext");
     }
 
     @Test
     void testEncryptRejectsPrivateKey() throws NotFoundException {
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         createKeyRequestDto.setCreateKeyAttributes(buildRsaCreateKeyAttributes("test-rsa-reject-enc", 2048));
-        KeyPairDataResponseDto keyPair = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        KeyPairDataResponseDto keyPair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
 
         UUID privateKeyUuid = UUID.fromString(keyPair.getPrivateKeyData().getUuid());
 
@@ -129,16 +130,18 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractCryptographic
         request.setCipherData(List.of(new CipherRequestData(PLAINTEXT, "item-1")));
 
         UUID tokenUuid = tokenInstance.getUuid();
-        Assertions.assertThrows(CryptographicOperationException.class,
-                () -> cryptographicOperationsService.encryptData(tokenUuid, privateKeyUuid, request),
-                "encryptData with a private key should throw CryptographicOperationException");
+        Assertions
+                .assertThrows(CryptographicOperationException.class,
+                        () -> cryptographicOperationsService.encryptData(tokenUuid, privateKeyUuid, request),
+                        "encryptData with a private key should throw CryptographicOperationException");
     }
 
     @Test
     void testDecryptRejectsPublicKey() throws NotFoundException {
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         createKeyRequestDto.setCreateKeyAttributes(buildRsaCreateKeyAttributes("test-rsa-reject-dec", 2048));
-        KeyPairDataResponseDto keyPair = keyManagementService.createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
+        KeyPairDataResponseDto keyPair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
 
         UUID publicKeyUuid = UUID.fromString(keyPair.getPublicKeyData().getUuid());
 
@@ -147,9 +150,10 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractCryptographic
         request.setCipherData(List.of(new CipherRequestData(PLAINTEXT, "item-1")));
 
         UUID tokenUuid = tokenInstance.getUuid();
-        Assertions.assertThrows(CryptographicOperationException.class,
-                () -> cryptographicOperationsService.decryptData(tokenUuid, publicKeyUuid, request),
-                "decryptData with a public key should throw CryptographicOperationException");
+        Assertions
+                .assertThrows(CryptographicOperationException.class,
+                        () -> cryptographicOperationsService.decryptData(tokenUuid, publicKeyUuid, request),
+                        "decryptData with a public key should throw CryptographicOperationException");
     }
 
     private List<RequestAttribute> buildRsaCreateKeyAttributes(String alias, int keySize) {

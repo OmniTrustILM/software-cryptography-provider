@@ -9,14 +9,13 @@ import com.otilm.cp.soft.attribute.TokenInstanceActivationAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
 import com.otilm.cp.soft.service.AttributeService;
 import com.otilm.cp.soft.service.TokenInstanceService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 public class AttributeServiceImpl implements AttributeService {
@@ -95,7 +94,8 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
-    public boolean validateCreateKeyAttributes(String uuid, List<RequestAttribute> attributes) throws NotFoundException {
+    public boolean validateCreateKeyAttributes(String uuid, List<RequestAttribute> attributes)
+            throws NotFoundException {
         if (attributes == null) {
             return false;
         }

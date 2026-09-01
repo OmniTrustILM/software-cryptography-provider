@@ -35,11 +35,8 @@ public class RsaKeyAttributes {
 
     public static final String ATTRIBUTE_DATA_SIG_DIGEST = "data_sigDigest";
 
-
     public static List<BaseAttribute> getRsaKeySpecAttributes() {
-        return List.of(
-                buildDataRsaKeySize()
-        );
+        return List.of(buildDataRsaKeySize());
     }
 
     public static BaseAttribute buildDataRsaKeySize() {

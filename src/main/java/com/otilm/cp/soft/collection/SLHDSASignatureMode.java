@@ -9,8 +9,7 @@ import java.util.stream.Stream;
 public enum SLHDSASignatureMode {
 
     FAST("f"),
-    SMALL("s")
-    ;
+    SMALL("s");
 
     private final String parameterName;
 
@@ -23,8 +22,6 @@ public enum SLHDSASignatureMode {
     }
 
     public static List<BaseAttributeContentV2<?>> asStringAttributeContentList() {
-        return Stream.of(values())
-                .<BaseAttributeContentV2<?>>map(d -> new StringAttributeContentV2(d.name()))
-                .toList();
+        return Stream.of(values()).<BaseAttributeContentV2<?>>map(d -> new StringAttributeContentV2(d.name())).toList();
     }
 }

@@ -5,10 +5,7 @@ COPY src /home/app/src
 COPY pom.xml /home/app
 COPY docker /home/app/docker
 
-# Tests run here on purpose. publish_docker.yaml and build.yml are independent workflows on
-# the same main/tag push, so nothing else stops a failing build from being published:
-# skipping tests here would let the publish job push and sign an image while the test
-# workflow is still running or already red. This stage is the only thing gating that.
+# Tests run here, so an image is never produced from a source tree that fails them.
 RUN mvn -f /home/app/pom.xml clean package
 
 # Optimize stage

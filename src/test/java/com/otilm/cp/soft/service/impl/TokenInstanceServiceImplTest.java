@@ -11,14 +11,13 @@ import com.otilm.api.model.connector.cryptography.token.TokenInstanceDto;
 import com.otilm.api.model.connector.cryptography.token.TokenInstanceRequestDto;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
 import com.otilm.cp.soft.service.TokenInstanceService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @SpringBootTest
 class TokenInstanceServiceImplTest {
@@ -41,30 +40,24 @@ class TokenInstanceServiceImplTest {
 
         RequestAttributeV2 newTokenName = new RequestAttributeV2();
         newTokenName.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME);
-        newTokenName.setContent(List.of(
-                new StringAttributeContentV2( "DummyToken")
-        ));
+        newTokenName.setContent(List.of(new StringAttributeContentV2("DummyToken")));
         attributes.add(newTokenName);
 
         RequestAttributeV2 createTokenAction = new RequestAttributeV2();
         createTokenAction.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION);
-        createTokenAction.setContent(List.of(
-                new StringAttributeContentV2( "new", "new")
-        ));
+        createTokenAction.setContent(List.of(new StringAttributeContentV2("new", "new")));
         attributes.add(createTokenAction);
 
         RequestAttributeV2 options = new RequestAttributeV2();
         options.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_OPTIONS);
-        options.setContent(List.of(
-                new StringAttributeContentV2( "new", "Create new Token")
-        ));
+        options.setContent(List.of(new StringAttributeContentV2("new", "Create new Token")));
         attributes.add(options);
 
         RequestAttributeV2 tokenCode = new RequestAttributeV2();
         tokenCode.setName(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE);
-        tokenCode.setContent(List.of(
-                new SecretAttributeContentV2("DummyToken", new SecretAttributeContentData("00000000"))
-        ));
+        tokenCode
+                .setContent(List
+                        .of(new SecretAttributeContentV2("DummyToken", new SecretAttributeContentData("00000000"))));
         attributes.add(tokenCode);
 
         request.setAttributes(attributes);
@@ -76,7 +69,9 @@ class TokenInstanceServiceImplTest {
 
         // check if token instance is still in database
         // it will throw NotFoundException if token instance is not in database
-        Assertions.assertDoesNotThrow(() -> tokenInstanceService.getTokenInstanceStatus(UUID.fromString(token.getUuid())));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> tokenInstanceService.getTokenInstanceStatus(UUID.fromString(token.getUuid())));
     }
 
 }

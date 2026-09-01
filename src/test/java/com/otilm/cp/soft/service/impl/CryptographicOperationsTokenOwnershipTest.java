@@ -22,18 +22,17 @@ import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import jakarta.transaction.Transactional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Verifies that cryptographic operations reject requests where the token instance UUID in the path
- * does not match the token instance that owns the referenced key.
+ * Verifies that cryptographic operations reject requests where the token instance UUID in the path does not match the
+ * token instance that owns the referenced key.
  */
 @Transactional
 class CryptographicOperationsTokenOwnershipTest extends AbstractCryptographicOperationsTest {
@@ -52,8 +51,8 @@ class CryptographicOperationsTokenOwnershipTest extends AbstractCryptographicOpe
 
     @Test
     void signData_withMismatchedTokenUuid_shouldThrowNotFoundException() throws NotFoundException {
-        KeyPairDataResponseDto pair = keyManagementService.createKeyPair(
-                tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-sign"));
+        KeyPairDataResponseDto pair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-sign"));
         UUID privateKeyUuid = UUID.fromString(pair.getPrivateKeyData().getUuid());
 
         SignDataRequestDto request = new SignDataRequestDto();
@@ -68,8 +67,8 @@ class CryptographicOperationsTokenOwnershipTest extends AbstractCryptographicOpe
 
     @Test
     void verifyData_withMismatchedTokenUuid_shouldThrowNotFoundException() throws NotFoundException {
-        KeyPairDataResponseDto pair = keyManagementService.createKeyPair(
-                tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-verify"));
+        KeyPairDataResponseDto pair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-verify"));
         UUID publicKeyUuid = UUID.fromString(pair.getPublicKeyData().getUuid());
 
         VerifyDataRequestDto request = new VerifyDataRequestDto();
@@ -85,8 +84,8 @@ class CryptographicOperationsTokenOwnershipTest extends AbstractCryptographicOpe
 
     @Test
     void encryptData_withMismatchedTokenUuid_shouldThrowNotFoundException() throws NotFoundException {
-        KeyPairDataResponseDto pair = keyManagementService.createKeyPair(
-                tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-encrypt"));
+        KeyPairDataResponseDto pair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-encrypt"));
         UUID publicKeyUuid = UUID.fromString(pair.getPublicKeyData().getUuid());
 
         CipherDataRequestDto request = new CipherDataRequestDto();
@@ -101,8 +100,8 @@ class CryptographicOperationsTokenOwnershipTest extends AbstractCryptographicOpe
 
     @Test
     void decryptData_withMismatchedTokenUuid_shouldThrowNotFoundException() throws NotFoundException {
-        KeyPairDataResponseDto pair = keyManagementService.createKeyPair(
-                tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-decrypt"));
+        KeyPairDataResponseDto pair = keyManagementService
+                .createKeyPair(tokenInstance.getUuid(), buildRsaCreateKeyRequest("own-decrypt"));
         UUID privateKeyUuid = UUID.fromString(pair.getPrivateKeyData().getUuid());
 
         CipherDataRequestDto request = new CipherDataRequestDto();
