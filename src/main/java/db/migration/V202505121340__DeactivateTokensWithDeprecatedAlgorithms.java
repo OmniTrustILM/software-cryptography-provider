@@ -2,7 +2,7 @@ package db.migration;
 
 import com.czertainly.cp.soft.util.DatabaseMigration;
 import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.SecretEncodingVersion;
+import com.czertainly.cp.soft.util.MigrationSecrets;
 import com.czertainly.cp.soft.util.SecretsUtil;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
@@ -28,9 +28,7 @@ public class V202505121340__DeactivateTokensWithDeprecatedAlgorithms extends Bas
 
     @Override
     public void migrate(Context context) throws Exception {
-        SecretsUtil secretsUtil = new SecretsUtil();
-        String key = System.getenv("ENCRYPTION_KEY");
-        secretsUtil.setEncryptionKeyStatic(key == null ? "tU)u&N~B{sqQh{imRDl}" : key);
+        SecretsUtil secretsUtil = MigrationSecrets.forMigration();
         Security.addProvider(new BouncyCastleProvider());
 
         try (final Statement select = context.getConnection().createStatement()) {
@@ -40,7 +38,7 @@ public class V202505121340__DeactivateTokensWithDeprecatedAlgorithms extends Bas
                 while (tokens.next()) {
                     String password;
                     try {
-                        password = secretsUtil.decodeAndDecryptSecretString(tokens.getString("code"), SecretEncodingVersion.V1);
+                        password = secretsUtil.decodeAndDecryptSecretString(tokens.getString("code"));
                     } catch (Exception e) {
                         logger.info("Cannot decrypt password of token instance with UUID {}: {}", tokens.getObject("uuid"), e.getMessage());
                         continue;

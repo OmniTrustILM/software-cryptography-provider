@@ -2,7 +2,7 @@ package db.migration;
 
 import com.czertainly.cp.soft.util.DatabaseMigration;
 import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.SecretEncodingVersion;
+import com.czertainly.cp.soft.util.MigrationSecrets;
 import com.czertainly.cp.soft.util.SecretsUtil;
 import com.czertainly.cp.soft.util.X509Util;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -63,6 +63,9 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
 
     private static final Logger logger = LoggerFactory.getLogger(V202604211200__MigrateMLKEMKeyStorageFormat.class);
 
+    /** Set at the start of the migration; the per-token helpers below read it. */
+    private SecretsUtil secretsUtil;
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
@@ -78,9 +81,7 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
 
     @Override
     public void migrate(Context context) throws Exception {
-        SecretsUtil secretsUtil = new SecretsUtil();
-        String encryptionKey = System.getenv("ENCRYPTION_KEY");
-        secretsUtil.setEncryptionKeyStatic(encryptionKey == null ? "tU)u&N~B{sqQh{imRDl}" : encryptionKey);
+        secretsUtil = MigrationSecrets.forMigration();
         Security.addProvider(new BouncyCastleProvider());
 
         try (Statement select = context.getConnection().createStatement()) {
@@ -128,7 +129,7 @@ public class V202604211200__MigrateMLKEMKeyStorageFormat extends BaseJavaMigrati
 
         String password;
         try {
-            password = SecretsUtil.decodeAndDecryptSecretString(code, SecretEncodingVersion.V1);
+            password = secretsUtil.decodeAndDecryptSecretString(code);
         } catch (Exception e) {
             logger.warn("Cannot decrypt password for token {}: {}", tokenUuid, e.getMessage());
             return false;

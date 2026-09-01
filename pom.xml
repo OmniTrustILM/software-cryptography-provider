@@ -25,13 +25,13 @@
         <sonar.organization>ilm</sonar.organization>
         <sonar.projectKey>ilm_software-cryptography-provider</sonar.projectKey>
 
-        <!-- Java migrations that have already shipped are checksum-frozen: Flyway compares
-             the value recorded in every deployed database against the one the migration
-             reports, and that value is derived from the source file. Editing one to satisfy
-             a rule would fail validation on upgrade, so their findings are ignored rather
-             than fixed. Listed file by file on purpose - a migration that has not been
-             released yet is still freely editable and must keep being analysed. Add an entry
-             here only once a migration has shipped. Coverage is measured either way. -->
+        <!-- Shipped Java migrations are exempt from Java rules. Flyway compares the value a
+             migration reports against the one recorded when it was applied, and that value
+             comes from JavaMigrationChecksums rather than from the file, so the source can be
+             edited; what must never change is the published number. Rule fixes there are
+             still avoided, because churn in a migration that has already run everywhere buys
+             nothing and risks the one value that matters. Listed file by file so a migration
+             that has not shipped yet keeps being analysed. Coverage is measured either way. -->
         <sonar.issue.ignore.multicriteria>frozenMigration1,frozenMigration2</sonar.issue.ignore.multicriteria>
         <sonar.issue.ignore.multicriteria.frozenMigration1.ruleKey>java:*</sonar.issue.ignore.multicriteria.frozenMigration1.ruleKey>
         <sonar.issue.ignore.multicriteria.frozenMigration1.resourceKey>src/main/java/db/migration/V202505121340__DeactivateTokensWithDeprecatedAlgorithms.java</sonar.issue.ignore.multicriteria.frozenMigration1.resourceKey>

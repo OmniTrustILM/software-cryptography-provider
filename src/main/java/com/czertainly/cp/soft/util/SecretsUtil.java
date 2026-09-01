@@ -3,12 +3,22 @@ package com.czertainly.cp.soft.util;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.*;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -16,187 +26,213 @@ import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
+/**
+ * Encrypts and decrypts the secrets held in the database.
+ *
+ * <p>Values are self-describing: the first field of an encoded secret names its encoding, so
+ * {@link #decodeAndDecryptSecretString(String)} can read whatever is stored without being told
+ * which scheme produced it. New values are always written as
+ * {@link SecretEncodingVersion#V2 V2}; {@link SecretEncodingVersion#V1 V1} is decrypted so
+ * values written before the upgrade stay readable.</p>
+ */
 @Component
-// The constant names are left as they are: renaming them rewrites every catch block in this
-// class, which is churn on untestable JCA paths. The scheme itself is replaced in the work
-// tracked by issue #66, which is where these names change too.
-@SuppressWarnings("java:S115")
 public class SecretsUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(SecretsUtil.class);
 
-    @Value("${secrets.encryption.key}")
-    private String key;
+    /** The fallback in {@code application.yml}, repeated here so its use can be reported. */
+    static final String PUBLISHED_DEFAULT_KEY = "tU)u&N~B{sqQh{imRDl}";
 
-    private static String encryptionKey;
+    // V2: authenticated encryption, with the key derived per value from the stored salt.
+    private static final String AEAD_ALGORITHM = "AES/GCM/NoPadding";
+    private static final String ENCRYPTION_ALGORITHM = "AES";
+    private static final String KEY_DERIVATION_ALGORITHM = "PBKDF2WithHmacSHA256";
+    private static final int ITERATIONS = 600000;
+    private static final int AES_KEY_BIT_LENGTH = 256;
+    private static final int GCM_IV_BYTE_LENGTH = 12;
+    private static final int GCM_TAG_BIT_LENGTH = 128;
+    private static final int SALT_BYTE_LENGTH = 32;
 
     /**
-     * Populates the static key from configuration. It has to be an instance method for
-     * Spring to inject into it, while the encryption helpers are static because the Flyway
-     * migrations call them outside the application context.
+     * Bounds on the iteration count read back from a stored value. The count travels with the
+     * secret so it can be raised over time, which also means a tampered value could otherwise
+     * ask for an unbounded amount of work.
      */
-    @SuppressWarnings("java:S2696")
-    @Value("${secrets.encryption.key}")
-    public void setEncryptionKeyStatic(String key) {
-        SecretsUtil.encryptionKey = key;
+    private static final int MIN_ITERATIONS = 1000;
+    private static final int MAX_ITERATIONS = 5000000;
+
+    // V1: the original scheme. Read only, kept so values written before the upgrade decrypt.
+    private static final String LEGACY_ALGORITHM = "PBEWithSHA256And256BitAES-CBC-BC";
+
+    private final SecureRandom random = new SecureRandom();
+
+    private String encryptionKey;
+
+    @Autowired
+    public void setEncryptionKey(@Value("${secrets.encryption.key}") String key) {
+        this.encryptionKey = key;
+        if (PUBLISHED_DEFAULT_KEY.equals(key)) {
+            logger.warn("ENCRYPTION_KEY is not set, so secrets are protected with the default key "
+                    + "published in this connector's source. Anyone with a copy of the database can "
+                    + "read them. Set ENCRYPTION_KEY to a value of your own.");
+        }
     }
 
-    private static final String algorithm = "PBEWithSHA256And256BitAES-CBC-BC";
-    private static final int iterations = 1000;
-
-    /** Seeded once; SecureRandom reseeds itself and is safe to share across threads. */
-    private static final SecureRandom SALT_RANDOM = new SecureRandom();
+    /**
+     * Publishes this instance for the entity accessors.
+     *
+     * <p>Deliberately not done when the key is set: migrations and tests build their own
+     * instances, and registering those would let whichever was configured last decide the key
+     * the entity uses. Only a Spring-managed bean reaches this.</p>
+     */
+    @PostConstruct
+    void registerAsShared() {
+        SecretsUtilHolder.configure(this);
+    }
 
     /**
-     * Encrypts and encodes the given secret using the PBEWithSHA256And256BitAES-CBC-BC algorithm.
-     * @param secret the secret to encrypt and encode
-     * @param secretVersion the version of the encoding
-     * @return the encrypted and encoded secret
+     * Encrypts and encodes a secret. Always produces {@link SecretEncodingVersion#V2}.
+     *
+     * @return the encoded secret, or {@code null} if {@code secret} was {@code null}
      */
-    public static String encryptAndEncodeSecretString(String secret, SecretEncodingVersion secretVersion) {
+    public String encryptAndEncodeSecretString(String secret) {
         if (secret == null) {
             return null;
         }
 
-        byte[] salt = generateRandomSalt();
-
-        PBEKeySpec keySpec = new PBEKeySpec(encryptionKey.toCharArray(), salt, iterations);
-        byte[] encryptedSecret;
+        byte[] salt = randomBytes(SALT_BYTE_LENGTH);
+        byte[] iv = randomBytes(GCM_IV_BYTE_LENGTH);
 
         try {
-            Cipher c = Cipher.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
-            SecretKeyFactory fact = SecretKeyFactory.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
-            c.init(Cipher.ENCRYPT_MODE, fact.generateSecret(keySpec));
-            encryptedSecret = c.doFinal(secret.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchPaddingException e) {
-            throw new IllegalStateException("Padding for " + algorithm + " not found.", e);
-        } catch (IllegalBlockSizeException e) {
-            throw new IllegalStateException("Illegal block size for " + algorithm, e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Algorithm " + algorithm + " not found", e);
-        } catch (InvalidKeySpecException e) {
-            throw new IllegalStateException("Invalid specification for " + algorithm, e);
-        } catch (BadPaddingException e) {
-            throw new IllegalStateException("Bad padding for " + algorithm, e);
-        } catch (NoSuchProviderException e) {
-            throw new IllegalStateException("BouncyCastle provider not found", e);
-        } catch (InvalidKeyException e) {
-            throw new IllegalStateException("Invalid key provided for " + algorithm, e);
-        }
+            Cipher cipher = Cipher.getInstance(AEAD_ALGORITHM);
+            cipher.init(Cipher.ENCRYPT_MODE, deriveKey(salt, ITERATIONS),
+                    new GCMParameterSpec(GCM_TAG_BIT_LENGTH, iv));
+            byte[] encrypted = cipher.doFinal(secret.getBytes(StandardCharsets.UTF_8));
 
-        if (secretVersion == SecretEncodingVersion.V1) {
-            return encodeSecretStringV1(encryptedSecret, salt, iterations);
-        } else {
-            throw new IllegalArgumentException("Secret version not supported");
-        }
-
-    }
-
-    public static String decodeAndDecryptSecretString(String secret, SecretEncodingVersion secretVersion) {
-        byte[] salt;
-        int iterations;
-        byte[] encryptedSecret;
-        if (secretVersion == SecretEncodingVersion.V1) {
-            salt = decodeSaltFromSecretStringV1(secret);
-            iterations = getIterationsFromSecretStringV1(secret);
-            encryptedSecret = decodeEncryptedSecretFromSecretStringV1(secret);
-        } else {
-            throw new IllegalArgumentException("Secret version not supported");
-        }
-
-        PBEKeySpec keySpec = new PBEKeySpec(encryptionKey.toCharArray(), salt, iterations);
-
-        try {
-            Cipher c = Cipher.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
-            SecretKeyFactory fact = SecretKeyFactory.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
-            c.init(Cipher.DECRYPT_MODE, fact.generateSecret(keySpec));
-            byte[] decryptedSecret = c.doFinal(encryptedSecret);
-            return new String(decryptedSecret);
-        } catch (NoSuchPaddingException e) {
-            throw new IllegalStateException("Padding for " + algorithm + " not found.", e);
-        } catch (IllegalBlockSizeException e) {
-            throw new IllegalStateException("Illegal block size for " + algorithm, e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Algorithm " + algorithm + " not found", e);
-        } catch (InvalidKeySpecException e) {
-            throw new IllegalStateException("Invalid specification for " + algorithm, e);
-        } catch (BadPaddingException e) {
-            throw new IllegalStateException("Bad padding for " + algorithm, e);
-        } catch (NoSuchProviderException e) {
-            throw new IllegalStateException("BouncyCastle provider not found", e);
-        } catch (InvalidKeyException e) {
-            throw new IllegalStateException("Invalid key provided for " + algorithm, e);
+            return SecretEncodingVersion.V2.getVersion()
+                    + "|" + Base64.getEncoder().encodeToString(encrypted)
+                    + "|" + Base64.getEncoder().encodeToString(salt)
+                    + "|" + Base64.getEncoder().encodeToString(iv)
+                    + "|" + ITERATIONS;
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
+                 | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+            throw new IllegalStateException("Cannot encrypt secret with " + AEAD_ALGORITHM, e);
         }
     }
 
     /**
-     * Encoded the secret value into string
-     * V1|secret|salt|count
-     * @param secret value to be encoded
-     * @param salt used salt
-     * @param count number of iterations
-     * @return encoded string
+     * Decrypts a stored secret, reading whichever encoding it declares.
+     *
+     * @throws IllegalArgumentException if the value is malformed
+     * @throws IllegalStateException if it cannot be decrypted with the configured key
      */
-    private static String encodeSecretStringV1(byte[] secret, byte[] salt, int count) {
-        StringBuilder encoded = new StringBuilder();
-        encoded.append(SecretEncodingVersion.V1.getVersion());
-        encoded.append("|");
-        encoded.append(Base64.getEncoder().encodeToString(secret));
-        encoded.append("|");
-        encoded.append(Base64.getEncoder().encodeToString(salt));
-        encoded.append("|");
-        encoded.append(count);
-
-        if (logger.isTraceEnabled()) {
-            logger.trace("Encoded data: {}", encoded);
-        }
-
-        return encoded.toString();
+    public String decodeAndDecryptSecretString(String secret) {
+        return switch (SecretEncodingVersion.of(secret)) {
+            case V2 -> decryptV2(secret);
+            case V1 -> decryptV1(secret);
+        };
     }
 
-    private static byte[] decodeSaltFromSecretStringV1(String secret) {
-        if (isSecretStringV1(secret)) {
-            String[] parts = secret.split("\\|");
-            return Base64.getDecoder().decode(parts[2]);
-        } else {
+    private String decryptV2(String secret) {
+        String[] parts = secret.split("\\|");
+        if (parts.length != 5) {
             throw new IllegalArgumentException("Secret string is not in the correct format");
         }
-    }
 
-    private static int getIterationsFromSecretStringV1(String secret) {
-        if (isSecretStringV1(secret)) {
-            String[] parts = secret.split("\\|");
-            return Integer.parseInt(parts[3]);
-        } else {
+        byte[] encrypted = decode(parts[1]);
+        byte[] salt = decode(parts[2]);
+        byte[] iv = decode(parts[3]);
+        int iterations = iterationsOf(parts[4]);
+
+        if (iv.length != GCM_IV_BYTE_LENGTH) {
             throw new IllegalArgumentException("Secret string is not in the correct format");
+        }
+
+        try {
+            Cipher cipher = Cipher.getInstance(AEAD_ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, deriveKey(salt, iterations),
+                    new GCMParameterSpec(GCM_TAG_BIT_LENGTH, iv));
+            return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
+        } catch (BadPaddingException e) {
+            // AEADBadTagException extends BadPaddingException, so this is the authentication
+            // failure GCM raises when the key is wrong or the value has been altered.
+            throw new IllegalStateException("Secret failed authentication: it was encrypted with a "
+                    + "different key, or the stored value has been altered", e);
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException
+                 | InvalidAlgorithmParameterException | IllegalBlockSizeException e) {
+            throw new IllegalStateException("Cannot decrypt secret with " + AEAD_ALGORITHM, e);
         }
     }
 
-    private static byte[] decodeEncryptedSecretFromSecretStringV1(String secret) {
-        if (isSecretStringV1(secret)) {
-            String[] parts = secret.split("\\|");
-            return Base64.getDecoder().decode(parts[1]);
-        } else {
-            throw new IllegalArgumentException("Secret string is not in the correct format");
-        }
-    }
-
-    private static boolean isSecretStringV1(String secret) {
+    /**
+     * Reads a value written by the scheme this release replaced.
+     *
+     * <p>The scheme is unauthenticated and its padding is why it was replaced. It is kept
+     * because the values are already in deployed databases: without it they could not be read,
+     * and so could not be re-encrypted. Nothing writes this encoding.</p>
+     */
+    @SuppressWarnings("java:S5542")
+    private String decryptV1(String secret) {
         String[] parts = secret.split("\\|");
         if (parts.length != 4) {
-            return false;
+            throw new IllegalArgumentException("Secret string is not in the correct format");
         }
-        return parts[0].equals("v1");
+
+        byte[] encrypted = decode(parts[1]);
+        byte[] salt = decode(parts[2]);
+        int iterations = iterationsOf(parts[3]);
+
+        try {
+            Cipher cipher = Cipher.getInstance(LEGACY_ALGORITHM, BouncyCastleProvider.PROVIDER_NAME);
+            SecretKeyFactory factory =
+                    SecretKeyFactory.getInstance(LEGACY_ALGORITHM, BouncyCastleProvider.PROVIDER_NAME);
+            cipher.init(Cipher.DECRYPT_MODE,
+                    factory.generateSecret(new PBEKeySpec(encryptionKey.toCharArray(), salt, iterations)));
+            return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | NoSuchProviderException
+                 | InvalidKeySpecException | InvalidKeyException | IllegalBlockSizeException
+                 | BadPaddingException e) {
+            throw new IllegalStateException("Cannot decrypt secret written with the previous scheme", e);
+        }
     }
 
-    /**
-     * Generate random salt for encryption
-     * @return salt
-     */
-    private static byte[] generateRandomSalt() {
-        byte[] bytes = new byte[32];
-        SALT_RANDOM.nextBytes(bytes);
+    private SecretKey deriveKey(byte[] salt, int iterations) {
+        try {
+            PBEKeySpec keySpec =
+                    new PBEKeySpec(encryptionKey.toCharArray(), salt, iterations, AES_KEY_BIT_LENGTH);
+            SecretKeyFactory factory = SecretKeyFactory.getInstance(KEY_DERIVATION_ALGORITHM);
+            return new SecretKeySpec(factory.generateSecret(keySpec).getEncoded(), ENCRYPTION_ALGORITHM);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algorithm " + KEY_DERIVATION_ALGORITHM + " not found", e);
+        } catch (InvalidKeySpecException e) {
+            throw new IllegalStateException("Invalid key specification", e);
+        }
+    }
+
+    private static int iterationsOf(String value) {
+        int iterations;
+        try {
+            iterations = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Secret string is not in the correct format", e);
+        }
+        if (iterations < MIN_ITERATIONS || iterations > MAX_ITERATIONS) {
+            throw new IllegalArgumentException("Iteration count out of range: " + iterations);
+        }
+        return iterations;
+    }
+
+    private static byte[] decode(String value) {
+        try {
+            return Base64.getDecoder().decode(value);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Secret string is not in the correct format", e);
+        }
+    }
+
+    private byte[] randomBytes(int length) {
+        byte[] bytes = new byte[length];
+        random.nextBytes(bytes);
         return bytes;
     }
-
 }

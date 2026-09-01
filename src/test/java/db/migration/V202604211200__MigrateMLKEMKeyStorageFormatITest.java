@@ -5,8 +5,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.cp.soft.Application;
 import com.czertainly.cp.soft.util.KeyStoreUtil;
-import com.czertainly.cp.soft.util.SecretEncodingVersion;
-import com.czertainly.cp.soft.util.SecretsUtil;
+import com.czertainly.cp.soft.util.MigrationSecrets;
 import com.czertainly.cp.soft.util.X509Util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bouncycastle.asn1.DEROctetString;
@@ -116,7 +115,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             // Seed the database with a legacy token instance.
             UUID tokenUuid = UUID.randomUUID();
             byte[] legacyKeystore = buildLegacyKeystore(mlkemPair, PASSWORD);
-            String encryptedPassword = SecretsUtil.encryptAndEncodeSecretString(PASSWORD, SecretEncodingVersion.V1);
+            String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, legacyKeystore);
 
             // Seed the key_data row (public key in SPKI format, as written by KeyManagementServiceImpl).
@@ -156,7 +155,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
 
             UUID tokenUuid = UUID.randomUUID();
             byte[] newFormatKeystore = buildNewFormatKeystore(mlkemPair, PASSWORD);
-            String encryptedPassword = SecretsUtil.encryptAndEncodeSecretString(PASSWORD, SecretEncodingVersion.V1);
+            String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, newFormatKeystore);
             createdTokens.put(tokenUuid, tokenUuid);
 
@@ -191,7 +190,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             conn.setAutoCommit(true);
 
             UUID tokenUuid = UUID.randomUUID();
-            String encryptedPassword = SecretsUtil.encryptAndEncodeSecretString(PASSWORD, SecretEncodingVersion.V1);
+            String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, keystoreBytes);
             insertMlkemPublicKeyData(conn, UUID.randomUUID(), tokenUuid, MLKEM_ALIAS, mlkemPair.getPublic());
             createdTokens.put(tokenUuid, tokenUuid);
@@ -242,7 +241,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             conn.setAutoCommit(true);
 
             UUID tokenUuid = UUID.randomUUID();
-            String encryptedPassword = SecretsUtil.encryptAndEncodeSecretString(PASSWORD, SecretEncodingVersion.V1);
+            String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             // Bytes that decode correctly from base64 but are not a PKCS12 keystore.
             byte[] garbage = "not-a-pkcs12-keystore".getBytes(java.nio.charset.StandardCharsets.UTF_8);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, garbage);
@@ -268,7 +267,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             conn.setAutoCommit(true);
 
             UUID tokenUuid = UUID.randomUUID();
-            String encryptedPassword = SecretsUtil.encryptAndEncodeSecretString(PASSWORD, SecretEncodingVersion.V1);
+            String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, legacyKeystore);
             // Intentionally no key_data row → public key cannot be reconstructed.
             createdTokens.put(tokenUuid, tokenUuid);
@@ -338,7 +337,7 @@ class V202604211200__MigrateMLKEMKeyStorageFormatITest {
             conn.setAutoCommit(true);
 
             UUID tokenUuid = UUID.randomUUID();
-            String encryptedPassword = SecretsUtil.encryptAndEncodeSecretString(PASSWORD, SecretEncodingVersion.V1);
+            String encryptedPassword = MigrationSecrets.forMigration().encryptAndEncodeSecretString(PASSWORD);
             insertTokenInstance(conn, tokenUuid, encryptedPassword, legacyKeystore);
 
             // key_data row is present but the JSON does not contain the expected 'value' field.

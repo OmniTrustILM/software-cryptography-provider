@@ -3,8 +3,7 @@ package com.czertainly.cp.soft.dao.entity;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.cp.soft.util.SecretEncodingVersion;
-import com.czertainly.cp.soft.util.SecretsUtil;
+import com.czertainly.cp.soft.util.SecretsUtilHolder;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -23,6 +22,7 @@ public class TokenInstance extends UniquelyIdentified {
     @Column(name = "name")
     private String name;
 
+    /** Stored encrypted; decrypted by the accessor, not on hydration. */
     @Column(name = "code")
     private String code;
 
@@ -45,18 +45,13 @@ public class TokenInstance extends UniquelyIdentified {
     }
 
     public String getCode() {
-        if (code != null) {
-            return SecretsUtil.decodeAndDecryptSecretString(code, SecretEncodingVersion.V1);
-        }
-        return null;
+        // Decrypted here rather than by a converter, so loading a token for any other reason
+        // does not derive a key it will never use.
+        return code == null ? null : SecretsUtilHolder.decrypt(code);
     }
 
     public void setCode(String code) {
-        if (code != null) {
-            this.code = SecretsUtil.encryptAndEncodeSecretString(code, SecretEncodingVersion.V1);
-        } else {
-            this.code = null;
-        }
+        this.code = code == null ? null : SecretsUtilHolder.encrypt(code);
     }
 
     public byte[] getData() {
