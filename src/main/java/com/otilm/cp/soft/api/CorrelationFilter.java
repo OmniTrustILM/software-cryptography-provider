@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -22,6 +23,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * how the caller learns the one this connector used; a trace context is not, since it belongs to the caller's trace
  * rather than to this response.
  * </p>
+ *
+ * <p>
+ * What a caller states reaches both a log line and a response header, so a value carrying a line break could forge a
+ * log entry or a header of its own. An identifier is used as it arrived only when it is plain text of a length the
+ * platform accepts, and the request is given one of its own otherwise.
+ * </p>
  */
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Component
@@ -36,6 +43,9 @@ public class CorrelationFilter extends OncePerRequestFilter {
 
     /** How long the platform accepts an identifier to be. */
     private static final int LIMIT = 128;
+
+    /** An identifier of plain printable text, which is all that can safely reach a log line and a header. */
+    private static final Pattern PLAIN = Pattern.compile("[\\x20-\\x7e]{1," + LIMIT + "}");
 
     /** Headers a caller states its own identifier for the request in, most specific first. */
     private static final List<String> STATED = List.of(CORRELATION_HEADER, "X-Request-Id");
@@ -58,8 +68,8 @@ public class CorrelationFilter extends OncePerRequestFilter {
     private static String resolve(HttpServletRequest request) {
         for (String header : STATED) {
             String stated = request.getHeader(header);
-            if (stated != null && !stated.isBlank()) {
-                return trimmed(stated.strip());
+            if (stated != null && PLAIN.matcher(stated).matches()) {
+                return stated;
             }
         }
         String traceId = traceId(request.getHeader(TRACE_HEADER));
@@ -75,7 +85,4 @@ public class CorrelationFilter extends OncePerRequestFilter {
         return fields.length == TRACE_FIELDS ? fields[1] : null;
     }
 
-    private static String trimmed(String correlationId) {
-        return correlationId.length() > LIMIT ? correlationId.substring(0, LIMIT) : correlationId;
-    }
 }

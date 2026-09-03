@@ -108,17 +108,21 @@ cancellation operations answer `OPERATION_NOT_TRACKED`, and a request for asynch
 `OPERATION_NOT_SUPPORTED`. Declaring the flag would mean a job store and polling for work that finishes in
 milliseconds.
 
-**Health is reported from the application's own availability state.** `HealthV2ControllerImpl` answers `/v2/health`
-and the two probes under it. Liveness and readiness come from `ApplicationAvailability`, which a Spring application
-always keeps, rather than from the management health groups, which only exist when the probes are configured: the
-contract requires both components on every request. Readiness also weighs the database, since the keystores live
-there. Only statuses are published, never a health indicator's details, and anything but a connector that can serve
-is answered with 503.
+**Health reports the state the application already computes.** `HealthV2ControllerImpl` answers `/v2/health` and the
+two probes under it by reading the health groups of the same name, so what an operator configures a group to cover is
+what the platform is told, and readiness covers the database because the keystores live there. A deployment that
+publishes no such groups is answered from the application's own availability state, since the contract requires both
+components however the management endpoints are exposed. Only the shape is this connector's own: the management
+endpoint answers in its own media type, names the probes after internal state rather than after the contract, and
+reports no components on a single probe. Only statuses are published, never an indicator's details, and anything but a
+connector that can serve is answered with 503.
 
 **Every request is given an identifier, and it is sent back.** `CorrelationFilter` takes it from `correlation-id`,
 then `X-Request-Id`, then the trace identifier inside a `traceparent`, and mints one when a request carries none. It
 goes into the logging context under `correlation_id` and into the `correlation-id` response header. A trace context
-is not sent back: it belongs to the caller's trace. Problem documents read the identifier from that one place.
+is not sent back: it belongs to the caller's trace. Problem documents read the identifier from that one place. What a
+caller states is used only when it is plain printable text of a length the platform accepts, since the value reaches
+both a log line and a header.
 
 **The v2 surface answers failures as RFC 9457 problem documents.** `V2ExceptionHandlingAdvice` is scoped to
 `api/v2/`, so v1 keeps its own error shape. The detail is the connector's own wording, never the exception message: a

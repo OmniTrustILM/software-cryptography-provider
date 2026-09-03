@@ -6,6 +6,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -76,15 +77,38 @@ class CorrelationFilterTest {
         mockMvc.perform(get("/v2/info")).andExpect(header().exists(HEADER));
     }
 
-    /** The platform accepts an identifier of up to 128 characters, so a longer one is cut rather than refused. */
+    /**
+     * An identifier longer than the platform accepts is out of contract, so the request is given one of its own rather
+     * than being answered with a cut-down version of what the caller sent.
+     */
     @Test
-    void shortensAnIdentifierThePlatformWouldNotAccept() throws Exception {
+    void replacesAnIdentifierThePlatformWouldNotAccept() throws Exception {
         // given
         String overlong = "c".repeat(200);
 
         // when
         // then
-        mockMvc.perform(get("/v2/info").header(HEADER, overlong)).andExpect(header().string(HEADER, "c".repeat(128)));
+        mockMvc
+                .perform(get("/v2/info").header(HEADER, overlong))
+                .andExpect(header().exists(HEADER))
+                .andExpect(header().string(HEADER, not(overlong)));
+    }
+
+    /**
+     * What a caller states reaches a log line and a response header, so a value carrying a line break could forge a log
+     * entry or a header of its own. It is replaced rather than passed on.
+     */
+    @Test
+    void refusesAnIdentifierThatCouldForgeALogEntryOrAHeader() throws Exception {
+        // given
+        String injected = "core-1\r\nX-Injected: yes";
+
+        // when
+        // then
+        mockMvc
+                .perform(get("/v2/info").header(HEADER, injected))
+                .andExpect(header().string(HEADER, not(injected)))
+                .andExpect(header().doesNotExist("X-Injected"));
     }
 
     /** A malformed trace context says nothing about the trace, so the request is given an identifier instead. */
@@ -96,6 +120,6 @@ class CorrelationFilterTest {
         mockMvc
                 .perform(get("/v2/info").header("traceparent", "not-a-trace-context"))
                 .andExpect(header().exists(HEADER))
-                .andExpect(header().string(HEADER, org.hamcrest.Matchers.not("not-a-trace-context")));
+                .andExpect(header().string(HEADER, not("not-a-trace-context")));
     }
 }

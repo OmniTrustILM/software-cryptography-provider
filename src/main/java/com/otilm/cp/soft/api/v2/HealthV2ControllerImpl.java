@@ -20,10 +20,17 @@ import org.springframework.web.bind.annotation.RestController;
  * Reports whether this connector is running, and whether it can serve requests.
  *
  * <p>
- * Liveness and readiness are the application's own availability state, which a Spring application always keeps, rather
- * than the health groups the management endpoints can be configured to publish: both must be reported on every request
- * regardless of how this connector's own endpoints are exposed. Readiness also weighs the database, since the keystores
- * live there and nothing can be served without it.
+ * The state is the one the application already computes: liveness and readiness come from the health groups of the same
+ * name, so what an operator configures a group to cover is what this reports, and readiness covers the database by
+ * default since the keystores live there. A deployment that publishes no such groups is answered from the application's
+ * own availability state instead, because the contract requires both components on every response however the
+ * management endpoints are exposed.
+ * </p>
+ *
+ * <p>
+ * Only the shape is this connector's own. The management endpoint answers in its own media type, names the two probes
+ * after the application's internal state rather than after the contract, and reports no components on a single probe,
+ * so it cannot serve this interface directly.
  * </p>
  *
  * <p>
@@ -90,11 +97,19 @@ public class HealthV2ControllerImpl implements HealthController {
 
     /** Whether the application is running. A broken application cannot recover, so it is replaced rather than kept. */
     private HealthStatus liveness() {
+        HealthComponent group = healthEndpoint.healthForPath(LIVENESS);
+        if (group != null) {
+            return statusOf(group);
+        }
         return availability.getLivenessState() == LivenessState.CORRECT ? HealthStatus.UP : HealthStatus.DOWN;
     }
 
-    /** Whether requests can be served, which needs both the application and the datastore behind it. */
+    /** Whether requests can be served, which needs both the application and whatever it depends on to serve. */
     private HealthStatus readiness() {
+        HealthComponent group = healthEndpoint.healthForPath(READINESS);
+        if (group != null) {
+            return statusOf(group);
+        }
         if (availability.getReadinessState() != ReadinessState.ACCEPTING_TRAFFIC) {
             return HealthStatus.OUT_OF_SERVICE;
         }
