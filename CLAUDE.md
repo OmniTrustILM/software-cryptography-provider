@@ -129,7 +129,9 @@ both a log line and a header.
 `api/v2/`, so v1 keeps its own error shape. The detail is the connector's own wording, never the exception message: a
 message from the key technology can quote an alias or a passphrase, and a problem document is forwarded to the platform
 and logged there. Malformed context is a bad request, an absent object is not found, and a reused operation identifier
-is a conflict. The handler of last resort is what keeps that boundary closed: an unforeseen failure would otherwise
+is a conflict. The connector's own log records the kind of failure and the identifier the request is known by, not the
+failure itself, since that requirement covers the log as much as the response. The exception can be written down again
+once log output is redacted. The handler of last resort is what keeps that boundary closed: an unforeseen failure would otherwise
 reach the connector-wide advice and answer a v2 caller in the v1 shape, which carries no `errorCode`.
 
 **The two generations correlate batch items differently.** `OperationDataMapper` is where a v1 result becomes one the

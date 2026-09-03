@@ -106,12 +106,14 @@ public class V2ExceptionHandlingAdvice {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetailExtended> handleUnexpectedFailure(Exception e) {
-        logger.error("A v2 request failed unexpectedly", e);
+        logger.error("A v2 request known as {} failed with {}", correlationId(), classOf(e));
         return problem(ErrorCode.INTERNAL_SERVER_ERROR, "The request could not be completed.", e);
     }
 
     private static ResponseEntity<ProblemDetailExtended> problem(ErrorCode errorCode, String detail, Exception cause) {
-        logger.debug("Answering a v2 request with {}", errorCode, cause);
+        logger
+                .debug("Answering the v2 request known as {} with {} after {}", correlationId(), errorCode,
+                        classOf(cause));
         ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(errorCode, detail, null, correlationId());
         return ResponseEntity.status(errorCode.getStatus()).body(problem);
     }
@@ -122,5 +124,14 @@ public class V2ExceptionHandlingAdvice {
      */
     private static String correlationId() {
         return MDC.get(CorrelationFilter.CORRELATION_ID);
+    }
+
+    /**
+     * What kind of failure occurred, which is as much as can be written down. A message from the key technology can
+     * quote a key, an alias or a passphrase, and neither the response nor this connector's log may carry one. The
+     * identifier beside it is what leads back to the request, since the failure itself is not recorded.
+     */
+    private static String classOf(Exception cause) {
+        return cause == null ? "no failure" : cause.getClass().getName();
     }
 }

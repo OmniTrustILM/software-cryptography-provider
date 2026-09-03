@@ -1,5 +1,9 @@
 package com.otilm.cp.soft.api.v2;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
@@ -12,6 +16,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -19,6 +24,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -196,6 +202,44 @@ class V2ExceptionHandlingAdviceTest {
         assertFalse(String.valueOf(problem.getDetail()).contains(secret),
                 () -> "the failure message leaked into " + problem.getDetail());
         assertTrue(problem.getDetail() != null && !problem.getDetail().isBlank(), "a problem must explain itself");
+    }
+
+    /**
+     * A message from the key technology can quote a key, an alias or a passphrase, and neither the response nor this
+     * connector's log may carry one. What is written down is the kind of failure and the identifier leading back to the
+     * request, which is what an operator acts on.
+     */
+    @Test
+    void recordsTheKindOfFailureAndNothingOfTheFailureItself() {
+        // given
+        String secret = "correct horse battery staple";
+        Logger logger = (Logger) LoggerFactory.getLogger(V2ExceptionHandlingAdvice.class);
+        ListAppender<ILoggingEvent> recorded = new ListAppender<>();
+        recorded.start();
+        logger.addAppender(recorded);
+        Level was = logger.getLevel();
+        logger.setLevel(Level.DEBUG);
+
+        // when
+        try {
+            advice.handleUnexpectedFailure(new IllegalStateException("cannot open the keystore with " + secret));
+        } finally {
+            logger.detachAppender(recorded);
+            logger.setLevel(was);
+        }
+
+        // then
+        assertFalse(recorded.list.isEmpty(), "a failure must leave something to act on");
+        for (ILoggingEvent event : recorded.list) {
+            assertNull(event.getThrowableProxy(), "the failure itself must not be written down");
+            assertFalse(event.getFormattedMessage().contains(secret),
+                    () -> "the failure message leaked into the log: " + event.getFormattedMessage());
+        }
+        assertTrue(
+                recorded.list
+                        .stream()
+                        .anyMatch(event -> event.getFormattedMessage().contains(IllegalStateException.class.getName())),
+                "the kind of failure has to be recorded");
     }
 
     private static ProblemDetailExtended body(ResponseEntity<ProblemDetailExtended> response) {

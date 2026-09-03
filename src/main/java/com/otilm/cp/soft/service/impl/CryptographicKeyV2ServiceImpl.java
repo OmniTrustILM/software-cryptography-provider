@@ -34,6 +34,7 @@ import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.RequestFingerprint;
 import jakarta.transaction.Transactional;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -156,7 +157,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         attempt.setRequestFingerprint(fingerprint);
         attempt.setPublicKeyUuid(UUID.fromString(created.getPublicKeyData().getUuid()));
         attempt.setPrivateKeyUuid(UUID.fromString(created.getPrivateKeyData().getUuid()));
-        attempt.setCreatedAt(OffsetDateTime.now());
+        attempt.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         try {
             keyCreationRecordRepository.saveAndFlush(attempt);
         } catch (DataIntegrityViolationException e) {
