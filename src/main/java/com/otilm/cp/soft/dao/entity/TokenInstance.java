@@ -7,6 +7,7 @@ import com.otilm.cp.soft.util.SecretsUtilHolder;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.sql.Timestamp;
 import java.util.Base64;
@@ -15,7 +16,8 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 @Entity
-@Table(name = "token_instance")
+@Table(name = "token_instance",
+        uniqueConstraints = @UniqueConstraint(name = "token_instance_name_key", columnNames = "name"))
 public class TokenInstance extends UniquelyIdentified {
 
     @Column(name = "name")

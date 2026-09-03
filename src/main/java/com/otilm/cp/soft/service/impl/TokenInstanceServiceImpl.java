@@ -3,11 +3,7 @@ package com.otilm.cp.soft.service.impl;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
-import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
-import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
-import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
@@ -23,6 +19,7 @@ import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenInstanceService;
 import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.TokenMetadataUtil;
 import jakarta.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +99,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
             instance.setData(tokenData);
 
             List<MetadataAttribute> attributes = new ArrayList<>();
-            attributes.add(buildNameMetadata(tokenName));
+            attributes.add(TokenMetadataUtil.nameMetadata(tokenName));
 
             instance.setMetadata(attributes);
 
@@ -232,29 +229,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     public void saveTokenInstance(TokenInstance tokenInstance) {
         tokenInstanceRepository.save(tokenInstance);
         keyStoreCacheService.evictAfterCommit(tokenInstance.getUuid());
-    }
-
-    private MetadataAttribute buildNameMetadata(String name) {
-        // define Metadata Attribute
-        MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
-        metadataAttribute.setUuid("81d8c383-e499-4914-b6de-d92139bfe742");
-        metadataAttribute.setName("meta_tokenName");
-        metadataAttribute.setType(AttributeType.META);
-        metadataAttribute.setContentType(AttributeContentType.STRING);
-        metadataAttribute.setDescription("Reference name of the Token instance");
-        // create properties
-        MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
-        metadataAttributeProperties.setLabel("Token instance name");
-        metadataAttributeProperties.setVisible(true);
-        metadataAttributeProperties.setGlobal(false);
-        metadataAttribute.setProperties(metadataAttributeProperties);
-        // create StringAttributeContent
-        StringAttributeContentV2 stringAttributeContent = new StringAttributeContentV2();
-        stringAttributeContent.setReference("tokenName");
-        stringAttributeContent.setData(name);
-        metadataAttribute.setContent(List.of(stringAttributeContent));
-
-        return metadataAttribute;
     }
 
     @Autowired

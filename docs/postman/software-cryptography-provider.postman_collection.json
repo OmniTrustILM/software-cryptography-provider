@@ -1,0 +1,1139 @@
+{
+  "info": {
+    "name": "Software Cryptography Provider",
+    "description": "# Software Cryptography Provider\n\nManual test collection for the Cryptography Provider **v2** REST surface. The v1 surface is unchanged and served alongside it; nothing here touches it.\n\n## Running the connector locally\n\nThe connector needs PostgreSQL. Start one and point the connector at it:\n\n```sh\ndocker run --rm -d --name softcp-db -p 5432:5432 \\\n  -e POSTGRES_USER=softcp -e POSTGRES_PASSWORD=softcp -e POSTGRES_DB=softcp postgres:18\n\nJDBC_URL='jdbc:postgresql://localhost:5432/softcp' JDBC_USERNAME=softcp JDBC_PASSWORD=softcp \\\n  mvn -B spring-boot:run\n```\n\n## Using this collection\n\nImport the collection and the environment beside it, then run the folders in order. The first folder needs nothing but the connector. The second creates a token the first time it addresses one, creates a key, and uses it: run it top to bottom, since the requests pass the key handles between them through collection variables.\n\n`tokenName`, `keyAlias` and `keyCreationId` are per-run values. Change them, or re-import the environment, before running the second folder again.\n\n## What the v2 surface does differently\n\n- A request carries its token as attributes; there is no operation that creates, activates or removes one, so a token comes into existence the first time a context names it.\n- A key is addressed by the metadata the connector published for it, one handle per half of a key pair.\n- Everything completes inline. Asynchronous execution is refused and no operation is ever tracked.\n- Failures are RFC 9457 problem documents carrying an `errorCode`, which is what the tests here assert.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Local smoke (connector only)",
+      "item": [
+        {
+          "name": "GET /v2/info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/info",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "info"
+              ]
+            },
+            "description": "Reports the connector and the interfaces it serves. The cryptography interface is at v2 and declares no features: asynchronous execution is deliberately not offered, and key transfer is not implemented yet. Needs no database."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"connector id is software-cryptography-provider\", function () { pm.expect(pm.response.json().connector.id).to.eql(\"software-cryptography-provider\"); });",
+                  "pm.test(\"cryptography is served at v2\", function () { var i = pm.response.json().interfaces.find(function (x) { return x.code === \"cryptography\"; }); pm.expect(i.version).to.eql(\"v2\"); });",
+                  "pm.test(\"asynchronous execution is not declared\", function () { var i = pm.response.json().interfaces.find(function (x) { return x.code === \"cryptography\"; }); pm.expect(i.features || []).to.not.include(\"asynchronous\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/attributes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/attributes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "attributes"
+              ]
+            },
+            "description": "The whole attribute registry, with the connector version that defined it. Includes what the operations need to be told, which earlier interfaces never published."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"registry is not empty\", function () { pm.expect(pm.response.json().definitions).to.be.an(\"array\").that.is.not.empty; });",
+                  "pm.test(\"signature attributes are published\", function () { var names = pm.response.json().definitions.map(function (d) { return d.name; }); pm.expect(names).to.include(\"data_sigDigest\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/attributes/{key alias uuid}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/attributes/61a228de-c54e-461e-b0d7-ad156a547b51",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "attributes",
+                "61a228de-c54e-461e-b0d7-ad156a547b51"
+              ]
+            },
+            "description": "One definition by its connector-global identifier."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"it is the key alias attribute\", function () { pm.expect(pm.response.json().name).to.eql(\"data_keyAlias\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/attributes/{existing token selection uuid}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/attributes/a12bb85a-93a9-4c05-9d7d-5b253298bbaf",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "attributes",
+                "a12bb85a-93a9-4c05-9d7d-5b253298bbaf"
+              ]
+            },
+            "description": "One definition by its connector-global identifier."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the token selection attribute is defined\", function () { pm.expect(pm.response.json().name).to.eql(\"data_existingToken\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/attributes/{unknown uuid} (expect 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/attributes/00000000-0000-4000-8000-000000000000",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "attributes",
+                "00000000-0000-4000-8000-000000000000"
+              ]
+            },
+            "description": "A definition this connector does not publish is a problem document naming RESOURCE_NOT_FOUND."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"errorCode is RESOURCE_NOT_FOUND\", function () { pm.expect(pm.response.json().errorCode).to.eql(\"RESOURCE_NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/cryptographyProvider/tokens/attributes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/tokens/attributes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "tokens",
+                "attributes"
+              ]
+            },
+            "description": "The schema a token is configured with. This is what the token context in the next folder is built from."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"a token is configurable\", function () { pm.expect(pm.response.json()).to.be.an(\"array\").that.is.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/health",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "health"
+              ]
+            },
+            "description": "Liveness of the connector itself."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the connector is up\", function () { pm.expect(pm.response.json().status).to.eql(\"UP\"); });",
+                  "pm.test(\"liveness and readiness are reported\", function () { var c = pm.response.json().components; pm.expect(c).to.have.property(\"liveness\"); pm.expect(c).to.have.property(\"readiness\"); });",
+                  "pm.test(\"the correlation id comes back\", function () { pm.expect(pm.response.headers.get(\"correlation-id\")).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/health/liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/health/liveness",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "health",
+                "liveness"
+              ]
+            },
+            "description": "Liveness of the connector itself."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"liveness is reported\", function () { pm.expect(pm.response.json().components).to.have.property(\"liveness\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/health/readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/health/readiness",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "health",
+                "readiness"
+              ]
+            },
+            "description": "Liveness of the connector itself."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"readiness is reported\", function () { pm.expect(pm.response.json().components).to.have.property(\"readiness\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Full flow (needs the database)",
+      "item": [
+        {
+          "name": "POST tokens/status (before first use)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/tokens/status",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "tokens",
+                "status"
+              ]
+            },
+            "description": "Status reports rather than fails. A token the context names but that has never been used is reported Disconnected: it is created the first time an operation addresses it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"status is reported\", function () { pm.expect(pm.response.json().status).to.be.oneOf([\"Connected\", \"Disconnected\"]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST tokens/tokenProfile/keyUsages",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/tokens/tokenProfile/keyUsages",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "tokens",
+                "tokenProfile",
+                "keyUsages"
+              ]
+            },
+            "description": "The usages a key of this provider can serve. It signs, verifies, encrypts and decrypts; it does not wrap keys.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"usages are sign, verify, encrypt, decrypt\", function () { pm.expect(pm.response.json()).to.eql([\"sign\", \"verify\", \"encrypt\", \"decrypt\"]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST tokens/keyRequestTypes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/tokens/keyRequestTypes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "tokens",
+                "keyRequestTypes"
+              ]
+            },
+            "description": "Only key pairs are offered. Secret keys are not implemented, so the provider does not offer to hold one.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"only key pairs\", function () { pm.expect(pm.response.json()).to.eql([\"keyPair\"]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/create/attributes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/create/attributes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "create",
+                "attributes"
+              ]
+            },
+            "description": "What a key is created from: the alias, the algorithm, and the group whose contents follow the algorithm chosen. Creates the token if the context names one that does not exist yet.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"schema is not empty\", function () { pm.expect(pm.response.json()).to.be.an(\"array\").that.is.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/create (RSA 2048)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/create",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "create"
+              ]
+            },
+            "description": "Creates an RSA key pair synchronously. Each half comes back with its own durable handle in keyMeta, which the operations below send back to address that half. Repeating this request with the same keyCreationId returns the same key rather than making a second one.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyCreationId\": \"{{keyCreationId}}\",\n  \"createKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{keyAlias}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"72159c04-d1a9-4703-8b23-469224425d5f\",\n      \"name\": \"data_keyAlgorithm\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"RSA\",\n          \"data\": \"RSA\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"aa7df6ff-1d64-4a1a-96d6-6c7aeadfbdf3\",\n      \"name\": \"data_rsaKeySize\",\n      \"contentType\": \"integer\",\n      \"content\": [\n        {\n          \"data\": 2048\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"a key pair was created\", function () { pm.expect(pm.response.json().keyRequestType).to.eql(\"keyPair\"); });",
+                  "pm.test(\"the public key travels as SPKI\", function () { pm.expect(pm.response.json().publicKeyData.keyData.publicKeySpki).to.be.a(\"string\"); });",
+                  "pm.test(\"no tracking handle for finished work\", function () { pm.expect(pm.response.json().operationMeta).to.be.oneOf([undefined, null]); });",
+                  "var body = pm.response.json();",
+                  "var reference = function (half) { return body[half].keyMeta.find(function (m) { return m.name === \"meta_keyReference\"; }).content[0].data; };",
+                  "pm.collectionVariables.set(\"privateKeyReference\", reference(\"privateKeyData\"));",
+                  "pm.collectionVariables.set(\"publicKeyReference\", reference(\"publicKeyData\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/create (repeat, same keyCreationId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/create",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "create"
+              ]
+            },
+            "description": "The same request again. A caller that lost the first response must be given the key it made, not a second key.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyCreationId\": \"{{keyCreationId}}\",\n  \"createKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{keyAlias}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"72159c04-d1a9-4703-8b23-469224425d5f\",\n      \"name\": \"data_keyAlgorithm\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"RSA\",\n          \"data\": \"RSA\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"aa7df6ff-1d64-4a1a-96d6-6c7aeadfbdf3\",\n      \"name\": \"data_rsaKeySize\",\n      \"contentType\": \"integer\",\n      \"content\": [\n        {\n          \"data\": 2048\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the same private key comes back\", function () { var body = pm.response.json(); var reference = body.privateKeyData.keyMeta.find(function (m) { return m.name === \"meta_keyReference\"; }).content[0].data; pm.expect(reference).to.eql(pm.collectionVariables.get(\"privateKeyReference\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/create (asynchronous, expect 501)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/create",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "create"
+              ]
+            },
+            "description": "Asynchronous execution is not offered. The connector refuses it rather than accepting work it finishes immediately, which would leave the caller polling for an operation that no longer exists.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"asynchronous\",\n  \"keyCreationId\": \"{{$guid}}\",\n  \"createKeyAttributes\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 501\", function () { pm.response.to.have.status(501); });",
+                  "pm.test(\"errorCode is OPERATION_NOT_SUPPORTED\", function () { pm.expect(pm.response.json().errorCode).to.eql(\"OPERATION_NOT_SUPPORTED\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST operations/sign/attributes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/operations/sign/attributes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "operations",
+                "sign",
+                "attributes"
+              ]
+            },
+            "description": "What signing with this key needs to be told, which follows the key's algorithm: an RSA key needs a scheme and a digest.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"keyReference\",\n          \"data\": \"{{privateKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the RSA scheme and digest are asked for\", function () { var names = pm.response.json().map(function (a) { return a.name; }); pm.expect(names).to.eql([\"data_rsaSigScheme\", \"data_sigDigest\"]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST operations/sign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/operations/sign",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "operations",
+                "sign"
+              ]
+            },
+            "description": "Signs one item with the private key half. The signature comes back correlated by the identifier the request gave it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"keyReference\",\n          \"data\": \"{{privateKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"executionMode\": \"synchronous\",\n  \"signatureAttributes\": [\n    {\n      \"uuid\": \"b7a1c084-16a3-4a2b-9f56-4d7f0f0a3c11\",\n      \"name\": \"data_rsaSigScheme\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"PKCS#1 v1.5\",\n          \"data\": \"PKCS1-v1_5\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"c1f5d0e2-6b48-4d6c-9a3e-2f2b9c7d54ab\",\n      \"name\": \"data_sigDigest\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"SHA-256\",\n          \"data\": \"SHA-256\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"data\": [\n    {\n      \"identifier\": \"one\",\n      \"data\": \"dGhlIG1lc3NhZ2UgdG8gc2lnbg==\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"one signature, correlated\", function () { var s = pm.response.json().signatures; pm.expect(s).to.have.lengthOf(1); pm.expect(s[0].identifier).to.eql(\"one\"); });",
+                  "pm.collectionVariables.set(\"signature\", pm.response.json().signatures[0].data);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST operations/verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/operations/verify",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "operations",
+                "verify"
+              ]
+            },
+            "description": "Verifies that signature with the public key half. Verification is always synchronous.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"keyReference\",\n          \"data\": \"{{publicKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"signatureAttributes\": [\n    {\n      \"uuid\": \"c1f5d0e2-6b48-4d6c-9a3e-2f2b9c7d54ab\",\n      \"name\": \"data_sigDigest\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"SHA-256\",\n          \"data\": \"SHA-256\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"b7a1c084-16a3-4a2b-9f56-4d7f0f0a3c11\",\n      \"name\": \"data_rsaSigScheme\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"PKCS#1 v1.5\",\n          \"data\": \"PKCS1-v1_5\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"data\": [\n    {\n      \"identifier\": \"one\",\n      \"data\": \"dGhlIG1lc3NhZ2UgdG8gc2lnbg==\"\n    }\n  ],\n  \"signatures\": [\n    {\n      \"identifier\": \"one\",\n      \"data\": \"{{signature}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the signature verifies\", function () { pm.expect(pm.response.json().verifications[0].result).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST operations/encrypt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/operations/encrypt",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "operations",
+                "encrypt"
+              ]
+            },
+            "description": "Encrypts with the public key half. Only RSA keys can be used this way, which is why the cipher schema is empty for the other algorithms.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"keyReference\",\n          \"data\": \"{{publicKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"cipherAttributes\": [\n    {\n      \"uuid\": \"d4c3b2a1-9e87-4f65-8d21-0a1b2c3d4e5f\",\n      \"name\": \"data_rsaEncScheme\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"PKCS#1 v1.5\",\n          \"data\": \"PKCS1-v1_5\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"cipherData\": [\n    {\n      \"identifier\": \"one\",\n      \"data\": \"c2VjcmV0IG1lc3NhZ2U=\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"data came back encrypted\", function () { pm.expect(pm.response.json().encryptedData[0].data).to.be.a(\"string\"); });",
+                  "pm.test(\"the item identifier came back\", function () { pm.expect(pm.response.json().encryptedData[0].identifier).to.eql(\"one\"); });",
+                  "pm.collectionVariables.set(\"ciphertext\", pm.response.json().encryptedData[0].data);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST operations/decrypt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/operations/decrypt",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "operations",
+                "decrypt"
+              ]
+            },
+            "description": "Decrypts it again with the private key half, which must return the original bytes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"keyReference\",\n          \"data\": \"{{privateKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"cipherAttributes\": [\n    {\n      \"uuid\": \"d4c3b2a1-9e87-4f65-8d21-0a1b2c3d4e5f\",\n      \"name\": \"data_rsaEncScheme\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"PKCS#1 v1.5\",\n          \"data\": \"PKCS1-v1_5\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"cipherData\": [\n    {\n      \"identifier\": \"one\",\n      \"data\": \"{{ciphertext}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the original message came back\", function () { pm.expect(pm.response.json().decryptedData[0].data).to.eql(\"c2VjcmV0IG1lc3NhZ2U=\"); });",
+                  "pm.test(\"the item identifier came back\", function () { pm.expect(pm.response.json().decryptedData[0].identifier).to.eql(\"one\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST operations/random",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/operations/random",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "operations",
+                "random"
+              ]
+            },
+            "description": "Random data from the provider, which needs a token context but no key.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"length\": 32,\n  \"operationAttributes\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"random data came back\", function () { pm.expect(pm.response.json().data).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/create/status (expect 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/create/status",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "create",
+                "status"
+              ]
+            },
+            "description": "Nothing is ever accepted for asynchronous processing, so nothing is ever tracked.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operationMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{privateKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"errorCode is OPERATION_NOT_TRACKED\", function () { pm.expect(pm.response.json().errorCode).to.eql(\"OPERATION_NOT_TRACKED\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/import (expect 501)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/import",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "import"
+              ]
+            },
+            "description": "Key import is not implemented yet, so the connector declares neither key transfer feature and refuses the operation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 501\", function () { pm.response.to.have.status(501); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/destroy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/destroy",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "destroy"
+              ]
+            },
+            "description": "Destroys the key the metadata addresses. Run it twice: the second attempt is answered as absent.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"keyReference\",\n          \"data\": \"{{privateKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"executionMode\": \"synchronous\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/destroy (again, expect 404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/destroy",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "destroy"
+              ]
+            },
+            "description": "The same key once more. A key destroyed once is gone, and the answer says so rather than failing obscurely.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyMeta\": [\n    {\n      \"uuid\": \"2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4\",\n      \"name\": \"meta_keyReference\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"keyReference\",\n          \"data\": \"{{privateKeyReference}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"executionMode\": \"synchronous\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"errorCode is RESOURCE_NOT_FOUND\", function () { pm.expect(pm.response.json().errorCode).to.eql(\"RESOURCE_NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "privateKeyReference",
+      "value": ""
+    },
+    {
+      "key": "publicKeyReference",
+      "value": ""
+    },
+    {
+      "key": "signature",
+      "value": ""
+    },
+    {
+      "key": "ciphertext",
+      "value": ""
+    }
+  ]
+}

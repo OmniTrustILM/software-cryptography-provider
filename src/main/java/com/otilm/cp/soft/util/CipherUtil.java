@@ -26,7 +26,6 @@ import java.security.NoSuchProviderException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -96,11 +95,9 @@ public class CipherUtil {
 
     private static List<CipherResponseData> doProcess(List<CipherRequestData> cipherData, int mode,
             CipherSpec cipherSpec, CachedKeyData key, CachedKeyMaterial material) {
-        Iterator<CipherRequestData> it = cipherData.stream().iterator();
         List<CipherResponseData> responseDataList = new ArrayList<>();
-        while (it.hasNext()) {
+        for (CipherRequestData requestData : cipherData) {
             try {
-                byte[] encBytes = it.next().getData();
                 Cipher cipher = Cipher.getInstance(cipherSpec.transformation(), BouncyCastleProvider.PROVIDER_NAME);
                 // RSA encryption must use the public key; decryption must use the private key.
                 Key cryptoKey = (mode == Cipher.ENCRYPT_MODE)
@@ -112,7 +109,9 @@ public class CipherUtil {
                     cipher.init(mode, cryptoKey);
                 }
                 CipherResponseData cipherResponseData = new CipherResponseData();
-                cipherResponseData.setData(cipher.doFinal(encBytes));
+                // The identifier is how a caller pairs a result with the item it sent, so it is carried over unchanged.
+                cipherResponseData.setIdentifier(requestData.getIdentifier());
+                cipherResponseData.setData(cipher.doFinal(requestData.getData()));
                 responseDataList.add(cipherResponseData);
             } catch (NoSuchAlgorithmException | NoSuchPaddingException | NoSuchProviderException | InvalidKeyException
                     | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {

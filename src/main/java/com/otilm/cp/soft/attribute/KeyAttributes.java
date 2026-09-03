@@ -43,6 +43,11 @@ public class KeyAttributes {
 
     // Cryptographic Key METADATA
 
+    public static final String ATTRIBUTE_META_KEY_REFERENCE = "meta_keyReference";
+    public static final String ATTRIBUTE_META_KEY_REFERENCE_UUID = "2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4";
+    public static final String ATTRIBUTE_META_KEY_REFERENCE_LABEL = "Key Reference";
+    public static final String ATTRIBUTE_META_KEY_REFERENCE_DESCRIPTION = "Durable reference of the Key in the provider";
+
     public static final String ATTRIBUTE_META_KEY_ALIAS = "meta_keyAlias";
     public static final String ATTRIBUTE_META_KEY_ALIAS_UUID = "a5575bb8-dd88-4b60-bb73-75b862da78aa";
     public static final String ATTRIBUTE_META_KEY_ALIAS_LABEL = "Key Alias";
@@ -121,6 +126,40 @@ public class KeyAttributes {
     }
 
     // METADATA
+
+    /**
+     * The metadata naming a key durably.
+     *
+     * <p>
+     * The V2 interfaces address a key by the metadata the connector published for it, and require that metadata to keep
+     * identifying the same key across restarts. The row's own reference does that, where the alias alone would not
+     * distinguish the two halves of a key pair.
+     * </p>
+     *
+     * @param reference the durable reference of the key
+     * @return the key reference metadata attribute
+     */
+    public static MetadataAttribute buildKeyReferenceMetadata(String reference) {
+        MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
+        metadataAttribute.setUuid(ATTRIBUTE_META_KEY_REFERENCE_UUID);
+        metadataAttribute.setName(ATTRIBUTE_META_KEY_REFERENCE);
+        metadataAttribute.setType(AttributeType.META);
+        metadataAttribute.setContentType(AttributeContentType.STRING);
+        metadataAttribute.setDescription(ATTRIBUTE_META_KEY_REFERENCE_DESCRIPTION);
+
+        MetadataAttributeProperties properties = new MetadataAttributeProperties();
+        properties.setLabel(ATTRIBUTE_META_KEY_REFERENCE_LABEL);
+        properties.setVisible(true);
+        properties.setGlobal(false);
+        metadataAttribute.setProperties(properties);
+
+        StringAttributeContentV2 content = new StringAttributeContentV2();
+        content.setReference("keyReference");
+        content.setData(reference);
+        metadataAttribute.setContent(List.of(content));
+
+        return metadataAttribute;
+    }
 
     public static MetadataAttribute buildAliasMetadata(String alias) {
         // define Metadata Attribute

@@ -29,6 +29,11 @@ management:
     health:
       probes:
         enabled: true
+      # Serving depends on the datastore the keystores live in, so readiness weighs it. Adding the group leaves what
+      # the health endpoint itself answers untouched.
+      group:
+        readiness:
+          include: 'readinessState,db'
 
 secrets:
   encryption:
