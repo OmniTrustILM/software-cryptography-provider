@@ -106,14 +106,18 @@ public class V2ExceptionHandlingAdvice {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetailExtended> handleUnexpectedFailure(Exception e) {
-        logger.error("A v2 request known as {} failed with {}", correlationId(), classOf(e));
+        if (logger.isErrorEnabled()) {
+            logger.error("A v2 request known as {} failed with {}", correlationId(), classOf(e));
+        }
         return problem(ErrorCode.INTERNAL_SERVER_ERROR, "The request could not be completed.", e);
     }
 
     private static ResponseEntity<ProblemDetailExtended> problem(ErrorCode errorCode, String detail, Exception cause) {
-        logger
-                .debug("Answering the v2 request known as {} with {} after {}", correlationId(), errorCode,
-                        classOf(cause));
+        if (logger.isDebugEnabled()) {
+            logger
+                    .debug("Answering the v2 request known as {} with {} after {}", correlationId(), errorCode,
+                            classOf(cause));
+        }
         ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(errorCode, detail, null, correlationId());
         return ResponseEntity.status(errorCode.getStatus()).body(problem);
     }
