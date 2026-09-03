@@ -86,13 +86,20 @@ public final class OperationDataMapper {
                         "More than one signature was given for item " + signature.getIdentifier());
             }
         }
-        return toSignatureRequests(data.stream().map(item -> {
-            SignatureDataV2Dto signature = byIdentifier.get(item.getIdentifier());
+        // Each signature is taken as its data item claims it, so one left over was never asked about. Answering the
+        // rest would report on fewer items than the request listed, which the caller cannot tell from a full answer.
+        List<SignatureDataV2Dto> paired = data.stream().map(item -> {
+            SignatureDataV2Dto signature = byIdentifier.remove(item.getIdentifier());
             if (signature == null) {
                 throw new CryptographicOperationException("No signature was given for item " + item.getIdentifier());
             }
             return signature;
-        }).toList());
+        }).toList();
+        if (!byIdentifier.isEmpty()) {
+            throw new CryptographicOperationException(
+                    "Signatures were given for items that were not listed: " + byIdentifier.keySet());
+        }
+        return toSignatureRequests(paired);
     }
 
     public static List<CipherRequestData> toCipherRequests(List<CipherDataV2Dto> cipherData) {

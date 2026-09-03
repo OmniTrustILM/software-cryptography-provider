@@ -23,31 +23,13 @@ management:
         include: health
   endpoint:
     health:
-      show-details: always
-      # Publishes the liveness and readiness the contract requires, each also on its own path.
       probes:
         enabled: true
-      # Serving depends on the datastore the keystores live in, so readiness weighs it.
+      # Serving depends on the datastore the keystores live in, so readiness weighs it. Adding the group leaves what
+      # the health endpoint itself answers untouched.
       group:
         readiness:
           include: 'readinessState,db'
-      status:
-        order: 'DOWN,OUT_OF_SERVICE,DEGRADED,UP,UNKNOWN'
-        http-mapping:
-          DOWN: 503
-          OUT_OF_SERVICE: 503
-          DEGRADED: 200
-          UNKNOWN: 200
-  # Nothing is reported unless it is named here: an indicator's details can name a host or a path.
-  health:
-    defaults:
-      enabled: false
-    livenessstate:
-      enabled: true
-    readinessstate:
-      enabled: true
-    db:
-      enabled: true
 
 secrets:
   encryption:

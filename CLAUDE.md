@@ -115,7 +115,8 @@ publishes no such groups is answered from the application's own availability sta
 components however the management endpoints are exposed. Only the shape is this connector's own: the management
 endpoint answers in its own media type, names the probes after internal state rather than after the contract, and
 reports no components on a single probe. Only statuses are published, never an indicator's details, and anything but a
-connector that can serve is answered with 503.
+connector that can serve is answered with 503. The state is read programmatically, so nothing about how the management
+endpoint itself answers had to change.
 
 **Every request is given an identifier, and it is sent back.** `CorrelationFilter` takes it from `correlation-id`,
 then `X-Request-Id`, then the trace identifier inside a `traceparent`, and mints one when a request carries none. It

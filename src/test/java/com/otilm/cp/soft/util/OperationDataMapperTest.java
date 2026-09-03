@@ -160,6 +160,35 @@ class OperationDataMapperTest {
                 () -> OperationDataMapper.toSignatureRequestsPairedWith(data, signatures));
     }
 
+    /**
+     * A signature no data item claims was never asked about. Verifying only the items that were listed would report on
+     * fewer of them than the caller sent, which it cannot tell from a full answer.
+     */
+    @Test
+    void refusesASignatureForAnItemThatWasNotListed() {
+        // given
+        List<SignatureDataV2Dto> data = List.of(item("one", DATA));
+        List<SignatureDataV2Dto> signatures = List.of(item("one", DATA), item("two", OTHER));
+
+        // when
+        // then
+        assertThrows(CryptographicOperationException.class,
+                () -> OperationDataMapper.toSignatureRequestsPairedWith(data, signatures));
+    }
+
+    /** Two data items wearing one identifier would consume the same signature twice. */
+    @Test
+    void refusesTwoDataItemsWearingOneIdentifier() {
+        // given
+        List<SignatureDataV2Dto> data = List.of(item("one", DATA), item("one", OTHER));
+        List<SignatureDataV2Dto> signatures = List.of(item("one", DATA), item("two", OTHER));
+
+        // when
+        // then
+        assertThrows(CryptographicOperationException.class,
+                () -> OperationDataMapper.toSignatureRequestsPairedWith(data, signatures));
+    }
+
     private static SignatureDataV2Dto item(String identifier, byte[] data) {
         SignatureDataV2Dto item = new SignatureDataV2Dto();
         item.setIdentifier(identifier);

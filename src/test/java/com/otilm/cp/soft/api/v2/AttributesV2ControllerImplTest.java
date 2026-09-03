@@ -3,10 +3,15 @@ package com.otilm.cp.soft.api.v2;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackRequestDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeDefinitionsDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
+import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
+import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
+import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +36,8 @@ class AttributesV2ControllerImplTest {
 
     private TokenV2ControllerImpl tokenController;
 
+    private KeyV2ControllerImpl keyController;
+
     @Autowired
     void setController(AttributesV2ControllerImpl controller) {
         this.controller = controller;
@@ -39,6 +46,11 @@ class AttributesV2ControllerImplTest {
     @Autowired
     void setTokenController(TokenV2ControllerImpl tokenController) {
         this.tokenController = tokenController;
+    }
+
+    @Autowired
+    void setKeyController(KeyV2ControllerImpl keyController) {
+        this.keyController = keyController;
     }
 
     @Test
@@ -147,6 +159,31 @@ class AttributesV2ControllerImplTest {
         // then
         assertFalse(published.isEmpty(), "the token endpoint must ask for something");
         for (BaseAttribute attribute : published) {
+            UUID uuid = UUID.fromString(attribute.getUuid());
+            assertEquals(attribute.getName(), controller.getDefinition(uuid).getName());
+        }
+    }
+
+    /**
+     * A caller reads the metadata identifiers off the key it was just given, so every one of them has to resolve here.
+     * The key handles are what a later request addresses the key by, which makes their definitions part of the contract
+     * as much as the create attributes are.
+     */
+    @Test
+    void resolvesTheMetadataPublishedOnAKeyItCreated() {
+        // given
+        CreateKeyRequestV2Dto request = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-meta"), "key-" + System.nanoTime());
+        KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) keyController.createKey(request).getBody();
+        assertNotNull(created);
+
+        List<MetadataAttribute> published = new ArrayList<>(created.getPublicKeyData().getKeyMeta());
+        published.addAll(created.getPrivateKeyData().getKeyMeta());
+
+        // when
+        // then
+        assertFalse(published.isEmpty(), "a created key must publish the handles addressing it");
+        for (MetadataAttribute attribute : published) {
             UUID uuid = UUID.fromString(attribute.getUuid());
             assertEquals(attribute.getName(), controller.getDefinition(uuid).getName());
         }

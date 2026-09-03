@@ -1,6 +1,7 @@
 package com.otilm.cp.soft.service;
 
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.FalconKeyAttributes;
@@ -11,6 +12,7 @@ import com.otilm.cp.soft.attribute.OperationAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
+import com.otilm.cp.soft.util.TokenMetadataUtil;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,6 +55,9 @@ public final class AttributeDefinitionRegistry {
         return definitions().stream().filter(attribute -> uuid.equals(attribute.getUuid())).findFirst();
     }
 
+    /** Stands in for the value a published metadata attribute carries, which its definition leaves out. */
+    private static final String PUBLISHED_WITH_A_VALUE = "";
+
     private static List<BaseAttribute> all() {
         List<BaseAttribute> attributes = new ArrayList<>(TokenInstanceAttributes.getNewTokenAttributes());
         // What a token context asks for once tokens exist: the choice between an existing token and a new one, and the
@@ -74,6 +79,22 @@ public final class AttributeDefinitionRegistry {
             attributes.addAll(OperationAttributes.signatureAttributes(algorithm));
             attributes.addAll(OperationAttributes.cipherAttributes(algorithm));
         });
+        // The metadata this connector publishes on the objects it answers with. A caller reads these identifiers off a
+        // key or a token it was given, so looking them up here has to reach a definition like any other attribute.
+        attributes.add(definition(KeyAttributes.buildKeyReferenceMetadata(PUBLISHED_WITH_A_VALUE)));
+        attributes.add(definition(KeyAttributes.buildAliasMetadata(PUBLISHED_WITH_A_VALUE)));
+        attributes.add(definition(TokenMetadataUtil.nameMetadata(PUBLISHED_WITH_A_VALUE)));
+        attributes.add(definition(RsaKeyAttributes.buildRsaKeySizeMetadata(0)));
+        attributes.add(definition(FalconKeyAttributes.buildFalconDegreeMetadata(0)));
         return attributes;
+    }
+
+    /**
+     * A published metadata attribute as its definition, which is the attribute without the value it carried. The
+     * builders take the value the object being answered with has, and a definition describes neither.
+     */
+    private static BaseAttribute definition(MetadataAttribute metadata) {
+        metadata.setContent(null);
+        return metadata;
     }
 }
