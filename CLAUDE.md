@@ -66,6 +66,7 @@ mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar 
 | `dao/` | JPA entities, repositories and the key algorithm/format/type converters |
 | `util/` | Keystore, cipher, signature, X.509, secret and migration helpers |
 | `api/v2/` | Controllers implementing the NG (v2) connector interfaces, and their problem-detail advice |
+| `api/CorrelationFilter` | Gives every request an identifier, for the logs and for the response |
 | `src/main/java/db/migration/` | Java Flyway migrations |
 | `docs/postman/` | Manual test collection for the v2 surface, with a local environment |
 
@@ -106,6 +107,18 @@ means the platform only ever sends synchronous requests. Every operation here co
 cancellation operations answer `OPERATION_NOT_TRACKED`, and a request for asynchronous execution is refused with
 `OPERATION_NOT_SUPPORTED`. Declaring the flag would mean a job store and polling for work that finishes in
 milliseconds.
+
+**Health is reported from the application's own availability state.** `HealthV2ControllerImpl` answers `/v2/health`
+and the two probes under it. Liveness and readiness come from `ApplicationAvailability`, which a Spring application
+always keeps, rather than from the management health groups, which only exist when the probes are configured: the
+contract requires both components on every request. Readiness also weighs the database, since the keystores live
+there. Only statuses are published, never a health indicator's details, and anything but a connector that can serve
+is answered with 503.
+
+**Every request is given an identifier, and it is sent back.** `CorrelationFilter` takes it from `correlation-id`,
+then `X-Request-Id`, then the trace identifier inside a `traceparent`, and mints one when a request carries none. It
+goes into the logging context under `correlation_id` and into the `correlation-id` response header. A trace context
+is not sent back: it belongs to the caller's trace. Problem documents read the identifier from that one place.
 
 **The v2 surface answers failures as RFC 9457 problem documents.** `V2ExceptionHandlingAdvice` is scoped to
 `api/v2/`, so v1 keeps its own error shape. The detail is the connector's own wording, never the exception message: a

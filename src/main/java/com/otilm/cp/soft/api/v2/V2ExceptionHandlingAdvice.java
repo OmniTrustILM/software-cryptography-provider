@@ -3,6 +3,7 @@ package com.otilm.cp.soft.api.v2;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
+import com.otilm.cp.soft.api.CorrelationFilter;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.KeyManagementException;
@@ -14,6 +15,7 @@ import com.otilm.cp.soft.exception.TokenInstanceException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +39,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * precedence over the connector-wide advice for those controllers. The handler of last resort keeps that boundary
  * closed: without it an unforeseen failure would reach the connector-wide advice and answer a V2 caller in the V1
  * shape.
+ * </p>
+ *
+ * <p>
+ * Every document carries the trace the caller sent, so a failure answered here can be matched to the request that
+ * caused it in the platform's own log. The occurrence and the content type are left to the framework, which sets the
+ * request path and {@code application/problem+json} on any problem document a handler returns.
  * </p>
  */
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -104,7 +112,15 @@ public class V2ExceptionHandlingAdvice {
 
     private static ResponseEntity<ProblemDetailExtended> problem(ErrorCode errorCode, String detail, Exception cause) {
         logger.debug("Answering a v2 request with {}", errorCode, cause);
-        ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(errorCode, detail, null, null);
+        ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(errorCode, detail, null, correlationId());
         return ResponseEntity.status(errorCode.getStatus()).body(problem);
+    }
+
+    /**
+     * The identifier this request is known by, which the platform matches this document to its own record of the
+     * request with. Every request has one: the caller states it, or it was given one when it arrived.
+     */
+    private static String correlationId() {
+        return MDC.get(CorrelationFilter.CORRELATION_ID);
     }
 }

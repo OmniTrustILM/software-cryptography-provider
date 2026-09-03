@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -87,7 +88,26 @@ class V2ErrorShapeTest {
                 .andExpect(jsonPath("$.detail").exists())
                 .andExpect(jsonPath("$.status").value(HttpStatus.UNPROCESSABLE_ENTITY.value()))
                 .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.retryable").exists());
+                .andExpect(jsonPath("$.retryable").exists())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+    }
+
+    /**
+     * A problem document names the request it answered, so the platform can match it to its own record. The identifier
+     * is the one the caller stated, and the occurrence is the path that produced it.
+     */
+    @Test
+    void aProblemDocumentNamesTheRequestItAnswered() throws Exception {
+        // given
+        // when
+        // then
+        mockMvc
+                .perform(post(OPERATIONS + "/encrypt/attributes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("correlation-id", "core-7f3a2b19")
+                        .content("{}"))
+                .andExpect(jsonPath("$.correlationId").value("core-7f3a2b19"))
+                .andExpect(jsonPath("$.instance").value(OPERATIONS + "/encrypt/attributes"));
     }
 
     /**

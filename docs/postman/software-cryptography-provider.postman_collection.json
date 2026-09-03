@@ -226,7 +226,74 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the connector is up\", function () { pm.expect(pm.response.json().status).to.eql(\"UP\"); });",
+                  "pm.test(\"liveness and readiness are reported\", function () { var c = pm.response.json().components; pm.expect(c).to.have.property(\"liveness\"); pm.expect(c).to.have.property(\"readiness\"); });",
+                  "pm.test(\"the correlation id comes back\", function () { pm.expect(pm.response.headers.get(\"correlation-id\")).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/health/liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/health/liveness",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "health",
+                "liveness"
+              ]
+            },
+            "description": "Liveness of the connector itself."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"liveness is reported\", function () { pm.expect(pm.response.json().components).to.have.property(\"liveness\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v2/health/readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/health/readiness",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "health",
+                "readiness"
+              ]
+            },
+            "description": "Liveness of the connector itself."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"readiness is reported\", function () { pm.expect(pm.response.json().components).to.have.property(\"readiness\"); });"
                 ]
               }
             }
