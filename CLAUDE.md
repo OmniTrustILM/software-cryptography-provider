@@ -66,6 +66,7 @@ mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar 
 | `dao/` | JPA entities, repositories and the key algorithm/format/type converters |
 | `util/` | Keystore, cipher, signature, X.509, secret, imported-key and migration helpers |
 | `api/v2/` | Controllers implementing the NG (v2) connector interfaces, and their problem-detail advice |
+| `metrics/` | The metrics the interfaces require, and the instruments that record them |
 | `api/CorrelationFilter` | Gives every request an identifier, for the logs and for the response |
 | `src/main/java/db/migration/` | Java Flyway migrations |
 | `docs/postman/` | Manual test collection for the v2 surface, with a local environment |
@@ -91,11 +92,12 @@ would otherwise have none. This is what keeps a token usable from both generatio
 **A key is addressed by the metadata the connector published for it.** Each half of a key pair gets its own handle,
 carrying the alias and `meta_keyReference` — the key row's own reference. The alias alone cannot distinguish the halves.
 
-**Creation is idempotent by `keyCreationId`.** `key_creation_record` holds the identifier, a fingerprint of the parts of
-the request that decide equivalence, and the two key references. A repeat is answered with the key the first attempt
-made; the same identifier on a different request is refused as a conflict. The fingerprint covers the resolved token
-rather than the context that addressed it: the context carries the code that opens the token, and a short secret would
-be far easier to guess from a stored hash than from the way the code itself is stored.
+**Creation is idempotent by `keyCreationId`.** The identifier and a fingerprint of the parts of the request that
+decide equivalence are columns on the key row, so what a creation leaves behind cannot outlive the key it describes. A
+repeat is answered with the key the first attempt made; the same identifier on a different request is refused as a
+conflict. The fingerprint covers the resolved token rather than the context that addressed it: the context carries the
+code that opens the token, and a short secret would be far easier to guess from a stored hash than from the way the
+code itself is stored.
 
 **Two requests can address the same new object at once.** Only one row can carry the token name or the creation
 identifier, so the database refuses the other, and that request is told to repeat itself. Recovering inside the failed
@@ -147,6 +149,50 @@ endpoint answers in its own media type, names the probes after internal state ra
 reports no components on a single probe. Only statuses are published, never an indicator's details, and anything but a
 connector that can serve is answered with 503. The state is read programmatically, so nothing about how the management
 endpoint itself answers had to change.
+
+**Metrics are served at `/v1/metrics`, in whichever of two formats a collector asks for.** The path is the
+contract's, which numbers this interface on its own rather than with the rest of its generation, so `/v2/info`
+declares it at `v1` while its siblings are `v2`. `MetricsV2ControllerImpl`
+answers in OpenMetrics or in the legacy Prometheus text format, choosing by the quality values on `Accept` and by the
+version named there, since that is what names the format; it sets the content type itself so that the format written
+is the format declared. A collector that asks for
+something neither format satisfies, or sends a header that cannot be read, is answered in the preferred format
+rather than refused: the contract says so, and a misconfigured collector reading metrics is worth more than one
+being told its request was unacceptable. Nothing to expose means the exposition was abandoned part-written, which is
+answered as momentarily unavailable.
+
+**The names and the buckets are read from the interfaces, not written out again.** `MetricContract` takes them from
+the specification the interfaces publish, so a metric they rename fails the connector at startup instead of leaving it
+publishing something nothing scrapes. `RequiredMetrics` adds only what is missing: a Spring application already
+publishes when its process started, under the very name the contract asks for. What it does add goes through the
+exposition library rather than the metrics facade, because the facade rewrites a meter's name into an exposed one —
+dropping an `_info` suffix, appending a unit — and these names are fixed.
+
+**The build records which commit it was made from, because the build metric has to name it.** A build with no working
+copy to read it from, which is how the image is built, says as much instead; a profile supplies that, since leaving
+the value unresolved fails the build outright.
+
+**The two metrics of outbound calls are deliberately absent.** This connector makes none, and a metric of calls that
+cannot happen tells a collector nothing. Everything else the interfaces require is served.
+
+**A request is labelled by the route it matched, never by the path it asked for.** A path carries token and key
+identifiers, and a series for each would grow without limit; the same holds for the method, which HTTP lets a caller
+name as freely, so anything HTTP does not define is one label. The count and the timing are recorded once a request
+has been served, so they describe requests that completed; a failure that escaped the whole chain has not reached the
+response, and is counted under the error the container answers it with. How many requests are in flight is measured in
+an interceptor instead, since the route is only known once a handler has been chosen.
+
+**`connector_events_total` counts the work, at the layer that performs it.** A caller on either generation is
+therefore counted once, and what is counted is the work rather than the answer: a request turned away before any work
+began is already reported by the count of requests, under the status it was turned away with. Work inside a
+transaction is counted only once that transaction has settled, since work the database went on to refuse did not
+happen, and work that answers that it could not do part of what was asked — a signing request answered with an
+unsigned item — is counted as having failed whatever it returned. Every event is registered at zero when the
+connector starts, so a rate over something that has not happened reads as none rather than as nothing at all.
+
+**Spring turns metrics export off under test.** It does so through the defaults property, which the test
+configuration overrides with the more specific one for Prometheus. Without it there is no registry for the endpoint
+to answer from and every context fails to start.
 
 **Every request is given an identifier, and it is sent back.** `CorrelationFilter` takes it from `correlation-id`,
 then `X-Request-Id`, then the trace identifier inside a `traceparent`, and mints one when a request carries none. It

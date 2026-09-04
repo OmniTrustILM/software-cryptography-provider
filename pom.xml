@@ -83,6 +83,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- Renders the metrics the interfaces require in the two text formats they name. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <!-- The exposition formats arrive at runtime with the registry above; the metrics endpoint names them, so
+             they are compiled against as well. -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-exposition-textformats</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
@@ -162,6 +173,26 @@
                     </archive>
                 </configuration>
             </plugin>
+            <!-- The commit is a label of the build-information metric, so the build has to record which commit
+                 it was made from. The version the parent manages is used as it stands. -->
+            <plugin>
+                <groupId>io.github.git-commit-id</groupId>
+                <artifactId>git-commit-id-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                    <generateGitPropertiesFile>false</generateGitPropertiesFile>
+                    <includeOnlyProperties>
+                        <includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
+                    </includeOnlyProperties>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -173,6 +204,11 @@
                         <goals>
                             <goal>build-info</goal>
                         </goals>
+                        <configuration>
+                            <additionalProperties>
+                                <commit>${git.commit.id.abbrev}</commit>
+                            </additionalProperties>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
@@ -258,5 +294,21 @@
             <url>https://central.sonatype.com/repository/maven-snapshots/</url>
         </repository>
     </repositories>
+    <profiles>
+        <profile>
+            <!-- The image is built from the sources alone, so there is no working copy to read the commit from and
+                 the build-information metric says as much. Where there is one, this stays out of the way of the
+                 value the plugin above reads. -->
+            <id>no-working-copy</id>
+            <activation>
+                <file>
+                    <missing>.git</missing>
+                </file>
+            </activation>
+            <properties>
+                <git.commit.id.abbrev>unknown</git.commit.id.abbrev>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>

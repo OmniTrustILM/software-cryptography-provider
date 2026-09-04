@@ -12,6 +12,7 @@ import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
+import com.otilm.cp.soft.exception.MetricsUnavailableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
@@ -50,7 +51,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>
  * Every document carries the trace the caller sent, so a failure answered here can be matched to the request that
  * caused it in the platform's own log. The occurrence and the content type are left to the framework, which sets the
- * request path and {@code application/problem+json} on any problem document a handler returns.
+ * request path and {@code application/problem+json} on any problem document a handler returns. It does so even for a
+ * caller that asked to be answered in something else, which a collector reading metrics does: a problem document falls
+ * back on its own media type rather than the request being turned away as unacceptable.
  * </p>
  */
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -94,6 +97,15 @@ public class V2ExceptionHandlingAdvice {
     @ExceptionHandler({ConcurrentRequestException.class, OptimisticLockingFailureException.class})
     public ResponseEntity<ProblemDetailExtended> handleConcurrentRequest(Exception e) {
         return problem(ErrorCode.SERVICE_UNAVAILABLE, "Another request is changing the same object. Retry.", e);
+    }
+
+    /**
+     * The readings a scrape asked for could not be produced. The collector reads them again on its own schedule, so
+     * this says only that this moment yielded nothing.
+     */
+    @ExceptionHandler(MetricsUnavailableException.class)
+    public ResponseEntity<ProblemDetailExtended> handleMetricsUnavailable(MetricsUnavailableException e) {
+        return problem(ErrorCode.SERVICE_UNAVAILABLE, "The metrics of this connector could not be produced.", e);
     }
 
     @ExceptionHandler(OperationNotTrackedException.class)

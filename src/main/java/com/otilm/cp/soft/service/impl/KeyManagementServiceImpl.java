@@ -34,6 +34,8 @@ import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.exception.KeyManagementException;
 import com.otilm.cp.soft.exception.TokenInstanceException;
+import com.otilm.cp.soft.metrics.ConnectorEvent;
+import com.otilm.cp.soft.metrics.ConnectorMetrics;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.TokenInstanceService;
@@ -59,9 +61,14 @@ public class KeyManagementServiceImpl implements KeyManagementService {
     private TokenInstanceService tokenInstanceService;
     private KeyDataRepository keyDataRepository;
     private KeyDataCacheService keyDataCacheService;
+    private ConnectorMetrics connectorMetrics;
 
     @Override
     public KeyPairDataResponseDto createKeyPair(UUID uuid, CreateKeyRequestDto request) throws NotFoundException {
+        return connectorMetrics.counting(ConnectorEvent.KEY_CREATED, () -> generateKeyPair(uuid, request));
+    }
+
+    private KeyPairDataResponseDto generateKeyPair(UUID uuid, CreateKeyRequestDto request) throws NotFoundException {
         // check if the token instance exists
         TokenInstance tokenInstance = tokenInstanceService.getTokenInstanceEntity(uuid);
 
@@ -296,6 +303,11 @@ public class KeyManagementServiceImpl implements KeyManagementService {
     @Override
     public KeyPairDataResponseDto storeImportedKeyPair(UUID uuid, String alias, ImportedKeyMaterial material)
             throws NotFoundException {
+        return connectorMetrics.counting(ConnectorEvent.KEY_IMPORTED, () -> storeKeyPair(uuid, alias, material));
+    }
+
+    private KeyPairDataResponseDto storeKeyPair(UUID uuid, String alias, ImportedKeyMaterial material)
+            throws NotFoundException {
         TokenInstance tokenInstance = tokenInstanceService.getTokenInstanceEntity(uuid);
 
         if (tokenInstance.getCode() == null) {
@@ -341,7 +353,13 @@ public class KeyManagementServiceImpl implements KeyManagementService {
 
     @Override
     public void destroyKey(UUID uuid, UUID keyUuid) throws NotFoundException {
+        connectorMetrics.counting(ConnectorEvent.KEY_DESTROYED, () -> {
+            deleteKey(uuid, keyUuid);
+            return null;
+        });
+    }
 
+    private void deleteKey(UUID uuid, UUID keyUuid) throws NotFoundException {
         KeyData key = keyDataRepository
                 .findByUuid(keyUuid)
                 .orElseThrow(() -> new NotFoundException(KeyData.class, keyUuid));
@@ -442,5 +460,10 @@ public class KeyManagementServiceImpl implements KeyManagementService {
     @Autowired
     public void setKeyDataCacheService(KeyDataCacheService keyDataCacheService) {
         this.keyDataCacheService = keyDataCacheService;
+    }
+
+    @Autowired
+    public void setConnectorMetrics(ConnectorMetrics connectorMetrics) {
+        this.connectorMetrics = connectorMetrics;
     }
 }

@@ -298,6 +298,117 @@
               }
             }
           ]
+        },
+        {
+          "name": "GET /v1/metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{connectorUrl}}/v1/metrics",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v1",
+                "metrics"
+              ]
+            },
+            "description": "Metrics in the preferred exposition format, which is what a collector stating no preference is given.\n\nThe counters of served requests describe requests that have completed, so run this folder in order: on a connector that has answered nothing yet there is nothing for them to describe."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the preferred format is OpenMetrics\", function () { pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/openmetrics-text\"); });",
+                  "pm.test(\"the exposition is complete\", function () { pm.expect(pm.response.text()).to.include(\"# EOF\"); });",
+                  "pm.test(\"every metric the interfaces require is there\", function () {",
+                  "    var exposition = pm.response.text();",
+                  "    ['app_build_info', 'process_start_time_seconds', 'process_cpu_seconds_total', 'process_resident_memory_bytes', 'http_requests_total', 'http_request_duration_seconds', 'http_server_in_flight_requests', 'connector_events_total']",
+                  "        .forEach(function (metric) { pm.expect(exposition, metric).to.include(metric); });",
+                  "});",
+                  "pm.test(\"a path carries no identifier into a label\", function () { pm.expect(pm.response.text()).to.not.match(/route=\"[^\"]*[0-9a-f]{8}-[0-9a-f]{4}/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/metrics (Prometheus text)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/plain; version=0.0.4; charset=utf-8"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v1/metrics",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v1",
+                "metrics"
+              ]
+            },
+            "description": "Metrics in the legacy Prometheus text format, for a collector that asks for it."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the format asked for is the format answered in\", function () { pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/plain\"); });",
+                  "pm.test(\"the build is named\", function () { pm.expect(pm.response.text()).to.match(/app_build_info\\{[^}]*runtime=\"java-\\d+\"/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/metrics (a format it does not serve)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v1/metrics",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v1",
+                "metrics"
+              ]
+            },
+            "description": "A collector asking for a format neither exposition satisfies is given the preferred one rather than turned away."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the preferred format is answered instead of a refusal\", function () { pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/openmetrics-text\"); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },

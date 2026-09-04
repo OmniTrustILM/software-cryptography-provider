@@ -47,6 +47,8 @@ import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
+import com.otilm.cp.soft.metrics.ConnectorEvent;
+import com.otilm.cp.soft.metrics.ConnectorMetrics;
 import com.otilm.cp.soft.model.KeyContext;
 import com.otilm.cp.soft.model.TokenContext;
 import com.otilm.cp.soft.service.AttributeService;
@@ -104,6 +106,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
                     KeyAlgorithm.MLKEM);
 
     private AttributeService attributeService;
+
+    private ConnectorMetrics connectorMetrics;
 
     private KeyContextService keyContextService;
 
@@ -358,6 +362,10 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     @Override
     public ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request) {
+        return connectorMetrics.counting(ConnectorEvent.KEY_EXPORTED, () -> export(request));
+    }
+
+    private ExportKeyResponseV2Dto export(ExportKeyRequestV2Dto request) {
         requireKeyPair(request.getKeyRequestType());
 
         KeyContext addressed = keyContextService.resolve(request.getTokenAttributes(), request.getKeyMeta());
@@ -530,6 +538,11 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         if (executionMode != OperationExecutionMode.SYNCHRONOUS) {
             throw new NotSupportedException("Asynchronous execution is not supported.");
         }
+    }
+
+    @Autowired
+    public void setConnectorMetrics(ConnectorMetrics connectorMetrics) {
+        this.connectorMetrics = connectorMetrics;
     }
 
     @Autowired

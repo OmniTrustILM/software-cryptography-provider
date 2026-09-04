@@ -13,6 +13,12 @@ spring:
     enabled: false
 
 management:
+  prometheus:
+    metrics:
+      export:
+        # This connector serves a metrics interface, so its tests need the registry that answers it. Spring turns
+        # metrics export off under test through the defaults key, which this more specific one overrides.
+        enabled: true
   endpoints:
     jmx:
       exposure:

@@ -28,6 +28,9 @@ public class InfoV2ControllerImpl implements InfoController {
     /** Version of the common connector interfaces, whose generation is itself the v2 in their package. */
     private static final String COMMON_INTERFACE_VERSION = "v2";
 
+    /** Version of the metrics interface, which the contract numbers on its own and serves under that number. */
+    private static final String METRICS_INTERFACE_VERSION = "v1";
+
     private final BuildProperties buildProperties;
 
     public InfoV2ControllerImpl(BuildProperties buildProperties) {
@@ -40,7 +43,7 @@ public class InfoV2ControllerImpl implements InfoController {
         info.setConnector(connector());
         info
                 .setInterfaces(List
-                        .of(common(ConnectorInterface.INFO), common(ConnectorInterface.HEALTH),
+                        .of(common(ConnectorInterface.INFO), common(ConnectorInterface.HEALTH), metrics(),
                                 common(ConnectorInterface.ATTRIBUTES), cryptography()));
         return info;
     }
@@ -56,6 +59,12 @@ public class InfoV2ControllerImpl implements InfoController {
 
     private static ConnectorInterfaceInfo common(ConnectorInterface code) {
         return new ConnectorInterfaceInfo(code, COMMON_INTERFACE_VERSION, List.of());
+    }
+
+    /** The metrics interface, whose OpenMetrics exposition format a connector serving it has to declare. */
+    private static ConnectorInterfaceInfo metrics() {
+        return new ConnectorInterfaceInfo(ConnectorInterface.METRICS, METRICS_INTERFACE_VERSION,
+                List.of(FeatureFlag.OPEN_METRICS));
     }
 
     private static ConnectorInterfaceInfo cryptography() {

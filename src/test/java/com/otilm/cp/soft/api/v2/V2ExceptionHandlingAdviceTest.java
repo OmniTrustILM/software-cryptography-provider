@@ -10,6 +10,7 @@ import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.MetricsUnavailableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import jakarta.validation.ConstraintViolationException;
@@ -127,6 +128,23 @@ class V2ExceptionHandlingAdviceTest {
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
         assertEquals(ErrorCode.SERVICE_UNAVAILABLE, body(response).getErrorCode());
         assertTrue(body(response).isRetryable(), "a caller that repeats the request gets the object");
+    }
+
+    /**
+     * A collector reads the metrics again on its own schedule, so a reading that could not be taken says only that this
+     * moment yielded nothing.
+     */
+    @Test
+    void metricsThatCouldNotBeProducedAreRetryable() {
+        // given
+        // when
+        ResponseEntity<ProblemDetailExtended> response = advice
+                .handleMetricsUnavailable(new MetricsUnavailableException("the readings could not be written"));
+
+        // then
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+        assertEquals(ErrorCode.SERVICE_UNAVAILABLE, body(response).getErrorCode());
+        assertTrue(body(response).isRetryable());
     }
 
     @Test
