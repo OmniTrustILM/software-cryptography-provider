@@ -213,9 +213,10 @@ conditional at the end of it, not part of its `required` list — so a correlati
 request's where there is one, and this run of the process where the line was said outside a request.
 
 **What must not be written down is taken out where the line is written.** `Redaction` covers the two fields that
-carry free text, the message and the stack, which is every place a line can say something. A value runs to the end of
-the field rather than to the first space, since a passphrase may contain one, and a key is found by looking for the
-end of it rather than by matching across it: a line carrying opening markers and no closing one would otherwise be
+carry free text, the message and the stack, which is every place a line can say something. A name is matched as part of a longer
+one, so an `oldPassword` goes with a `password` — which is why a word as common as `code` is not among them, since it
+would take an `errorCode` with it. A value runs to the end of the field rather than to the first space, since a
+passphrase may contain one, and a key is found by looking for the end of it rather than by matching across it: a line carrying opening markers and no closing one would otherwise be
 searched once per marker, on the thread the request is waiting on. What it cannot do is follow a value onto the next
 line. It is not an appender of
 its own: rewriting a message that way means standing in for the whole logging event, and the fields are the one

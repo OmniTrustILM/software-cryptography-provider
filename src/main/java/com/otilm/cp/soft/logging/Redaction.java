@@ -27,9 +27,15 @@ import java.util.regex.Pattern;
  */
 public final class Redaction {
 
-    /** What this connector, the platform and the libraries under them call a secret. */
-    private static final String NAMES = "passphrase|password|secret|token_?code|activation_?code|access_?token"
-            + "|refresh_?token|client_?secret|authorization|private_?key|encrypted_?private_?key_?info|keystore";
+    /**
+     * What this connector, the platform and the libraries under them call a secret. A name matches as part of a longer
+     * one, so that {@code oldPassword} is taken out along with {@code password} — which is also why a word as common as
+     * {@code code} is not among them: it would take out an {@code errorCode} or a {@code statusCode} and leave a line
+     * saying nothing about what went wrong.
+     */
+    private static final String NAMES = "passphrase|password|secret|credential|token|token_?code|activation_?code"
+            + "|access_?token|refresh_?token|client_?secret|authorization|private_?key"
+            + "|encrypted_?private_?key_?info|keystore";
 
     /** A name is written quoted where it is part of a document and bare where it is part of a sentence. */
     private static final String QUOTED = "[\"']?";

@@ -30,9 +30,14 @@ import org.slf4j.MDC;
  *
  * <p>
  * A trace or span identifier is written only in the shape the schema states, since a malformed one cannot be correlated
- * with anything and would make the line invalid rather than merely incomplete. A line emitted outside a request carries
- * neither those nor a correlation identifier: there is no request for it to be correlated with, and the schema requires
- * none.
+ * with anything and would make the line invalid rather than merely incomplete.
+ * </p>
+ *
+ * <p>
+ * The schema requires every line to carry either a complete trace pair or a correlation identifier, so a correlation
+ * identifier is always written. A line said while serving a request carries that request's; one said outside a request
+ * — starting up, migrating, or on a thread of the connector's own — carries this run of the process, which is what such
+ * lines can be correlated by.
  * </p>
  */
 public class ConnectorLogFields extends AbstractJsonProvider<ILoggingEvent> {

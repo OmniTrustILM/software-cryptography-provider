@@ -86,7 +86,10 @@ class RedactionTest {
             "authorization: Basic 00000000-the-code-itself",
             "\"privateKey\":\"00000000-the-code-itself\"",
             "encryptedPrivateKeyInfo=00000000-the-code-itself",
-            "keystore: 00000000-the-code-itself"})
+            "keystore: 00000000-the-code-itself",
+            "\"token\":\"00000000-the-code-itself\"",
+            "credential=00000000-the-code-itself",
+            "oldPassword=00000000-the-code-itself"})
     void takesOutTheCredentialHoweverItIsStated(String line) {
         // given
         // when
@@ -156,6 +159,24 @@ class RedactionTest {
 
         // then
         assertFalse(redacted.contains("eyJhbGciOiJSUzI1NiJ9"), redacted);
+    }
+
+    /**
+     * A name is matched as part of a longer one, which is what takes out an {@code oldPassword}. A word as common as
+     * {@code code} is left out of the names for that reason: it appears inside the names of things a line has to be
+     * able to say, and taking those out would leave the line saying nothing about what went wrong.
+     */
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "errorCode=SERVICE_UNAVAILABLE",
+            "statusCode=503",
+            "exitCode=1",
+            "Migrated key in token 4c8f7c10-d5a6-d0ae-4bbf-6b6e8b0cd8a1"})
+    void leavesAloneWhatALineHasToBeAbleToSay(String line) {
+        // given
+        // when
+        // then
+        assertEquals(line, Redaction.of(line));
     }
 
     /** What a line says about the objects it names is what makes it worth having. */
