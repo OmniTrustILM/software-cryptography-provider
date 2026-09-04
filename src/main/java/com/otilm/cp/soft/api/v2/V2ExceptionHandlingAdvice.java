@@ -8,6 +8,9 @@ import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.ExportableNotSupportedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
+import com.otilm.cp.soft.exception.KeyNotExportableException;
+import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
@@ -110,6 +113,25 @@ public class V2ExceptionHandlingAdvice {
     public ResponseEntity<ProblemDetailExtended> handleExportableNotSupported(ExportableNotSupportedException e) {
         return problem(ErrorCode.EXPORTABLE_NOT_SUPPORTED, "This connector cannot hold a key that stays exportable.",
                 e);
+    }
+
+    /** The algorithm is one this connector does not let out of a token. */
+    @ExceptionHandler(KeyTypeNotExportableException.class)
+    public ResponseEntity<ProblemDetailExtended> handleKeyTypeNotExportable(KeyTypeNotExportableException e) {
+        return problem(ErrorCode.KEY_TYPE_NOT_EXPORTABLE,
+                "This connector does not let a key of that type or algorithm out.", e);
+    }
+
+    /** The key was not made exportable, and the permission is never raised afterwards. */
+    @ExceptionHandler(KeyNotExportableException.class)
+    public ResponseEntity<ProblemDetailExtended> handleKeyNotExportable(KeyNotExportableException e) {
+        return problem(ErrorCode.KEY_NOT_EXPORTABLE, "The key was not made exportable and cannot leave the token.", e);
+    }
+
+    /** The key the request addresses is not the key it describes. */
+    @ExceptionHandler(KeyMaterialMismatchException.class)
+    public ResponseEntity<ProblemDetailExtended> handleKeyMaterialMismatch(KeyMaterialMismatchException e) {
+        return problem(ErrorCode.KEY_MATERIAL_MISMATCH, "The addressed key is not the key the request describes.", e);
     }
 
     @ExceptionHandler(NotSupportedException.class)

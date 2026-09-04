@@ -14,7 +14,6 @@ import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
 import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;

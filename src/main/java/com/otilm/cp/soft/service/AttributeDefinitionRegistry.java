@@ -3,6 +3,7 @@ package com.otilm.cp.soft.service;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
 import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
@@ -67,6 +68,7 @@ public final class AttributeDefinitionRegistry {
         attributes.add(TokenInstanceAttributes.buildGroupBasedOnSelect());
         attributes.add(TokenInstanceAttributes.buildDataSelectExistingToken(List.of()));
         attributes.add(KeyAttributes.buildDataKeyAlias());
+        attributes.add(KeyExportableAttribute.definition());
         attributes.add(KeyAttributes.buildDataKeyAlgorithmSelect());
         attributes.add(KeyAttributes.buildGroupKeyAttributesBasedOnSelectedAlgorithm());
         attributes.addAll(RsaKeyAttributes.getRsaKeySpecAttributes());

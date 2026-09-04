@@ -3,9 +3,11 @@ package com.otilm.cp.soft.testsupport;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
+import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
@@ -33,6 +35,14 @@ public final class KeyRequestFixtures {
         request.setKeyCreationId(UUID.randomUUID().toString());
         request.setCreateKeyAttributes(rsaAttributes(alias));
         return request;
+    }
+
+    /** The reserved attribute stating whether a created key may ever leave the token. */
+    public static RequestAttribute exportableIntent(boolean exportable) {
+        RequestAttributeV2 attribute = new RequestAttributeV2();
+        attribute.setName(KeyExportableAttribute.NAME);
+        attribute.setContent(List.of(new BooleanAttributeContentV2(exportable)));
+        return attribute;
     }
 
     private static List<RequestAttribute> rsaAttributes(String alias) {

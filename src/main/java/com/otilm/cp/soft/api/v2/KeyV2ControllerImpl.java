@@ -19,7 +19,6 @@ import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dt
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyDestructionStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyOperationResponseV2Dto;
-import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
 import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import java.util.List;
@@ -38,8 +37,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 public class KeyV2ControllerImpl implements KeyController {
-
-    private static final String NO_KEY_TRANSFER = "Key import and export are not supported.";
 
     private static final String NOT_TRACKED = "This connector completes every operation inline and tracks none.";
 
@@ -118,17 +115,17 @@ public class KeyV2ControllerImpl implements KeyController {
 
     @Override
     public List<ExportableKeyTypeV2Dto> listExportableKeyTypes(TokenProfileScopedRequestV2Dto request) {
-        return List.of();
+        return cryptographicKeyV2Service.exportableKeyTypes(request);
     }
 
     @Override
     public List<BaseAttribute> listExportKeyAttributes(KeyScopedRequestV2Dto request) {
-        throw new NotSupportedException(NO_KEY_TRANSFER);
+        return cryptographicKeyV2Service.exportKeyAttributes(request);
     }
 
     @Override
     public ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request) {
-        throw new NotSupportedException(NO_KEY_TRANSFER);
+        return cryptographicKeyV2Service.exportKey(request);
     }
 
     @Autowired
