@@ -195,8 +195,26 @@ connector starts, so a rate over something that has not happened reads as none r
 configuration overrides with the more specific one for Prometheus. Without it there is no registry for the endpoint
 to answer from and every context fails to start.
 
-**Every request is given an identifier, and it is sent back.** `CorrelationFilter` takes it from `correlation-id`,
-then `X-Request-Id`, then the trace identifier inside a `traceparent`, and mints one when a request carries none. It
+**Every request is given an identifier and a trace, and only the identifier is sent back.** `CorrelationFilter`
+takes the identifier from `correlation-id`, then `X-Request-Id`, then the trace it resolved, and `TraceParent` reads
+the trace from `traceparent` or gives the request one of its own. A trace is not sent back: it belongs to the
+caller's, which reads its own span from where it made the request rather than from what answered it. `tracestate` is
+accepted and nothing is read from it — it carries vendor state for a caller to propagate, and this connector makes
+no call to propagate it to.
+
+**The trace is the caller's, not a span of this connector's own.** What ties a log line to the request that caused it
+is the span the caller was in when it made the request, so that span is what the line carries. Minting a child span
+would put an identifier in these lines that nothing else has seen, and exporting one has nowhere to go: no collector
+is configured and there are no outbound calls to continue the trace into. A tracing bridge can be added over this
+without changing what a line says.
+
+**What the header allows and what the schema accepts are not the same.** A `traceparent` carries a byte of flags, of
+which only the recorded bit is defined, while the schema accepts that bit alone — so the rest are dropped rather than
+written as something the schema refuses. A header stating an identifier of all zeros, upper-case hex, or version
+`ff` states no trace that can be read, and the request is given one of its own instead. The first version of the
+header states its four fields and nothing after them, so anything after them — a fifth field, or a trailing
+separator — means the header is not that version's and nothing is read from it; a later version may state fields of
+its own after those four, and they are left alone. It
 goes into the logging context under `correlation_id` and into the `correlation-id` response header. A trace context
 is not sent back: it belongs to the caller's trace. Problem documents read the identifier from that one place. What a
 caller states is used only when it is plain printable text of a length the platform accepts, since the value reaches

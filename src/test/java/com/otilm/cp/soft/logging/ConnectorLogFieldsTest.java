@@ -61,9 +61,9 @@ class ConnectorLogFieldsTest {
     void writesNoFieldTheSchemaDoesNotName() {
         // given
         MDC.put(CorrelationFilter.CORRELATION_ID, "req-1");
-        MDC.put("traceId", "4c8f7c10d5a6d0ae4bbf6b6e8b0cd8a1");
-        MDC.put("spanId", "f1a2b3c4d5e6f789");
-        MDC.put("traceFlags", "01");
+        MDC.put(CorrelationFilter.TRACE_ID, "4c8f7c10d5a6d0ae4bbf6b6e8b0cd8a1");
+        MDC.put(CorrelationFilter.SPAN_ID, "f1a2b3c4d5e6f789");
+        MDC.put(CorrelationFilter.TRACE_FLAGS, "01");
 
         // when
         JsonNode line = encode(event(Level.ERROR, "the token could not be opened"));
@@ -101,9 +101,9 @@ class ConnectorLogFieldsTest {
     @Test
     void carriesATraceStatedInTheShapeTheSchemaRequires() {
         // given
-        MDC.put("traceId", "4c8f7c10d5a6d0ae4bbf6b6e8b0cd8a1");
-        MDC.put("spanId", "f1a2b3c4d5e6f789");
-        MDC.put("traceFlags", "01");
+        MDC.put(CorrelationFilter.TRACE_ID, "4c8f7c10d5a6d0ae4bbf6b6e8b0cd8a1");
+        MDC.put(CorrelationFilter.SPAN_ID, "f1a2b3c4d5e6f789");
+        MDC.put(CorrelationFilter.TRACE_FLAGS, "01");
 
         // when
         JsonNode line = encode(event(Level.INFO, "serving"));
@@ -121,9 +121,9 @@ class ConnectorLogFieldsTest {
     @Test
     void leavesOutATraceThatIsNotTheShapeTheSchemaRequires() {
         // given
-        MDC.put("traceId", "not-a-trace-id");
-        MDC.put("spanId", "0F1A2B3C4D5E6F78");
-        MDC.put("traceFlags", "99");
+        MDC.put(CorrelationFilter.TRACE_ID, "not-a-trace-id");
+        MDC.put(CorrelationFilter.SPAN_ID, "0F1A2B3C4D5E6F78");
+        MDC.put(CorrelationFilter.TRACE_FLAGS, "99");
 
         // when
         JsonNode line = encode(event(Level.INFO, "serving"));

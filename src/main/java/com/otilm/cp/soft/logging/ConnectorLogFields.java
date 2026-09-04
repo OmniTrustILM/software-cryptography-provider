@@ -42,13 +42,6 @@ import org.slf4j.MDC;
  */
 public class ConnectorLogFields extends AbstractJsonProvider<ILoggingEvent> {
 
-    /** Where a tracing bridge states the trace it is part of, which is where this reads it from. */
-    private static final String TRACE_ID_KEY = "traceId";
-
-    private static final String SPAN_ID_KEY = "spanId";
-
-    private static final String TRACE_FLAGS_KEY = "traceFlags";
-
     /** The identifiers the schema states the shape of. */
     private static final Pattern TRACE_ID = Pattern.compile("[0-9a-f]{32}");
 
@@ -105,9 +98,9 @@ public class ConnectorLogFields extends AbstractJsonProvider<ILoggingEvent> {
         }
         generator.writeEndObject();
 
-        writeShaped(generator, "trace_id", MDC.get(TRACE_ID_KEY), TRACE_ID);
-        writeShaped(generator, "span_id", MDC.get(SPAN_ID_KEY), SPAN_ID);
-        writeShaped(generator, "trace_flags", MDC.get(TRACE_FLAGS_KEY), TRACE_FLAGS);
+        writeShaped(generator, "trace_id", MDC.get(CorrelationFilter.TRACE_ID), TRACE_ID);
+        writeShaped(generator, "span_id", MDC.get(CorrelationFilter.SPAN_ID), SPAN_ID);
+        writeShaped(generator, "trace_flags", MDC.get(CorrelationFilter.TRACE_FLAGS), TRACE_FLAGS);
         writeCorrelationId(generator, correlationId());
 
         writeAttributes(generator, event);
