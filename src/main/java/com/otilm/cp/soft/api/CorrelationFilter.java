@@ -1,12 +1,12 @@
 package com.otilm.cp.soft.api;
 
+import com.otilm.cp.soft.logging.TraceParent;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
-import java.util.UUID;
 import java.util.regex.Pattern;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
@@ -34,8 +34,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class CorrelationFilter extends OncePerRequestFilter {
 
-    /** The key a log line carries the identifier under. */
+    /** The keys a log line carries the request's identifiers under. */
     public static final String CORRELATION_ID = "correlation_id";
+
+    public static final String TRACE_ID = "traceId";
+
+    public static final String SPAN_ID = "spanId";
+
+    public static final String TRACE_FLAGS = "traceFlags";
 
     private static final String CORRELATION_HEADER = "correlation-id";
 
@@ -50,39 +56,41 @@ public class CorrelationFilter extends OncePerRequestFilter {
     /** Headers a caller states its own identifier for the request in, most specific first. */
     private static final List<String> STATED = List.of(CORRELATION_HEADER, "X-Request-Id");
 
-    private static final int TRACE_FIELDS = 4;
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String correlationId = resolve(request);
+        TraceParent trace = TraceParent.of(request.getHeader(TRACE_HEADER));
+        String correlationId = resolve(request, trace);
+
         MDC.put(CORRELATION_ID, correlationId);
+        MDC.put(TRACE_ID, trace.traceId());
+        MDC.put(SPAN_ID, trace.spanId());
+        MDC.put(TRACE_FLAGS, trace.flags());
+        // The identifier is sent back and the trace is not: the trace belongs to the caller's own, and a caller
+        // reads its own span from where it made the request rather than from what answered it.
         response.setHeader(CORRELATION_HEADER, correlationId);
         try {
             chain.doFilter(request, response);
         } finally {
             MDC.remove(CORRELATION_ID);
+            MDC.remove(TRACE_ID);
+            MDC.remove(SPAN_ID);
+            MDC.remove(TRACE_FLAGS);
         }
     }
 
-    private static String resolve(HttpServletRequest request) {
+    /**
+     * What the request is known by. A caller that states one is taken at its word; otherwise the trace as a whole is
+     * what correlates, and a request that stated no trace either is known by the trace it was given.
+     */
+    private static String resolve(HttpServletRequest request, TraceParent trace) {
         for (String header : STATED) {
             String stated = request.getHeader(header);
             if (stated != null && PLAIN.matcher(stated).matches()) {
                 return stated;
             }
         }
-        String traceId = traceId(request.getHeader(TRACE_HEADER));
-        return traceId != null ? traceId : UUID.randomUUID().toString();
-    }
-
-    /** The identifier of the trace as a whole, which is the field of a trace context that correlates. */
-    private static String traceId(String traceparent) {
-        if (traceparent == null || traceparent.isBlank()) {
-            return null;
-        }
-        String[] fields = traceparent.strip().split("-");
-        return fields.length == TRACE_FIELDS ? fields[1] : null;
+        return trace.traceId();
     }
 
 }
