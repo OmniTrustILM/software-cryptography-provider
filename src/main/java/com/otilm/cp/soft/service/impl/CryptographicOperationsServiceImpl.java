@@ -16,6 +16,8 @@ import com.otilm.api.model.connector.cryptography.operations.data.SignatureRespo
 import com.otilm.api.model.connector.cryptography.operations.data.VerificationResponseData;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
+import com.otilm.cp.soft.metrics.ConnectorEvent;
+import com.otilm.cp.soft.metrics.ConnectorMetrics;
 import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
 import com.otilm.cp.soft.service.CryptographicOperationsService;
@@ -39,9 +41,18 @@ import org.springframework.stereotype.Service;
 public class CryptographicOperationsServiceImpl implements CryptographicOperationsService {
     private KeyDataCacheService keyDataCacheService;
     private KeyStoreCacheService keyStoreCacheService;
+    private ConnectorMetrics connectorMetrics;
 
     @Override
     public SignDataResponseDto signData(UUID uuid, UUID keyUuid, SignDataRequestDto request) throws NotFoundException {
+        // An item the key technology could not sign is answered without a signature rather than by failing, and a
+        // request answered that way did not do what it was asked.
+        return connectorMetrics
+                .counting(ConnectorEvent.DATA_SIGNED, () -> sign(uuid, keyUuid, request),
+                        signed -> signed.getSignatures().stream().allMatch(item -> item.getData() != null));
+    }
+
+    private SignDataResponseDto sign(UUID uuid, UUID keyUuid, SignDataRequestDto request) throws NotFoundException {
         CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
 
         if (!uuid.equals(key.tokenInstanceUuid())) {
@@ -80,6 +91,11 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
 
     @Override
     public VerifyDataResponseDto verifyData(UUID uuid, UUID keyUuid, VerifyDataRequestDto request)
+            throws NotFoundException {
+        return connectorMetrics.counting(ConnectorEvent.SIGNATURE_VERIFIED, () -> verify(uuid, keyUuid, request));
+    }
+
+    private VerifyDataResponseDto verify(UUID uuid, UUID keyUuid, VerifyDataRequestDto request)
             throws NotFoundException {
         CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
 
@@ -125,6 +141,10 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
 
     @Override
     public RandomDataResponseDto randomData(String uuid, RandomDataRequestDto request) {
+        return connectorMetrics.counting(ConnectorEvent.RANDOM_GENERATED, () -> random(request));
+    }
+
+    private static RandomDataResponseDto random(RandomDataRequestDto request) {
         SecureRandom secureRandom = SecureRandomUtil.prepareSecureRandom("DEFAULT", BouncyCastleProvider.PROVIDER_NAME);
         byte[] bytes = new byte[request.getLength()];
         secureRandom.nextBytes(bytes);
@@ -136,6 +156,11 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
 
     @Override
     public DecryptDataResponseDto decryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
+            throws NotFoundException {
+        return connectorMetrics.counting(ConnectorEvent.DATA_DECRYPTED, () -> decrypt(uuid, keyUuid, request));
+    }
+
+    private DecryptDataResponseDto decrypt(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
             throws NotFoundException {
         CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
 
@@ -155,6 +180,11 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     @Override
     public EncryptDataResponseDto encryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
             throws NotFoundException {
+        return connectorMetrics.counting(ConnectorEvent.DATA_ENCRYPTED, () -> encrypt(uuid, keyUuid, request));
+    }
+
+    private EncryptDataResponseDto encrypt(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
+            throws NotFoundException {
         CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
 
         if (!uuid.equals(key.tokenInstanceUuid())) {
@@ -173,6 +203,11 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     @Autowired
     public void setKeyDataCacheService(KeyDataCacheService keyDataCacheService) {
         this.keyDataCacheService = keyDataCacheService;
+    }
+
+    @Autowired
+    public void setConnectorMetrics(ConnectorMetrics connectorMetrics) {
+        this.connectorMetrics = connectorMetrics;
     }
 
     @Autowired

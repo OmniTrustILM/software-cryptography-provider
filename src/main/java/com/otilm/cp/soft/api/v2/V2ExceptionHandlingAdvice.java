@@ -12,6 +12,7 @@ import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
+import com.otilm.cp.soft.exception.MetricsUnavailableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
@@ -94,6 +95,15 @@ public class V2ExceptionHandlingAdvice {
     @ExceptionHandler({ConcurrentRequestException.class, OptimisticLockingFailureException.class})
     public ResponseEntity<ProblemDetailExtended> handleConcurrentRequest(Exception e) {
         return problem(ErrorCode.SERVICE_UNAVAILABLE, "Another request is changing the same object. Retry.", e);
+    }
+
+    /**
+     * The readings a scrape asked for could not be produced. The collector reads them again on its own schedule, so
+     * this says only that this moment yielded nothing.
+     */
+    @ExceptionHandler(MetricsUnavailableException.class)
+    public ResponseEntity<ProblemDetailExtended> handleMetricsUnavailable(MetricsUnavailableException e) {
+        return problem(ErrorCode.SERVICE_UNAVAILABLE, "The metrics of this connector could not be produced.", e);
     }
 
     @ExceptionHandler(OperationNotTrackedException.class)

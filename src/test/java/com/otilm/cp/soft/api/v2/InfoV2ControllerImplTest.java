@@ -60,9 +60,24 @@ class InfoV2ControllerImplTest {
         assertTrue(
                 declared
                         .containsAll(List
-                                .of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.ATTRIBUTES,
-                                        ConnectorInterface.CRYPTOGRAPHY)),
+                                .of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS,
+                                        ConnectorInterface.ATTRIBUTES, ConnectorInterface.CRYPTOGRAPHY)),
                 () -> "expected the served interfaces, got " + declared);
+    }
+
+    /**
+     * A connector serving its metrics in the OpenMetrics exposition format has to say so, since that is what tells a
+     * collector it can ask for that format. The interface is numbered on its own, and is served under that number.
+     */
+    @Test
+    void declaresTheMetricsInterfaceAtItsOwnVersionWithTheOpenMetricsFormat() {
+        // given
+        // when
+        ConnectorInterfaceInfo metrics = interfaceInfo(ConnectorInterface.METRICS);
+
+        // then
+        assertEquals("v1", metrics.getVersion());
+        assertTrue(metrics.getFeatures().contains(FeatureFlag.OPEN_METRICS));
     }
 
     /**
