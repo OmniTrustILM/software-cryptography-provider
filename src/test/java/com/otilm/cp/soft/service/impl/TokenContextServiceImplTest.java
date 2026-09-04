@@ -122,6 +122,22 @@ class TokenContextServiceImplTest {
         assertThrows(TokenInstanceException.class, () -> tokenContextService.resolve(attributes));
     }
 
+    /** A context without the code cannot open a keystore, so it is refused rather than reaching one. */
+    @Test
+    void refusesAContextThatCarriesNoCode() {
+        // given
+        List<RequestAttribute> attributes = new ArrayList<>();
+        attributes.add(TokenContextFixtures.string(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION, "new"));
+        attributes
+                .add(TokenContextFixtures
+                        .string(TokenInstanceAttributes.ATTRIBUTE_DATA_NEW_TOKEN_NAME,
+                                TokenContextFixtures.uniqueName("v2-no-code")));
+
+        // when
+        // then
+        assertThrows(TokenInstanceException.class, () -> tokenContextService.resolve(attributes));
+    }
+
     @Test
     void refusesAnActionItDoesNotKnow() {
         // given

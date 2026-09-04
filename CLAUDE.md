@@ -64,7 +64,7 @@ mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar 
 | `collection/` | Enums backing the attribute content options (curves, key sizes, security categories) |
 | `service/` | Token instance, key management, cryptographic operations and the two cache services |
 | `dao/` | JPA entities, repositories and the key algorithm/format/type converters |
-| `util/` | Keystore, cipher, signature, X.509, secret, imported-key and migration helpers |
+| `util/` | Keystore, cipher, signature, X.509, secret, attribute, imported-key and migration helpers |
 | `api/v2/` | Controllers implementing the NG (v2) connector interfaces, and their problem-detail advice |
 | `metrics/` | The metrics the interfaces require, and the instruments that record them |
 | `api/CorrelationFilter` | Gives every request an identifier, for the logs and for the response |
@@ -230,6 +230,13 @@ UUIDs are now a contract like any other.
 so `mvn verify` fails on a formatting or lint violation. `mvn spotless:apply` fixes the
 formatting; Checkstyle covers what Spotless cannot, notably wildcard imports and braces. The
 parent also installs a pre-commit hook on the first build that formats staged Java files.
+
+**An attribute a request never sent reads back as an empty content, not as nothing.** The reader the interfaces
+supply answers with a freshly built content object, so the value has to be reached through it and every link on the
+way can be absent. Reading a link twice — once to check it, once to return it — checks one read and returns another,
+which is how a code that was never sent reached a keystore as null. `AttributeValue` reads each link once and answers
+absence as nothing; what to do about it belongs to the caller, since the two generations report an unreadable request
+in their own way. A method that needs the code requires it itself rather than trusting the one that called it.
 
 **Attribute identifiers are a contract.** The UUIDs and names in `attribute/` identify
 attributes in the platform database. Changing one orphans the configuration of every

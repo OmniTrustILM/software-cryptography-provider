@@ -54,6 +54,34 @@ class KeyStoreUtilTest {
         assertTrue(bytes.length > 0);
     }
 
+    /**
+     * A keystore is made and opened with a code, so a code that is not there is the caller's mistake and is stated as
+     * one. Dereferencing it instead reports a fault in this connector for a request that was simply incomplete.
+     */
+    @Test
+    void refusesToMakeAKeystoreWithoutACode() {
+        // given
+        // when
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> KeyStoreUtil.createNewKeystore("PKCS12", null));
+
+        // then
+        assertNotNull(thrown.getMessage());
+    }
+
+    @Test
+    void refusesToOpenAKeystoreWithoutACode() {
+        // given
+        byte[] keystore = KeyStoreUtil.createNewKeystore("PKCS12", PASSWORD);
+
+        // when
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> KeyStoreUtil.loadKeystore(keystore, null));
+
+        // then
+        assertNotNull(thrown.getMessage());
+    }
+
     @Test
     void loadKeystoreRoundtrip() throws Exception {
         byte[] bytes = KeyStoreUtil.createNewKeystore("PKCS12", PASSWORD);
