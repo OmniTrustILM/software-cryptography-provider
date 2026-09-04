@@ -23,7 +23,7 @@
                 "info"
               ]
             },
-            "description": "Reports the connector and the interfaces it serves. The cryptography interface is at v2 and declares no features: asynchronous execution is deliberately not offered, and key transfer is not implemented yet. Needs no database."
+            "description": "Reports the connector and the interfaces it serves. The cryptography interface is at v2 and declares key import. Asynchronous execution and key export are deliberately not offered. Needs no database."
           },
           "response": [],
           "event": [
@@ -999,7 +999,7 @@
                 "keyTypes"
               ]
             },
-            "description": "Key import is not implemented yet, so the connector declares neither key transfer feature and refuses the operation.",
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": []\n}",
@@ -1047,7 +1047,7 @@
                 "attributes"
               ]
             },
-            "description": "Key import is not implemented yet, so the connector declares neither key transfer feature and refuses the operation.",
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyRequestType\": \"keyPair\"\n}",
@@ -1094,7 +1094,7 @@
                 "import"
               ]
             },
-            "description": "Key import is not implemented yet, so the connector declares neither key transfer feature and refuses the operation.",
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": false,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
@@ -1146,7 +1146,7 @@
                 "import"
               ]
             },
-            "description": "Key import is not implemented yet, so the connector declares neither key transfer feature and refuses the operation.",
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": false,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
@@ -1194,7 +1194,7 @@
                 "result"
               ]
             },
-            "description": "Key import is not implemented yet, so the connector declares neither key transfer feature and refuses the operation.",
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"keyImportId\": \"{{keyImportId}}\"\n}",

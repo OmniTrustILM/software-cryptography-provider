@@ -1,10 +1,3 @@
--- A token has always been addressed by name, and the interfaces before this refused to create a second one with a
--- name already taken. Stating it here is what lets two requests addressing the same token at once recover: the loser
--- of the race is refused by the database and reads the row the winner wrote, rather than both creating one.
-alter table if exists token_instance
-    add constraint token_instance_name_key
-    unique (name);
-
 -- What a create or an import leaves behind belongs to the key it produced. The v2 interfaces keep no state between
 -- calls, so nothing here tracks an operation: these are facts about a key, kept the way a connector without a
 -- database keeps them, as attributes of the key in its own technology.
@@ -28,7 +21,7 @@ alter table if exists key_data
 alter table if exists key_data
     add column creation_fingerprint varchar(64);
 
--- The identity the platform addresses an imported key by, which it never reads back from a response.
+-- The identity the platform holds for an imported key, which it never reads back from a response.
 alter table if exists key_data
     add column platform_reference uuid;
 
@@ -52,3 +45,8 @@ alter table if exists key_data
 -- every key that already exists is such a key.
 alter table if exists key_data
     add column exportable boolean not null default false;
+
+-- Key creation was recorded in a table of its own, and the facts moved onto the key above. The table it had is
+-- dropped here rather than by rewriting the migration that created it: a database that already ran that one records
+-- it as applied, and repairing a checksum does not execute statements added to it afterwards.
+drop table if exists key_creation_record;

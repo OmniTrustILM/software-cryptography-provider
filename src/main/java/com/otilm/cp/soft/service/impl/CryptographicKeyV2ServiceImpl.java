@@ -198,6 +198,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         if (!earlier.isEmpty()) {
             return replayImport(request.getKeyImportId(), earlier, fingerprint);
         }
+        requireReferenceUnclaimed(request);
 
         KeyPairDataResponseDto imported;
         try {
@@ -277,6 +278,19 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             throw new KeyManagementException("The import does not say what to call the key in the token");
         }
         return content.getData();
+    }
+
+    /**
+     * The identity the platform holds for a key belongs to one key. A second import claiming it is not the repeat of an
+     * earlier one, since the identifier it came under found nothing, so it is refused as a conflict: no amount of
+     * repeating would free the identity.
+     */
+    private void requireReferenceUnclaimed(ImportKeyRequestV2Dto request) {
+        UUID reference = UUID.fromString(request.getKeyReference());
+        if (!keyDataRepository.findByPlatformReference(reference).isEmpty()) {
+            throw new OperationConflictException(
+                    "The platform already holds the reference " + reference + " for another key");
+        }
     }
 
     /** An algorithm the material holds that this connector does not accept as an import. */

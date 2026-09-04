@@ -139,6 +139,25 @@ class KeyImportV2ControllerImplTest {
         assertThrows(OperationConflictException.class, () -> controller.importKey(anotherKey));
     }
 
+    /**
+     * The identity the platform holds for a key belongs to one key, and no repeating would free it, so a second import
+     * claiming it is refused as a conflict rather than told to try again.
+     */
+    @Test
+    void refusesASecondImportClaimingAnIdentityTheFirstHolds() {
+        // given
+        ImportKeyRequestV2Dto first = KeyImportFixtures.rsaImport(TokenContextFixtures.uniqueName("v2-import-ref"));
+        controller.importKey(first);
+
+        ImportKeyRequestV2Dto other = KeyImportFixtures
+                .rsaImport(TokenContextFixtures.uniqueName("v2-import-ref-other"));
+        other.setKeyReference(first.getKeyReference());
+
+        // when
+        // then
+        assertThrows(OperationConflictException.class, () -> controller.importKey(other));
+    }
+
     /** A repeat carrying the wrong passphrase has not proved it holds the key, so it is not answered as a repeat. */
     @Test
     void refusesARepeatThatCannotOpenItsOwnMaterial() {

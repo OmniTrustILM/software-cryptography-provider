@@ -26,4 +26,7 @@ public interface KeyDataRepository extends JpaRepository<KeyData, Long> {
     /** Both halves an import produced, which is how a repeated import is answered with the key it already made. */
     List<KeyData> findByKeyImportId(String keyImportId);
 
+    /** Both halves the platform already holds this identity for, which no second import may claim. */
+    List<KeyData> findByPlatformReference(UUID platformReference);
+
 }

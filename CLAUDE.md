@@ -110,6 +110,10 @@ stores the pair the way a generated one is stored, beside a self-signed certific
 the parameter set the key states rather than measuring them, since an encoded lattice private key carries more than
 the key itself.
 
+**A migration that has shipped anywhere is never rewritten.** Repairing a checksum realigns the schema history; it
+does not run statements added to a migration a database already applied. So a change to what an applied migration
+does goes into a new version, and the one that shipped stays as it was.
+
 **Import states its own facts on the key.** The reference the platform holds for the key, the identifier a lost
 import is repeated under, the terms it was asked on, and whether the key may leave the token are columns on the key
 row. The key itself is part of those terms: the platform protects the material afresh for every submission, so the
