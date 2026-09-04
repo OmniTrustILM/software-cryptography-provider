@@ -126,6 +126,22 @@ class TraceParentTest {
         assertNotEquals(first.spanId(), second.spanId());
     }
 
+    /**
+     * Nothing but zeros identifies nothing, which is why a header stating it states no trace — so a trace made here is
+     * held to the same thing rather than only being unlikely to break it.
+     */
+    @Test
+    void givesARequestATraceThatIdentifiesSomething() {
+        // given
+        // when
+        // then
+        for (int made = 0; made < 500; made++) {
+            TraceParent trace = TraceParent.of(null);
+            assertNotEquals("0".repeat(32), trace.traceId());
+            assertNotEquals("0".repeat(16), trace.spanId());
+        }
+    }
+
     /** A header stated with space around it is still the header. */
     @Test
     void readsATraceStatedWithSpaceAroundIt() {

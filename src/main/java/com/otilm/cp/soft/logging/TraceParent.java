@@ -113,7 +113,19 @@ public final class TraceParent {
 
     /** A trace of this request's own, which nothing else knows and nothing is recording. */
     private static TraceParent mint() {
-        return new TraceParent(hex(16), hex(8), NOT_SAMPLED_FLAG);
+        return new TraceParent(identifier(16, NO_TRACE), identifier(8, NO_SPAN), NOT_SAMPLED_FLAG);
+    }
+
+    /**
+     * An identifier of the given size that identifies something. Nothing but zeros identifies nothing, and what is read
+     * is held to that, so what is made is held to it too rather than only being unlikely to break it.
+     */
+    private static String identifier(int bytes, String identifiesNothing) {
+        String made;
+        do {
+            made = hex(bytes);
+        } while (identifiesNothing.equals(made));
+        return made;
     }
 
     /** Whether the trace is being recorded, which is all of the flags the schema accepts. */
