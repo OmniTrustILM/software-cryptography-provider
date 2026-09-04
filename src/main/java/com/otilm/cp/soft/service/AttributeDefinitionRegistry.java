@@ -67,6 +67,7 @@ public final class AttributeDefinitionRegistry {
         attributes.add(TokenInstanceAttributes.buildGroupBasedOnSelect());
         attributes.add(TokenInstanceAttributes.buildDataSelectExistingToken(List.of()));
         attributes.add(KeyAttributes.buildDataKeyAlias());
+        attributes.add(KeyAttributes.buildDataKeyExportable());
         attributes.add(KeyAttributes.buildDataKeyAlgorithmSelect());
         attributes.add(KeyAttributes.buildGroupKeyAttributesBasedOnSelectedAlgorithm());
         attributes.addAll(RsaKeyAttributes.getRsaKeySpecAttributes());

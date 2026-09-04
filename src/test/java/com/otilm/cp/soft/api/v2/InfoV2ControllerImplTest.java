@@ -81,19 +81,19 @@ class InfoV2ControllerImplTest {
     }
 
     /**
-     * A key can be brought in but not taken out, and a declared flag is enforced against the connector afterwards, so
-     * only the one it performs is declared. Declaring export would have the platform send requests this refuses, and
-     * would also have it offer keys that stay exportable, which an import cannot honour.
+     * A key can be brought in and taken out, and a declared flag is enforced against the connector afterwards, so both
+     * are declared only now that both are performed. Asynchronous execution stays absent.
      */
     @Test
-    void declaresKeyImportAndNotKeyExport() {
+    void declaresKeyImportAndKeyExport() {
         // given
         // when
         List<FeatureFlag> features = interfaceInfo(ConnectorInterface.CRYPTOGRAPHY).getFeatures();
 
         // then
         assertTrue(features.contains(FeatureFlag.KEY_IMPORT));
-        assertFalse(features.contains(FeatureFlag.KEY_EXPORT));
+        assertTrue(features.contains(FeatureFlag.KEY_EXPORT));
+        assertFalse(features.contains(FeatureFlag.ASYNCHRONOUS));
     }
 
     private ConnectorInterfaceInfo interfaceInfo(ConnectorInterface code) {

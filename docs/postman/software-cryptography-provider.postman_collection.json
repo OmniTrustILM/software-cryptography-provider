@@ -519,7 +519,7 @@
             "description": "Creates an RSA key pair synchronously. Each half comes back with its own durable handle in keyMeta, which the operations below send back to address that half. Repeating this request with the same keyCreationId returns the same key rather than making a second one.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyCreationId\": \"{{keyCreationId}}\",\n  \"createKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{keyAlias}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"72159c04-d1a9-4703-8b23-469224425d5f\",\n      \"name\": \"data_keyAlgorithm\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"RSA\",\n          \"data\": \"RSA\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"aa7df6ff-1d64-4a1a-96d6-6c7aeadfbdf3\",\n      \"name\": \"data_rsaKeySize\",\n      \"contentType\": \"integer\",\n      \"content\": [\n        {\n          \"data\": 2048\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyCreationId\": \"{{keyCreationId}}\",\n  \"createKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{keyAlias}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"72159c04-d1a9-4703-8b23-469224425d5f\",\n      \"name\": \"data_keyAlgorithm\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"RSA\",\n          \"data\": \"RSA\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"aa7df6ff-1d64-4a1a-96d6-6c7aeadfbdf3\",\n      \"name\": \"data_rsaKeySize\",\n      \"contentType\": \"integer\",\n      \"content\": [\n        {\n          \"data\": 2048\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"9c3d5f21-8a47-4e0b-b6d2-71f4c8e35a90\",\n      \"name\": \"keyExportable\",\n      \"contentType\": \"boolean\",\n      \"content\": [\n        {\n          \"data\": false\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -541,7 +541,8 @@
                   "var body = pm.response.json();",
                   "var reference = function (half) { return body[half].keyMeta.find(function (m) { return m.name === \"meta_keyReference\"; }).content[0].data; };",
                   "pm.collectionVariables.set(\"privateKeyReference\", reference(\"privateKeyData\"));",
-                  "pm.collectionVariables.set(\"publicKeyReference\", reference(\"publicKeyData\"));"
+                  "pm.collectionVariables.set(\"publicKeyReference\", reference(\"publicKeyData\"));",
+                  "pm.collectionVariables.set(\"createdKeyMeta\", JSON.stringify(pm.response.json().privateKeyData.keyMeta));"
                 ]
               }
             }
@@ -1097,7 +1098,7 @@
             "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": false,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": true,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1149,7 +1150,7 @@
             "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": false,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": true,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1215,6 +1216,199 @@
                   "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
                   "pm.test(\"the import completed\", function () { pm.expect(pm.response.json().status).to.eql(\"completed\"); });",
                   "pm.test(\"it reports the key that was imported\", function () { pm.expect(JSON.stringify(pm.response.json().result.privateKeyData.keyMeta)).to.eql(pm.collectionVariables.get(\"importedKeyMeta\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/export/keyTypes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/export/keyTypes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "export",
+                "keyTypes"
+              ]
+            },
+            "description": "Key export is offered and declared. Only a key created or imported as exportable may leave the token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"key pairs can be exported\", function () { var t = pm.response.json(); pm.expect(t[0].keyRequestType).to.eql(\"keyPair\"); pm.expect(t[0].algorithms).to.include(\"RSA\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/export/attributes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/export/attributes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "export",
+                "attributes"
+              ]
+            },
+            "description": "Key export is offered and declared. Only a key created or imported as exportable may leave the token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyMeta\": {{importedKeyMeta}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"an export asks for nothing\", function () { pm.expect(pm.response.json()).to.eql([]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/export",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/export",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "export"
+              ]
+            },
+            "description": "Key export is offered and declared. Only a key created or imported as exportable may leave the token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyMeta\": {{importedKeyMeta}},\n  \"keyRequestType\": \"keyPair\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportKeyAttributes\": [],\n  \"passphrase\": \"{{exportPassphrase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the key comes back protected\", function () { pm.expect(pm.response.json().material.encryptedPrivateKeyInfo).to.be.a(\"string\"); });",
+                  "pm.test(\"the identity the request stated is echoed\", function () { pm.expect(pm.response.json().keyReference).to.eql(pm.environment.get(\"keyReference\")); });",
+                  "pm.test(\"a key pair is described by its public key\", function () { pm.expect(pm.response.json().keyData.publicKeySpki).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/export (a key that may not leave, expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/export",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "export"
+              ]
+            },
+            "description": "Key export is offered and declared. Only a key created or imported as exportable may leave the token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyMeta\": {{createdKeyMeta}},\n  \"keyRequestType\": \"keyPair\",\n  \"exportKeyAttributes\": [],\n  \"passphrase\": \"{{exportPassphrase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// The created key above stated keyExportable false, so it stays in the token.",
+                  "pm.test(\"status is 422\", function () { pm.response.to.have.status(422); });",
+                  "pm.test(\"it says the key was never allowed out\", function () { pm.expect(pm.response.json().errorCode).to.eql(\"KEY_NOT_EXPORTABLE\"); });"
                 ]
               }
             }

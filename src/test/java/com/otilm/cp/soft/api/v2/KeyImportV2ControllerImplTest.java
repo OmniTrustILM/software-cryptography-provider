@@ -13,7 +13,6 @@ import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationStatusRespon
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairOperationStatusResponseV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
-import com.otilm.cp.soft.exception.ExportableNotSupportedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.OperationConflictException;
@@ -187,19 +186,22 @@ class KeyImportV2ControllerImplTest {
     }
 
     /**
-     * Whether a key may leave the token can never be changed afterwards, so a key that stays exportable cannot be
-     * accepted while this connector does not offer export.
+     * A key may now be brought in with permission to leave again, since this connector performs export. The permission
+     * is set once, so what the import stated is what the key carries afterwards.
      */
     @Test
-    void refusesAKeyThatStaysExportable() {
+    void importsAKeyThatMayLeaveTheToken() {
         // given
         ImportKeyRequestV2Dto request = KeyImportFixtures
                 .rsaImport(TokenContextFixtures.uniqueName("v2-import-exportable"));
         request.setExportable(true);
 
         // when
+        KeyPairDataResponseV2Dto imported = (KeyPairDataResponseV2Dto) controller.importKey(request).getBody();
+
         // then
-        assertThrows(ExportableNotSupportedException.class, () -> controller.importKey(request));
+        assertNotNull(imported);
+        assertFalse(imported.getPrivateKeyData().getKeyMeta().isEmpty());
     }
 
     /** A caller that never heard the answer asks what became of the import under the identifier it used. */

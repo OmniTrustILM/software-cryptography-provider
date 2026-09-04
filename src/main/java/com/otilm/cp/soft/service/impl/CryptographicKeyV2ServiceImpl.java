@@ -4,6 +4,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
@@ -12,10 +13,14 @@ import com.otilm.api.model.connector.common.v2.OperationStatus;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
+import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ExportableKeyTypeV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyResultRequestV2Dto;
@@ -26,13 +31,16 @@ import com.otilm.api.model.connector.cryptography.v2.key.PrivateKeyDataResponseV
 import com.otilm.api.model.connector.cryptography.v2.key.PrivateKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.dao.entity.KeyData;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
-import com.otilm.cp.soft.exception.ExportableNotSupportedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
+import com.otilm.cp.soft.exception.KeyNotExportableException;
+import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
@@ -44,9 +52,16 @@ import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.TokenContextService;
+import com.otilm.cp.soft.util.ExportedKeyMaterial;
 import com.otilm.cp.soft.util.ImportedKeyMaterial;
+import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.RequestFingerprint;
 import jakarta.transaction.Transactional;
+import java.security.GeneralSecurityException;
+import java.security.Key;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
@@ -101,7 +116,12 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         requireKeyPair(request.getKeyRequestType());
         TokenContext token = tokenContextService.resolve(request.getTokenAttributes());
         try {
-            return attributeService.getCreateKeyAttributes(token.instance().getUuid().toString());
+            // The exportable intent is added on top of what both generations publish, since a v1 caller neither
+            // states it nor is answered by anything that reads it.
+            List<BaseAttribute> attributes = new ArrayList<>(
+                    attributeService.getCreateKeyAttributes(token.instance().getUuid().toString()));
+            attributes.add(KeyAttributes.buildDataKeyExportable());
+            return attributes;
         } catch (NotFoundException e) {
             throw new ResourceMissingException("The addressed token does not exist", e);
         }
@@ -136,7 +156,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
         KeyData publicKey = key(created.getPublicKeyData().getUuid());
         KeyData privateKey = key(created.getPrivateKeyData().getUuid());
-        remember(request.getKeyCreationId(), fingerprint, publicKey, privateKey);
+        remember(request.getKeyCreationId(), fingerprint, exportable(request.getCreateKeyAttributes()), publicKey,
+                privateKey);
 
         return keyPair(publicKey, privateKey);
     }
@@ -176,7 +197,6 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     public KeyPairDataResponseV2Dto importKey(ImportKeyRequestV2Dto request) {
         requireKeyPair(request.getKeyRequestType());
         requireSynchronous(request.getExecutionMode());
-        requireNotExportable(request.getExportable());
 
         TokenContext token = tokenContextService.resolve(request.getTokenAttributes());
 
@@ -293,6 +313,17 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
     }
 
+    /**
+     * Whether a creation asked for a key that may leave the token. The contract reserves the attribute and has it
+     * default to false, so a request that states nothing asks for a key that stays.
+     */
+    private static boolean exportable(List<RequestAttribute> createKeyAttributes) {
+        BooleanAttributeContentV2 content = AttributeDefinitionUtils
+                .getSingleItemAttributeContentValue(KeyAttributes.ATTRIBUTE_DATA_KEY_EXPORTABLE, createKeyAttributes,
+                        BooleanAttributeContentV2.class);
+        return content != null && Boolean.TRUE.equals(content.getData());
+    }
+
     /** An algorithm the material holds that this connector does not accept as an import. */
     private static void requireImportable(KeyAlgorithm algorithm) {
         if (!IMPORTABLE_ALGORITHMS.contains(algorithm)) {
@@ -301,14 +332,97 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
     }
 
-    /**
-     * A key that stays exportable cannot be honoured while this connector does not offer export: the flag can never be
-     * changed afterwards, so accepting it would promise something the key could not deliver.
-     */
-    private static void requireNotExportable(boolean exportable) {
-        if (exportable) {
-            throw new ExportableNotSupportedException("This connector cannot hold a key that stays exportable");
+    @Override
+    public List<ExportableKeyTypeV2Dto> exportableKeyTypes(TokenProfileScopedRequestV2Dto request) {
+        tokenContextService.resolve(request.getTokenAttributes());
+
+        ExportableKeyTypeV2Dto exportable = new ExportableKeyTypeV2Dto();
+        exportable.setKeyRequestType(KeyRequestType.KEY_PAIR);
+        exportable.setAlgorithms(IMPORTABLE_ALGORITHMS);
+        return List.of(exportable);
+    }
+
+    @Override
+    public List<BaseAttribute> exportKeyAttributes(KeyScopedRequestV2Dto request) {
+        keyContextService.resolve(request.getTokenAttributes(), request.getKeyMeta());
+
+        // The request already carries the key and the passphrase, and an attribute may carry neither, so an export
+        // has nothing left to ask for.
+        return List.of();
+    }
+
+    @Override
+    public ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request) {
+        requireKeyPair(request.getKeyRequestType());
+
+        KeyContext addressed = keyContextService.resolve(request.getTokenAttributes(), request.getKeyMeta());
+        List<KeyData> pair = keyDataRepository
+                .findByNameAndTokenInstanceUuid(addressed.key().getName(), addressed.token().instance().getUuid());
+
+        KeyData privateKey = half(pair, KeyType.PRIVATE_KEY, addressed.key().getName());
+        KeyData publicKey = half(pair, KeyType.PUBLIC_KEY, addressed.key().getName());
+
+        requireExportableAlgorithm(privateKey.getAlgorithm());
+        requireKeyMayLeave(privateKey);
+        String reference = echoedReference(request.getKeyReference(), privateKey);
+
+        ExportKeyResponseV2Dto response = new ExportKeyResponseV2Dto();
+        response.setMaterial(protect(addressed.token(), privateKey, request.getPassphrase()));
+        response.setKeyReference(reference);
+        response.setKeyData(publicKeyData(publicKey).getKeyData());
+        return response;
+    }
+
+    /** The key itself, taken out of the token's keystore and protected under the passphrase the request carried. */
+    private EncryptedKeyMaterialV2Dto protect(TokenContext token, KeyData privateKey, String passphrase) {
+        KeyStore keyStore = KeyStoreUtil.loadKeystore(token.instance().getData(), token.code());
+        try {
+            Key stored = keyStore.getKey(privateKey.getName(), token.code().toCharArray());
+            if (!(stored instanceof PrivateKey key)) {
+                throw new KeyManagementException("The token holds no private key under " + privateKey.getName());
+            }
+            EncryptedKeyMaterialV2Dto material = new EncryptedKeyMaterialV2Dto();
+            material.setEncryptedPrivateKeyInfo(ExportedKeyMaterial.protect(key, passphrase));
+            return material;
+        } catch (GeneralSecurityException e) {
+            throw new KeyManagementException("The key could not be read out of the token");
         }
+    }
+
+    /** An algorithm this connector does not let out, which the contract names apart from the key's own permission. */
+    private static void requireExportableAlgorithm(KeyAlgorithm algorithm) {
+        if (!IMPORTABLE_ALGORITHMS.contains(algorithm)) {
+            throw new KeyTypeNotExportableException(
+                    "A " + algorithm.getCode() + " key cannot be exported from this token");
+        }
+    }
+
+    /**
+     * Whether the key was allowed out when it was made. The permission is set once and never raised, so a key that did
+     * not carry it cannot be given it now.
+     */
+    private static void requireKeyMayLeave(KeyData privateKey) {
+        if (!privateKey.isExportable()) {
+            throw new KeyNotExportableException(
+                    "The key " + privateKey.getName() + " was not made exportable and cannot leave the token");
+        }
+    }
+
+    /**
+     * The identity the platform holds for the key, read off the key rather than taken from the request, which is what
+     * lets the platform confirm the material belongs to the key it asked about. A request naming an identity the key
+     * does not carry is asking about another key.
+     */
+    private static String echoedReference(String stated, KeyData privateKey) {
+        if (stated == null) {
+            return null;
+        }
+        UUID held = privateKey.getPlatformReference();
+        if (held == null || !held.equals(UUID.fromString(stated))) {
+            throw new KeyMaterialMismatchException(
+                    "The key " + privateKey.getName() + " is not the key that identity belongs to");
+        }
+        return held.toString();
     }
 
     /**
@@ -338,10 +452,12 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
      * than a second one. Losing a race on the identifier means another request is writing the same creation, so this
      * attempt is rolled back and the caller repeating it is answered with the key that one made.
      */
-    private void remember(String creationId, String fingerprint, KeyData publicKey, KeyData privateKey) {
+    private void remember(String creationId, String fingerprint, boolean exportable, KeyData publicKey,
+            KeyData privateKey) {
         for (KeyData half : List.of(publicKey, privateKey)) {
             half.setKeyCreationId(creationId);
             half.setCreationFingerprint(fingerprint);
+            half.setExportable(exportable);
         }
         try {
             keyDataRepository.saveAllAndFlush(List.of(publicKey, privateKey));

@@ -114,14 +114,23 @@ the key itself.
 does not run statements added to a migration a database already applied. So a change to what an applied migration
 does goes into a new version, and the one that shipped stays as it was.
 
+**A key leaves a token only if it was allowed to when it was made.** Declaring key export obliges the connector to
+publish the reserved `keyExportable` attribute on its create-key schema, so a creation carries the intent and needs no
+field of its own. It is added on the v2 path only: a v1 caller neither states it nor is answered by anything that
+reads it. The permission is set once and never raised, so nothing about an export request can grant it.
+
+**That permission is this connector's own policy, not the keystore's.** The contract has the intent map to the
+technology's extractability control. A PKCS#12 keystore has none: every key in it can be read out with the code that
+opens it. So a key marked as staying in the token is kept there by this connector refusing to export it, which is all
+a keystore in software can offer. A deployment that needs the guarantee itself wants a provider backed by hardware.
+
 **Import states its own facts on the key.** The reference the platform holds for the key, the identifier a lost
 import is repeated under, the terms it was asked on, and whether the key may leave the token are columns on the key
 row. The key itself is part of those terms: the platform protects the material afresh for every submission, so the
 envelope says nothing about whether two imports ask for the same thing and the key's public half decides it. That is
 why the material is opened before a repeat is looked for, which also means a repeat carrying the wrong passphrase is
-not answered as though it had succeeded. `/import/result` answers a caller that lost the response by that identifier. Key export is not offered, so an
-import asking for a key that stays exportable is refused: the flag can never be changed afterwards, and accepting it
-would promise something the key could not deliver.
+not answered as though it had succeeded. `/import/result` answers a caller that lost the response by that identifier. An import may ask for a key that stays exportable, since
+export is offered; what it states is what the key carries afterwards.
 
 **Asynchronous execution is deliberately not offered.** `ASYNCHRONOUS` is an enforced feature flag, so declining it
 means the platform only ever sends synchronous requests. Every operation here completes inline; the status and

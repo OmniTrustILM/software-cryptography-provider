@@ -5,13 +5,10 @@ import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
-import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.OperationTrackingRequestV2Dto;
-import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
-import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
@@ -208,25 +205,6 @@ class KeyV2ControllerImplTest {
         assertThrows(OperationNotTrackedException.class, () -> controller.cancelCreateKey(request));
         assertThrows(OperationNotTrackedException.class, () -> controller.getDestroyKeyStatus(request));
         assertThrows(OperationNotTrackedException.class, () -> controller.cancelDestroyKey(request));
-    }
-
-    /** Export arrives with the code that performs it; until then the provider takes no key out. */
-    @Test
-    void takesNoKeyOutYet() {
-        // given
-        TokenProfileScopedRequestV2Dto request = new TokenProfileScopedRequestV2Dto();
-        request.setTokenAttributes(TokenContextFixtures.newToken(TokenContextFixtures.uniqueName("v2-transfer")));
-        request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN));
-
-        // when
-        // then
-        ExportKeyRequestV2Dto anExport = new ExportKeyRequestV2Dto();
-        KeyScopedRequestV2Dto keyScoped = new KeyScopedRequestV2Dto();
-
-        assertTrue(controller.listExportableKeyTypes(request).isEmpty());
-        assertThrows(NotSupportedException.class, () -> controller.exportKey(anExport));
-        assertThrows(NotSupportedException.class, () -> controller.listExportKeyAttributes(keyScoped));
     }
 
     private static DestroyKeyRequestV2Dto destroyRequest(List<RequestAttribute> tokenAttributes,

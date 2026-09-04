@@ -1,10 +1,14 @@
 package com.otilm.cp.soft.service;
 
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ExportableKeyTypeV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyResultRequestV2Dto;
@@ -72,4 +76,28 @@ public interface CryptographicKeyV2Service {
      * @return the import's outcome, carrying the key when it completed
      */
     KeyPairOperationStatusResponseV2Dto importResult(ImportKeyResultRequestV2Dto request);
+
+    /**
+     * The key types and algorithms this connector lets out of the addressed token.
+     *
+     * @param request the token context
+     * @return one declaration per key type that can be exported
+     */
+    List<ExportableKeyTypeV2Dto> exportableKeyTypes(TokenProfileScopedRequestV2Dto request);
+
+    /**
+     * The schema of the attributes an export accepts.
+     *
+     * @param request the token context and the key to export
+     * @return the attribute definitions
+     */
+    List<BaseAttribute> exportKeyAttributes(KeyScopedRequestV2Dto request);
+
+    /**
+     * Takes a key out of the addressed token, protected under the passphrase the request carries.
+     *
+     * @param request the key to export and the passphrase to protect it under
+     * @return the protected material and a description of what was exported
+     */
+    ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request);
 }

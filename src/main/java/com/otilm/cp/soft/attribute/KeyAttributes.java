@@ -12,9 +12,9 @@ import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeP
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
 import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,6 +43,15 @@ public class KeyAttributes {
 
     // Cryptographic Key METADATA
 
+    /** Reserved by the contract for the exportable intent a creation carries. */
+    public static final String ATTRIBUTE_DATA_KEY_EXPORTABLE = "keyExportable";
+
+    public static final String ATTRIBUTE_DATA_KEY_EXPORTABLE_UUID = "9c3d5f21-8a47-4e0b-b6d2-71f4c8e35a90";
+
+    public static final String ATTRIBUTE_DATA_KEY_EXPORTABLE_LABEL = "Exportable";
+
+    public static final String ATTRIBUTE_DATA_KEY_EXPORTABLE_DESCRIPTION = "Whether the Key may ever be exported from the Token";
+
     public static final String ATTRIBUTE_META_KEY_REFERENCE = "meta_keyReference";
     public static final String ATTRIBUTE_META_KEY_REFERENCE_UUID = "2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4";
     public static final String ATTRIBUTE_META_KEY_REFERENCE_LABEL = "Key Reference";
@@ -52,6 +61,40 @@ public class KeyAttributes {
     public static final String ATTRIBUTE_META_KEY_ALIAS_UUID = "a5575bb8-dd88-4b60-bb73-75b862da78aa";
     public static final String ATTRIBUTE_META_KEY_ALIAS_LABEL = "Key Alias";
     public static final String ATTRIBUTE_META_KEY_ALIAS_DESCRIPTION = "Alias of the Key";
+
+    /**
+     * Whether a key created here may ever leave the token. The contract reserves the name and the shape: a boolean data
+     * attribute carrying exactly one item, required, and false unless the caller asks otherwise.
+     *
+     * <p>
+     * Only a connector offering key export publishes it, since a key created exportable by a connector that cannot
+     * export would carry a promise nothing could keep.
+     * </p>
+     *
+     * @return the definition
+     */
+    public static BaseAttribute buildDataKeyExportable() {
+        DataAttributeV2 attribute = new DataAttributeV2();
+        attribute.setUuid(ATTRIBUTE_DATA_KEY_EXPORTABLE_UUID);
+        attribute.setName(ATTRIBUTE_DATA_KEY_EXPORTABLE);
+        attribute.setDescription(ATTRIBUTE_DATA_KEY_EXPORTABLE_DESCRIPTION);
+        attribute.setType(AttributeType.DATA);
+        attribute.setContentType(AttributeContentType.BOOLEAN);
+
+        DataAttributeProperties attributeProperties = new DataAttributeProperties();
+        attributeProperties.setLabel(ATTRIBUTE_DATA_KEY_EXPORTABLE_LABEL);
+        attributeProperties.setRequired(true);
+        attributeProperties.setVisible(true);
+        attributeProperties.setList(false);
+        attributeProperties.setMultiSelect(false);
+        attributeProperties.setReadOnly(false);
+        attribute.setProperties(attributeProperties);
+
+        // A key stays in the token unless the request asks otherwise.
+        attribute.setContent(List.of(new BooleanAttributeContentV2(false)));
+
+        return attribute;
+    }
 
     public static BaseAttribute buildDataKeyAlias() {
         // define Data Attribute
