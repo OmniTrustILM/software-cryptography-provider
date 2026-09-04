@@ -1,10 +1,11 @@
 package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
@@ -25,6 +26,7 @@ import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequ
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyResultRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportableKeyTypeV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairOperationStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PrivateKeyDataResponseV2Dto;
@@ -120,7 +122,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             // states it nor is answered by anything that reads it.
             List<BaseAttribute> attributes = new ArrayList<>(
                     attributeService.getCreateKeyAttributes(token.instance().getUuid().toString()));
-            attributes.add(KeyAttributes.buildDataKeyExportable());
+            attributes.add(KeyExportableAttribute.definition());
             return attributes;
         } catch (NotFoundException e) {
             throw new ResourceMissingException("The addressed token does not exist", e);
@@ -314,14 +316,17 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     }
 
     /**
-     * Whether a creation asked for a key that may leave the token. The contract reserves the attribute and has it
-     * default to false, so a request that states nothing asks for a key that stays.
+     * Whether a creation asked for a key that may leave the token. The contract reserves the attribute and states how
+     * it is read, so the reading is the interfaces' own: a request that lost the attribute asks for a key that stays,
+     * and content that cannot be read as an intent either way is refused rather than guessed at.
      */
     private static boolean exportable(List<RequestAttribute> createKeyAttributes) {
-        BooleanAttributeContentV2 content = AttributeDefinitionUtils
-                .getSingleItemAttributeContentValue(KeyAttributes.ATTRIBUTE_DATA_KEY_EXPORTABLE, createKeyAttributes,
-                        BooleanAttributeContentV2.class);
-        return content != null && Boolean.TRUE.equals(content.getData());
+        try {
+            return KeyExportableAttribute.isRequested(createKeyAttributes);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(
+                    ValidationError.create("The exportable intent must be stated once, as a single boolean value"));
+        }
     }
 
     /** An algorithm the material holds that this connector does not accept as an import. */

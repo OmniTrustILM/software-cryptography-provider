@@ -1,5 +1,6 @@
 package com.otilm.cp.soft.api.v2;
 
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
@@ -12,6 +13,7 @@ import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
 import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
+import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.testsupport.KeyImportFixtures;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
@@ -170,6 +172,77 @@ class KeyExportV2ControllerImplTest {
         // when
         // then
         assertThrows(KeyNotExportableException.class, () -> controller.exportKey(request));
+    }
+
+    /**
+     * A key generated here may be allowed out when it is made, which is the whole point of the reserved attribute, so
+     * the key that comes back has to be the one the token generated.
+     */
+    @Test
+    void givesBackAKeyItGeneratedAsExportable() {
+        // given
+        var creation = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-export-generated"), "key-" + System.nanoTime());
+        creation.getCreateKeyAttributes().add(KeyRequestFixtures.exportableIntent(true));
+        KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) controller.createKey(creation).getBody();
+        assertNotNull(created);
+
+        ExportKeyRequestV2Dto request = new ExportKeyRequestV2Dto();
+        request.setTokenAttributes(creation.getTokenAttributes());
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyMeta(created.getPrivateKeyData().getKeyMeta());
+        request.setKeyRequestType(KeyRequestType.KEY_PAIR);
+        request.setExportKeyAttributes(List.of());
+        request.setPassphrase(PASSPHRASE);
+
+        // when
+        ExportKeyResponseV2Dto exported = controller.exportKey(request);
+
+        // then
+        ImportedKeyMaterial opened = ImportedKeyMaterial
+                .open(exported.getMaterial().getEncryptedPrivateKeyInfo(), PASSPHRASE);
+        assertEquals(KeyAlgorithm.RSA, opened.algorithm());
+        assertArrayEquals(created.getPublicKeyData().getKeyData().getPublicKeySpki(),
+                opened.keyPair().getPublic().getEncoded(),
+                "the key that came out must be the pair the token generated");
+    }
+
+    /**
+     * The permission is one of the terms a creation was asked on, so the same identifier asking for a key that may
+     * leave when the first one could not is a different request rather than a repeat.
+     */
+    @Test
+    void refusesACreationIdentifierReusedWithThePermissionChanged() {
+        // given
+        var creation = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-export-permission"), "key-" + System.nanoTime());
+        controller.createKey(creation);
+
+        var exportable = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-export-permission-other"), "key-" + System.nanoTime());
+        exportable.setKeyCreationId(creation.getKeyCreationId());
+        exportable.getCreateKeyAttributes().add(KeyRequestFixtures.exportableIntent(true));
+
+        // when
+        // then
+        assertThrows(OperationConflictException.class, () -> controller.createKey(exportable));
+    }
+
+    /**
+     * An intent stated twice cannot be read either way, and a key persisted with an ambiguous permission could never be
+     * corrected, since the permission is set once. So the creation is refused rather than guessed at.
+     */
+    @Test
+    void refusesACreationStatingThePermissionTwice() {
+        // given
+        var creation = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-export-ambiguous"), "key-" + System.nanoTime());
+        creation.getCreateKeyAttributes().add(KeyRequestFixtures.exportableIntent(true));
+        creation.getCreateKeyAttributes().add(KeyRequestFixtures.exportableIntent(false));
+
+        // when
+        // then
+        assertThrows(ValidationException.class, () -> controller.createKey(creation));
     }
 
     @Test
