@@ -23,6 +23,10 @@
              Remove when the parent BOM manages at least this version. -->
         <tomcat.version>10.1.59</tomcat.version>
 
+        <!-- The log encoder is not managed by the parent BOM. 8.0 is the release for the logback and Jackson
+             versions Spring Boot brings here. -->
+        <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
+
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.organization>ilm</sonar.organization>
         <sonar.projectKey>ilm_software-cryptography-provider</sonar.projectKey>
@@ -82,6 +86,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Writes a log line as the object the platform reads. -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>${logstash-logback-encoder.version}</version>
         </dependency>
         <!-- Renders the metrics the interfaces require in the two text formats they name. -->
         <dependency>

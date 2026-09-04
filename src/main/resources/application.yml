@@ -4,6 +4,10 @@ server:
     enabled: false
 
 spring:
+  main:
+    # Every line on the output is one the connector.log schema describes, and the banner is not written through
+    # the logging at all.
+    banner-mode: 'off'
   datasource:
     url: ${JDBC_URL}
     username: ${JDBC_USERNAME}

@@ -67,6 +67,7 @@ mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar 
 | `util/` | Keystore, cipher, signature, X.509, secret, attribute, imported-key and migration helpers |
 | `api/v2/` | Controllers implementing the NG (v2) connector interfaces, and their problem-detail advice |
 | `metrics/` | The metrics the interfaces require, and the instruments that record them |
+| `logging/` | The fields a log line carries, and what is taken out of them |
 | `api/CorrelationFilter` | Gives every request an identifier, for the logs and for the response |
 | `src/main/java/db/migration/` | Java Flyway migrations |
 | `docs/postman/` | Manual test collection for the v2 surface, with a local environment |
@@ -200,6 +201,30 @@ goes into the logging context under `correlation_id` and into the `correlation-i
 is not sent back: it belongs to the caller's trace. Problem documents read the identifier from that one place. What a
 caller states is used only when it is plain printable text of a length the platform accepts, since the value reaches
 both a log line and a header.
+
+**Every line is written as the object the platform reads.** `logback-spring.xml` puts `ConnectorLogFields` on the
+root of the logger tree, so what the key technology, the persistence layer and the framework say is collected the
+same way as what this connector says — and those are where material could reach a log at all. The `connector.log`
+schema names every field it accepts and refuses the rest, so anything beyond them goes under `attributes`: the
+logger, the thread, and the stack of a failure. A trace or span identifier is written only in the shape the schema
+states, since a malformed one correlates with nothing and would make the line invalid rather than incomplete. The
+schema requires every line to carry a complete trace pair or a correlation identifier — that requirement is a
+conditional at the end of it, not part of its `required` list — so a correlation identifier is always written: the
+request's where there is one, and this run of the process where the line was said outside a request.
+
+**What must not be written down is taken out where the line is written.** `Redaction` covers the two fields that
+carry free text, the message and the stack, which is every place a line can say something. A name is matched as part of a longer
+one, so an `oldPassword` goes with a `password` — which is why a word as common as `code` is not among them, since it
+would take an `errorCode` with it. A value runs to the end of the field rather than to the first space, since a
+passphrase may contain one, and a key is found by looking for the end of it rather than by matching across it: a line carrying opening markers and no closing one would otherwise be
+searched once per marker, on the thread the request is waiting on. What it cannot do is follow a value onto the next
+line. It is not an appender of
+its own: rewriting a message that way means standing in for the whole logging event, and the fields are the one
+place every line already passes through. This connector's own lines name objects rather than material; what redaction
+is for is the message of a failure raised by something that was handed a passphrase or a key.
+
+**The service a line came from is read from the build.** `META-INF/build-info.properties` is the same file the build
+metric names, so the two cannot disagree about which build is running.
 
 **The v2 surface answers failures as RFC 9457 problem documents.** `V2ExceptionHandlingAdvice` is scoped to
 `api/v2/`, so v1 keeps its own error shape. The detail is the connector's own wording, never the exception message: a
