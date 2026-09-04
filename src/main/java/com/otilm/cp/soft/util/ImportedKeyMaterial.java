@@ -103,10 +103,6 @@ public final class ImportedKeyMaterial {
     }
 
     /**
-     * The private key inside the envelope. The pinned profile is PBES2, whose parameters live in the envelope itself,
-     * so the decryption is driven by what the envelope states rather than by anything the request said.
-     */
-    /**
      * Why no reader took the key. A key that is a private key of an algorithm this provider does not hold is a key type
      * it cannot take in, which the contract names, and is told apart from bytes that are no key at all.
      */
@@ -124,6 +120,10 @@ public final class ImportedKeyMaterial {
         }
     }
 
+    /**
+     * The private key inside the envelope. The pinned profile is PBES2, whose parameters live in the envelope itself,
+     * so the decryption is driven by what the envelope states rather than by anything the request said.
+     */
     private static PKCS8EncodedKeySpec decrypt(byte[] envelope, String passphrase) {
         try {
             PKCS8EncryptedPrivateKeyInfo protectedKey = new PKCS8EncryptedPrivateKeyInfo(envelope);

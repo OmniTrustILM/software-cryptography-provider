@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
 import com.otilm.cp.soft.util.ImportedKeyMaterial;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
@@ -12,10 +13,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The collection carries key material so an import can be exercised without the platform. A blob nobody can decrypt
  * would fail only when someone tried it by hand, so what is committed is opened here.
+ *
+ * <p>
+ * The collection lives beside the sources rather than among them, so it is absent wherever only the sources are
+ * present, such as the image build. There is nothing to check there, and the check still holds wherever the repository
+ * is whole.
+ * </p>
  */
 @SpringBootTest
 class SampleImportMaterialTest {
@@ -26,6 +34,8 @@ class SampleImportMaterialTest {
     @Test
     void opensTheMaterialTheCollectionCarries() throws Exception {
         // given
+        assumeTrue(Files.exists(ENVIRONMENT), "the collection is not beside these sources");
+
         JsonNode values = new ObjectMapper().readTree(ENVIRONMENT.toFile()).get("values");
         byte[] envelope = Base64.getDecoder().decode(valueOf(values, "importMaterial"));
         String passphrase = valueOf(values, "importPassphrase");
