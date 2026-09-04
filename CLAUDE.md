@@ -153,8 +153,9 @@ endpoint itself answers had to change.
 **Metrics are served at `/v1/metrics`, in whichever of two formats a collector asks for.** The path is the
 contract's, which numbers this interface on its own rather than with the rest of its generation, so `/v2/info`
 declares it at `v1` while its siblings are `v2`. `MetricsV2ControllerImpl`
-answers in OpenMetrics or in the legacy Prometheus text format, choosing by the quality values on `Accept` and
-setting the content type itself so that the format written is the format declared. A collector that asks for
+answers in OpenMetrics or in the legacy Prometheus text format, choosing by the quality values on `Accept` and by the
+version named there, since that is what names the format; it sets the content type itself so that the format written
+is the format declared. A collector that asks for
 something neither format satisfies, or sends a header that cannot be read, is answered in the preferred format
 rather than refused: the contract says so, and a misconfigured collector reading metrics is worth more than one
 being told its request was unacceptable. Nothing to expose means the exposition was abandoned part-written, which is

@@ -149,6 +149,24 @@ class MetricsV2ControllerImplTest {
     }
 
     /**
+     * A version names the exposition format, so a collector asking for one this connector does not serve has not asked
+     * for that format at all, and the next thing it will take is what it gets.
+     */
+    @Test
+    void answersInTheFormatWhoseVersionTheCollectorAskedFor() throws Exception {
+        // given
+        String accept = "application/openmetrics-text; version=0.0.1; q=1,text/plain; version=0.0.4; q=0.5";
+
+        // when
+        // then
+        mockMvc
+                .perform(get(METRICS).header(HttpHeaders.ACCEPT, accept))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertEquals(PrometheusTextFormatWriter.CONTENT_TYPE,
+                        result.getResponse().getContentType()));
+    }
+
+    /**
      * A collector that states no preference, asks for something neither format satisfies, or sends a header that cannot
      * be read at all is answered in the preferred format rather than turned away: it is here to read metrics, and
      * metrics it can read are worth more to it than a refusal.

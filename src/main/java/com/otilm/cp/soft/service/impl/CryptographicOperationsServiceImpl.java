@@ -92,7 +92,11 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     @Override
     public VerifyDataResponseDto verifyData(UUID uuid, UUID keyUuid, VerifyDataRequestDto request)
             throws NotFoundException {
-        return connectorMetrics.counting(ConnectorEvent.SIGNATURE_VERIFIED, () -> verify(uuid, keyUuid, request));
+        // A signature the key technology found invalid was still verified; one it could not check at all is answered
+        // with why instead of a result, and that request did not do what it was asked.
+        return connectorMetrics
+                .counting(ConnectorEvent.SIGNATURE_VERIFIED, () -> verify(uuid, keyUuid, request),
+                        verified -> verified.getVerifications().stream().allMatch(item -> item.getDetails() == null));
     }
 
     private VerifyDataResponseDto verify(UUID uuid, UUID keyUuid, VerifyDataRequestDto request)

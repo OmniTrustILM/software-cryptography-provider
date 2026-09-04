@@ -35,6 +35,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class MetricsV2ControllerImpl implements MetricsController {
 
+    /** The parameter that names an exposition format, which both of the ones served carry. */
+    private static final String VERSION = "version";
+
     private static final MediaType OPEN_METRICS = MediaType.parseMediaType(OpenMetricsTextFormatWriter.CONTENT_TYPE);
 
     private static final MediaType PROMETHEUS_TEXT = MediaType.parseMediaType(PrometheusTextFormatWriter.CONTENT_TYPE);
@@ -85,14 +88,27 @@ public class MetricsV2ControllerImpl implements MetricsController {
             if (wanted.isWildcardType()) {
                 break;
             }
-            if (wanted.isCompatibleWith(OPEN_METRICS)) {
+            if (satisfies(wanted, OPEN_METRICS)) {
                 return OpenMetricsTextFormatWriter.CONTENT_TYPE;
             }
-            if (wanted.isCompatibleWith(PROMETHEUS_TEXT)) {
+            if (satisfies(wanted, PROMETHEUS_TEXT)) {
                 return PrometheusTextFormatWriter.CONTENT_TYPE;
             }
         }
         return OpenMetricsTextFormatWriter.CONTENT_TYPE;
+    }
+
+    /**
+     * Whether one of the formats this connector serves is what the collector asked for. A version it named has to be
+     * the version served, since that is what names the exposition format; anything else it named is not matched, a
+     * charset least of all, as both formats are written in UTF-8 whatever is asked for.
+     */
+    private static boolean satisfies(MediaType wanted, MediaType offered) {
+        if (!wanted.isCompatibleWith(offered)) {
+            return false;
+        }
+        String version = wanted.getParameter(VERSION);
+        return version == null || version.equals(offered.getParameter(VERSION));
     }
 
     /**
