@@ -47,8 +47,10 @@ alter table if exists key_data
     add column exportable boolean not null default false;
 
 -- A token has always been addressed by name, and the interfaces before this refused to create a second one with a
--- name already taken. Stating it here is what lets two requests addressing the same token at once recover: the loser
--- of the race is refused by the database and reads the row the winner wrote, rather than both creating one.
+-- name already taken. Stating it here is what settles two requests addressing the same token at once: the database
+-- refuses the loser, rather than both creating one. That request cannot then read the winning row itself, since its
+-- failed insert leaves the persistence context unusable, so it is answered as retryable and the caller reaches the
+-- winning row by repeating it.
 alter table if exists token_instance
     add constraint token_instance_name_key
     unique (name);
