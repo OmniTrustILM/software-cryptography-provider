@@ -19,13 +19,18 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.util.List;
 import java.util.UUID;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
-@Table(name = "key_data")
+@Table(name = "key_data", uniqueConstraints = {
+        @UniqueConstraint(name = "key_data_key_creation_id_key", columnNames = {"key_creation_id", "type"}),
+        @UniqueConstraint(name = "key_data_key_import_id_key", columnNames = {"key_import_id", "type"}),
+        @UniqueConstraint(name = "key_data_platform_reference_key", columnNames = {"platform_reference", "type"})})
 public class KeyData extends UniquelyIdentified {
 
     @Column(name = "name")
@@ -58,6 +63,50 @@ public class KeyData extends UniquelyIdentified {
 
     @Column(name = "token_instance_uuid")
     private UUID tokenInstanceUuid;
+
+    /**
+     * The identifier of the creation that produced the key, under which a caller repeats a creation whose answer it
+     * lost. A key created through the v1 interfaces has none.
+     */
+    @Column(name = "key_creation_id", length = 256)
+    private String keyCreationId;
+
+    /**
+     * A fingerprint of the terms the creation was asked on, which tells a repeat from a different request wearing the
+     * same identifier.
+     */
+    @Column(name = "creation_fingerprint", length = 64)
+    private String creationFingerprint;
+
+    /**
+     * The identity the platform gave an imported key, which it never reads back from a response and addresses the key
+     * by afterwards. A key this provider generated has none.
+     */
+    @Column(name = "platform_reference")
+    private UUID platformReference;
+
+    /**
+     * The identifier of the import that produced the key, under which a caller repeats an import whose answer it lost
+     * and asks what became of one. A key this provider generated has none.
+     */
+    @Column(name = "key_import_id", length = 256)
+    private String keyImportId;
+
+    /**
+     * A fingerprint of the terms the import was asked on, which tells a repeat from a different request wearing the
+     * same identifier. The platform protects the material afresh every time, so the envelope cannot decide it.
+     */
+    @Column(name = "import_fingerprint", length = 64)
+    private String importFingerprint;
+
+    /**
+     * Whether the key may ever leave the token. Only an import states it, so a generated key never may, and a row
+     * written without stating it is such a key. The default is declared here as well as in the migration: a schema
+     * built from these mappings has to accept the same statements the migrated one does.
+     */
+    @Column(name = "exportable", nullable = false)
+    @ColumnDefault("false")
+    private boolean exportable;
 
     public String getName() {
         return name;
@@ -155,6 +204,54 @@ public class KeyData extends UniquelyIdentified {
 
     public void setTokenInstanceUuid(UUID tokenInstanceUuid) {
         this.tokenInstanceUuid = tokenInstanceUuid;
+    }
+
+    public String getKeyCreationId() {
+        return keyCreationId;
+    }
+
+    public void setKeyCreationId(String keyCreationId) {
+        this.keyCreationId = keyCreationId;
+    }
+
+    public String getCreationFingerprint() {
+        return creationFingerprint;
+    }
+
+    public void setCreationFingerprint(String creationFingerprint) {
+        this.creationFingerprint = creationFingerprint;
+    }
+
+    public UUID getPlatformReference() {
+        return platformReference;
+    }
+
+    public void setPlatformReference(UUID platformReference) {
+        this.platformReference = platformReference;
+    }
+
+    public String getKeyImportId() {
+        return keyImportId;
+    }
+
+    public void setKeyImportId(String keyImportId) {
+        this.keyImportId = keyImportId;
+    }
+
+    public String getImportFingerprint() {
+        return importFingerprint;
+    }
+
+    public void setImportFingerprint(String importFingerprint) {
+        this.importFingerprint = importFingerprint;
+    }
+
+    public boolean isExportable() {
+        return exportable;
+    }
+
+    public void setExportable(boolean exportable) {
+        this.exportable = exportable;
     }
 
     public com.otilm.api.model.connector.cryptography.key.KeyData toKeyData() {

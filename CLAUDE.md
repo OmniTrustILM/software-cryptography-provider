@@ -64,7 +64,7 @@ mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar 
 | `collection/` | Enums backing the attribute content options (curves, key sizes, security categories) |
 | `service/` | Token instance, key management, cryptographic operations and the two cache services |
 | `dao/` | JPA entities, repositories and the key algorithm/format/type converters |
-| `util/` | Keystore, cipher, signature, X.509, secret and migration helpers |
+| `util/` | Keystore, cipher, signature, X.509, secret, imported-key and migration helpers |
 | `api/v2/` | Controllers implementing the NG (v2) connector interfaces, and their problem-detail advice |
 | `api/CorrelationFilter` | Gives every request an identifier, for the logs and for the response |
 | `src/main/java/db/migration/` | Java Flyway migrations |
@@ -101,6 +101,27 @@ be far easier to guess from a stored hash than from the way the code itself is s
 identifier, so the database refuses the other, and that request is told to repeat itself. Recovering inside the failed
 request is not possible: the failed insert leaves the persistence context unusable, so reading the winning row would
 flush that insert and fail again. Repeating reaches the row the winner wrote, which is what the caller asked for.
+
+**A key can be imported, and an imported key is a key like any other.** The platform re-protects whatever a user
+supplied and sends one protection profile, PBES2 over PBKDF2-HMAC-SHA256 with AES-256-CBC, which the contract's own
+envelope type checks before the connector sees it. `ImportedKeyMaterial` opens it and reads out the algorithm and both
+halves: the material carries only the private key, so the public half is worked out from it. `ImportedKeyStore` then
+stores the pair the way a generated one is stored, beside a self-signed certificate, taking the sizes it records from
+the parameter set the key states rather than measuring them, since an encoded lattice private key carries more than
+the key itself.
+
+**A migration that has shipped anywhere is never rewritten.** Repairing a checksum realigns the schema history; it
+does not run statements added to a migration a database already applied. So a change to what an applied migration
+does goes into a new version, and the one that shipped stays as it was.
+
+**Import states its own facts on the key.** The reference the platform holds for the key, the identifier a lost
+import is repeated under, the terms it was asked on, and whether the key may leave the token are columns on the key
+row. The key itself is part of those terms: the platform protects the material afresh for every submission, so the
+envelope says nothing about whether two imports ask for the same thing and the key's public half decides it. That is
+why the material is opened before a repeat is looked for, which also means a repeat carrying the wrong passphrase is
+not answered as though it had succeeded. `/import/result` answers a caller that lost the response by that identifier. Key export is not offered, so an
+import asking for a key that stays exportable is refused: the flag can never be changed afterwards, and accepting it
+would promise something the key could not deliver.
 
 **Asynchronous execution is deliberately not offered.** `ASYNCHRONOUS` is an enforced feature flag, so declining it
 means the platform only ever sends synchronous requests. Every operation here completes inline; the status and

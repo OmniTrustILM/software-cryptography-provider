@@ -83,32 +83,37 @@ public class KeyV2ControllerImpl implements KeyController {
 
     @Override
     public List<ImportableKeyTypeV2Dto> listImportableKeyTypes(TokenProfileScopedRequestV2Dto request) {
-        return List.of();
+        return cryptographicKeyV2Service.importableKeyTypes(request);
     }
 
     @Override
     public List<BaseAttribute> listImportKeyAttributes(ImportKeyAttributesRequestV2Dto request) {
-        throw new NotSupportedException(NO_KEY_TRANSFER);
+        return cryptographicKeyV2Service.importKeyAttributes(request);
     }
 
     @Override
     public ResponseEntity<KeyCreationResponseV2Dto> importKey(ImportKeyRequestV2Dto request) {
-        throw new NotSupportedException(NO_KEY_TRANSFER);
+        return ResponseEntity.ok(cryptographicKeyV2Service.importKey(request));
     }
 
+    /** An import completes inline, so there is never one in flight to report on. */
     @Override
     public KeyCreationStatusResponseV2Dto getImportKeyStatus(OperationTrackingRequestV2Dto request) {
-        throw new NotSupportedException(NO_KEY_TRANSFER);
+        throw new OperationNotTrackedException(NOT_TRACKED);
     }
 
     @Override
     public ResponseEntity<Void> cancelImportKey(OperationTrackingRequestV2Dto request) {
-        throw new NotSupportedException(NO_KEY_TRANSFER);
+        throw new OperationNotTrackedException(NOT_TRACKED);
     }
 
+    /**
+     * What became of an import. Unlike the status of one in flight, this answers a caller that lost the response to an
+     * import that did happen, which is what the identifier it was asked under is for.
+     */
     @Override
     public KeyCreationStatusResponseV2Dto getImportKeyResult(ImportKeyResultRequestV2Dto request) {
-        throw new NotSupportedException(NO_KEY_TRANSFER);
+        return cryptographicKeyV2Service.importResult(request);
     }
 
     @Override

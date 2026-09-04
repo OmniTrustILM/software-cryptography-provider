@@ -16,7 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>
  * A declared feature flag is enforced against the connector afterwards, so this describes the code as it stands rather
  * than what the provider could grow into. Asynchronous execution is deliberately absent: every operation here completes
- * inline, so offering it would only have the platform send requests this connector refuses.
+ * inline, so offering it would only have the platform send requests this connector refuses. Key export is absent for
+ * the same reason, which is also why an import asking for a key that stays exportable is refused.
  * </p>
  */
 @RestController
@@ -60,6 +61,6 @@ public class InfoV2ControllerImpl implements InfoController {
 
     private static ConnectorInterfaceInfo cryptography() {
         return new ConnectorInterfaceInfo(ConnectorInterface.CRYPTOGRAPHY, CRYPTOGRAPHY_INTERFACE_VERSION,
-                List.<FeatureFlag>of());
+                List.of(FeatureFlag.KEY_IMPORT));
     }
 }

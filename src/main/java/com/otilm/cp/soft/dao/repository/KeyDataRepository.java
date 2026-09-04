@@ -16,4 +16,17 @@ public interface KeyDataRepository extends JpaRepository<KeyData, Long> {
 
     List<KeyData> findAllByTokenInstanceUuid(UUID uuid);
 
+    /**
+     * Both halves a creation produced, which is how a repeated creation is answered with the key it already made. The
+     * identifier is the platform's own and is not scoped to a token, so neither is the lookup: the same identifier
+     * arriving for another token is a different request wearing it, not a creation of its own.
+     */
+    List<KeyData> findByKeyCreationId(String keyCreationId);
+
+    /** Both halves an import produced, which is how a repeated import is answered with the key it already made. */
+    List<KeyData> findByKeyImportId(String keyImportId);
+
+    /** Both halves the platform already holds this identity for, which no second import may claim. */
+    List<KeyData> findByPlatformReference(UUID platformReference);
+
 }

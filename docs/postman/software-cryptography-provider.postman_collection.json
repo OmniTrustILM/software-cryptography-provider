@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Software Cryptography Provider",
-    "description": "# Software Cryptography Provider\n\nManual test collection for the Cryptography Provider **v2** REST surface. The v1 surface is unchanged and served alongside it; nothing here touches it.\n\n## Running the connector locally\n\nThe connector needs PostgreSQL. Start one and point the connector at it:\n\n```sh\ndocker run --rm -d --name softcp-db -p 5432:5432 \\\n  -e POSTGRES_USER=softcp -e POSTGRES_PASSWORD=softcp -e POSTGRES_DB=softcp postgres:18\n\nJDBC_URL='jdbc:postgresql://localhost:5432/softcp' JDBC_USERNAME=softcp JDBC_PASSWORD=softcp \\\n  mvn -B spring-boot:run\n```\n\n## Using this collection\n\nImport the collection and the environment beside it, then run the folders in order. The first folder needs nothing but the connector. The second creates a token the first time it addresses one, creates a key, and uses it: run it top to bottom, since the requests pass the key handles between them through collection variables.\n\n`tokenName`, `keyAlias` and `keyCreationId` are per-run values. Change them, or re-import the environment, before running the second folder again.\n\n## What the v2 surface does differently\n\n- A request carries its token as attributes; there is no operation that creates, activates or removes one, so a token comes into existence the first time a context names it.\n- A key is addressed by the metadata the connector published for it, one handle per half of a key pair.\n- Everything completes inline. Asynchronous execution is refused and no operation is ever tracked.\n- Failures are RFC 9457 problem documents carrying an `errorCode`, which is what the tests here assert.\n",
+    "description": "# Software Cryptography Provider\n\nManual test collection for the Cryptography Provider **v2** REST surface. The v1 surface is unchanged and served alongside it; nothing here touches it.\n\n## Running the connector locally\n\nThe connector needs PostgreSQL. Start one and point the connector at it:\n\n```sh\ndocker run --rm -d --name softcp-db -p 5432:5432 \\\n  -e POSTGRES_USER=softcp -e POSTGRES_PASSWORD=softcp -e POSTGRES_DB=softcp postgres:18\n\nJDBC_URL='jdbc:postgresql://localhost:5432/softcp' JDBC_USERNAME=softcp JDBC_PASSWORD=softcp \\\n  mvn -B spring-boot:run\n```\n\n## Using this collection\n\nImport the collection and the environment beside it, then run the folders in order. The first folder needs nothing but the connector. The second creates a token the first time it addresses one, creates a key, and uses it: run it top to bottom, since the requests pass the key handles between them through collection variables.\n\n`tokenName`, `keyAlias` and `keyCreationId` are per-run values. Change them, or re-import the environment, before running the second folder again.\n\n## What the v2 surface does differently\n\n- A request carries its token as attributes; there is no operation that creates, activates or removes one, so a token comes into existence the first time a context names it.\n- A key is addressed by the metadata the connector published for it, one handle per half of a key pair.\n- Everything completes inline. Asynchronous execution is refused and no operation is ever tracked.\n- Failures are RFC 9457 problem documents carrying an `errorCode`, which is what the tests here assert.\n\nThe import requests carry a throwaway RSA-2048 key as their material, generated for this collection and protected under a passphrase kept beside it in the environment. Neither guards anything: they exist so an import can be exercised without the platform. Replace both to import a key of your own.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -23,7 +23,7 @@
                 "info"
               ]
             },
-            "description": "Reports the connector and the interfaces it serves. The cryptography interface is at v2 and declares no features: asynchronous execution is deliberately not offered, and key transfer is not implemented yet. Needs no database."
+            "description": "Reports the connector and the interfaces it serves. The cryptography interface is at v2 and declares key import. Asynchronous execution and key export are deliberately not offered. Needs no database."
           },
           "response": [],
           "event": [
@@ -977,7 +977,103 @@
           ]
         },
         {
-          "name": "POST keys/import (expect 501)",
+          "name": "POST keys/import/keyTypes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/import/keyTypes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "import",
+                "keyTypes"
+              ]
+            },
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"key pairs can be imported\", function () { var t = pm.response.json(); pm.expect(t[0].keyRequestType).to.eql(\"keyPair\"); pm.expect(t[0].algorithms).to.include(\"RSA\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/import/attributes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/import/attributes",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "import",
+                "attributes"
+              ]
+            },
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyRequestType\": \"keyPair\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"an import asks only where to keep the key\", function () { var a = pm.response.json(); pm.expect(a.map(function (x) { return x.name; })).to.eql([\"data_keyAlias\"]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/import (RSA 2048)",
           "request": {
             "method": "POST",
             "header": [
@@ -998,10 +1094,10 @@
                 "import"
               ]
             },
-            "description": "Key import is not implemented yet, so the connector declares neither key transfer feature and refuses the operation.",
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": false,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1016,7 +1112,109 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 501\", function () { pm.response.to.have.status(501); });"
+                  "// The material is a throwaway RSA-2048 key generated for this collection and protected under",
+                  "// importPassphrase. It guards nothing: it exists only so the import can be exercised locally.",
+                  "// Replace both environment values to import a key of your own.",
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"both halves come back\", function () { var k = pm.response.json(); pm.expect(k.publicKeyData.keyData.publicKeySpki).to.be.a(\"string\"); pm.expect(k.privateKeyData.keyMeta).to.be.an(\"array\"); });",
+                  "pm.collectionVariables.set(\"importedKeyMeta\", JSON.stringify(pm.response.json().privateKeyData.keyMeta));",
+                  "pm.test(\"the key was imported under the reference the platform supplied\", function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/import (repeat, same keyImportId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/import",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "import"
+              ]
+            },
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"tokenProfileAttributes\": [],\n  \"keyUsages\": [\n    \"sign\",\n    \"verify\"\n  ],\n  \"keyRequestType\": \"keyPair\",\n  \"executionMode\": \"synchronous\",\n  \"keyImportId\": \"{{keyImportId}}\",\n  \"keyReference\": \"{{keyReference}}\",\n  \"exportable\": false,\n  \"importKeyAttributes\": [\n    {\n      \"uuid\": \"61a228de-c54e-461e-b0d7-ad156a547b51\",\n      \"name\": \"data_keyAlias\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"{{keyAlias}}-imported\",\n          \"data\": \"{{keyAlias}}-imported\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"material\": {\n    \"encryptedPrivateKeyInfo\": \"{{importMaterial}}\"\n  },\n  \"passphrase\": \"{{importPassphrase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the same key comes back\", function () { pm.expect(JSON.stringify(pm.response.json().privateKeyData.keyMeta)).to.eql(pm.collectionVariables.get(\"importedKeyMeta\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST keys/import/result",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/cryptographyProvider/keys/import/result",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "cryptographyProvider",
+                "keys",
+                "import",
+                "result"
+              ]
+            },
+            "description": "Key import is offered and declared. Key export is not, which is also why an import asking for a key that stays exportable is refused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ],\n  \"keyImportId\": \"{{keyImportId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"the import completed\", function () { pm.expect(pm.response.json().status).to.eql(\"completed\"); });",
+                  "pm.test(\"it reports the key that was imported\", function () { pm.expect(JSON.stringify(pm.response.json().result.privateKeyData.keyMeta)).to.eql(pm.collectionVariables.get(\"importedKeyMeta\")); });"
                 ]
               }
             }

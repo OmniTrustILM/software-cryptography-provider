@@ -12,7 +12,6 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequ
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyRequestV2Dto;
-import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
@@ -211,9 +210,9 @@ class KeyV2ControllerImplTest {
         assertThrows(OperationNotTrackedException.class, () -> controller.cancelDestroyKey(request));
     }
 
-    /** Key transfer arrives with the code that performs it; until then the provider moves no key type. */
+    /** Export arrives with the code that performs it; until then the provider takes no key out. */
     @Test
-    void movesNoKeyTypeYet() {
+    void takesNoKeyOutYet() {
         // given
         TokenProfileScopedRequestV2Dto request = new TokenProfileScopedRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(TokenContextFixtures.uniqueName("v2-transfer")));
@@ -222,13 +221,10 @@ class KeyV2ControllerImplTest {
 
         // when
         // then
-        ImportKeyRequestV2Dto anImport = new ImportKeyRequestV2Dto();
         ExportKeyRequestV2Dto anExport = new ExportKeyRequestV2Dto();
         KeyScopedRequestV2Dto keyScoped = new KeyScopedRequestV2Dto();
 
-        assertTrue(controller.listImportableKeyTypes(request).isEmpty());
         assertTrue(controller.listExportableKeyTypes(request).isEmpty());
-        assertThrows(NotSupportedException.class, () -> controller.importKey(anImport));
         assertThrows(NotSupportedException.class, () -> controller.exportKey(anExport));
         assertThrows(NotSupportedException.class, () -> controller.listExportKeyAttributes(keyScoped));
     }

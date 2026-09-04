@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -96,6 +97,19 @@ class V2ExceptionHandlingAdviceTest {
         assertEquals(ErrorCode.INTERNAL_SERVER_ERROR, problem.getErrorCode());
         assertFalse(String.valueOf(problem.getDetail()).contains(secret),
                 () -> "the failure message leaked into " + problem.getDetail());
+    }
+
+    /** A token moving underneath a request is the same kind of race, and is answered the same way. */
+    @Test
+    void aContendedTokenIsRetryable() {
+        // given
+        // when
+        ResponseEntity<ProblemDetailExtended> response = advice
+                .handleConcurrentRequest(new OptimisticLockingFailureException("the token moved"));
+
+        // then
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+        assertTrue(body(response).isRetryable());
     }
 
     /**
