@@ -1,12 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Every line is written as the object the platform reads, described by the connector.log schema. The fields, and
+    what is taken out of them, are decided in com.otilm.cp.soft.logging: the schema names every field it accepts, so
+    nothing may be added here beside them.
+-->
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
-    <property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}/}spring.log}"/>
-    <include resource="org/springframework/boot/logging/logback/file-appender.xml" />
-    <root level="INFO">
-        <appender-ref ref="CONSOLE" />
-<!--        <appender-ref ref="FILE" />-->
+
+    <appender name="CONNECTOR_LOG" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- What a deployment sets to keep the quieter levels out of its console, which the appender this
+             replaced honoured. -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>${CONSOLE_LOG_THRESHOLD:-TRACE}</level>
+        </filter>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <provider class="com.otilm.cp.soft.logging.ConnectorLogFields"/>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="${LOG_LEVEL:-INFO}">
+        <appender-ref ref="CONNECTOR_LOG"/>
     </root>
-    <logger name="com.otilm" level="INFO"/>
+    <logger name="com.otilm" level="${LOG_LEVEL:-INFO}"/>
 </configuration>
