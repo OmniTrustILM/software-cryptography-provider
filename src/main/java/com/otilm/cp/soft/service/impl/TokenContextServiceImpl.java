@@ -2,9 +2,6 @@ package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
-import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
-import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
-import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
@@ -15,6 +12,7 @@ import com.otilm.cp.soft.model.TokenAvailability;
 import com.otilm.cp.soft.model.TokenContext;
 import com.otilm.cp.soft.model.TokenState;
 import com.otilm.cp.soft.service.TokenContextService;
+import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.TokenMetadataUtil;
 import jakarta.transaction.Transactional;
@@ -62,7 +60,7 @@ public class TokenContextServiceImpl implements TokenContextService {
         String code = requiredCode(tokenAttributes);
 
         TokenInstance instance = locate(action, tokenAttributes)
-                .orElseGet(() -> createWhenNew(action, tokenAttributes, code));
+                .orElseGet(() -> createWhenNew(action, tokenAttributes));
 
         requireCodeOpensKeystore(instance, code);
         rememberCode(instance, code);
@@ -117,11 +115,14 @@ public class TokenContextServiceImpl implements TokenContextService {
      * have no operation for it. A context that selected an existing token is asking for one that is gone, which is a
      * missing object rather than a context this connector cannot read.
      */
-    private TokenInstance createWhenNew(String action, List<RequestAttribute> tokenAttributes, String code) {
+    private TokenInstance createWhenNew(String action, List<RequestAttribute> tokenAttributes) {
         if (!ACTION_NEW.equals(action)) {
             throw new ResourceMissingException("The selected token does not exist");
         }
 
+        // Read here rather than taken from the caller: a keystore cannot be made without a code, so the method that
+        // makes one is the method that requires it.
+        String code = requiredCode(tokenAttributes);
         String name = tokenName(tokenAttributes);
         logger.debug("Creating token instance {} for a v2 request that addressed it", name);
 
@@ -172,22 +173,19 @@ public class TokenContextServiceImpl implements TokenContextService {
 
     private static String requiredString(String attributeName, List<RequestAttribute> tokenAttributes,
             String whenMissing) {
-        StringAttributeContentV2 content = AttributeDefinitionUtils
-                .getSingleItemAttributeContentValue(attributeName, tokenAttributes, StringAttributeContentV2.class);
-        if (content == null || content.getData() == null) {
+        String stated = AttributeValue.string(attributeName, tokenAttributes);
+        if (stated == null) {
             throw new TokenInstanceException(whenMissing);
         }
-        return content.getData();
+        return stated;
     }
 
     private static String requiredCode(List<RequestAttribute> tokenAttributes) {
-        SecretAttributeContentV2 content = AttributeDefinitionUtils
-                .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE, tokenAttributes,
-                        SecretAttributeContentV2.class);
-        if (content == null || content.getData() == null || content.getData().getSecret() == null) {
+        String code = AttributeValue.secret(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE, tokenAttributes);
+        if (code == null) {
             throw new TokenInstanceException("The token context does not carry the code that opens the token");
         }
-        return content.getData().getSecret();
+        return code;
     }
 
     @Autowired

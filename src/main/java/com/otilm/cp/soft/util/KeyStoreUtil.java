@@ -43,14 +43,26 @@ public class KeyStoreUtil {
     public static final String CANNOT_CREATE_NEW_KEY_STORE = "Cannot create new KeyStore";
     public static final String INVALID_ALGORITHM_FOR_KEY_STORE = "Invalid algorithm for KeyStore ";
     public static final String PROVIDER_NOT_FOUND = "Provider not found";
+    public static final String CODE_REQUIRED = "A keystore can be neither made nor opened without a code";
 
     private KeyStoreUtil() {
+    }
+
+    /**
+     * The code as a keystore takes it. A code that is not there is a caller that did not require one of its own, which
+     * is a fault in this connector rather than anything about the request, so it is stated as one.
+     */
+    private static char[] password(String code) {
+        if (code == null) {
+            throw new IllegalArgumentException(CODE_REQUIRED);
+        }
+        return code.toCharArray();
     }
 
     public static byte[] createNewKeystore(String type, String code) {
         try {
             KeyStore ks = KeyStore.getInstance(type, BouncyCastleProvider.PROVIDER_NAME);
-            char[] password = code.toCharArray();
+            char[] password = password(code);
             ks.load(null, password);
 
             // store the keystore
@@ -93,7 +105,7 @@ public class KeyStoreUtil {
     public static KeyStore loadKeystore(byte[] data, String code) {
         try {
             KeyStore ks = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
-            char[] password = code.toCharArray();
+            char[] password = password(code);
             ks.load(new ByteArrayInputStream(data), password);
             return ks;
         } catch (CertificateException e) {

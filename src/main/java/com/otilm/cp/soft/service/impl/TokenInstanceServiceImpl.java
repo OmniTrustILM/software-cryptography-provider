@@ -4,7 +4,6 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
-import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.connector.cryptography.token.TokenInstanceDto;
@@ -18,6 +17,7 @@ import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenInstanceService;
+import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.TokenMetadataUtil;
 import jakarta.transaction.Transactional;
@@ -84,11 +84,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
                 throw new AlreadyExistException(TokenInstance.class, request.getName());
             }
 
-            final String tokenCode = AttributeDefinitionUtils
-                    .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE,
-                            request.getAttributes(), SecretAttributeContentV2.class)
-                    .getData()
-                    .getSecret();
+            final String tokenCode = requiredCode(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE,
+                    request.getAttributes());
 
             byte[] tokenData = KeyStoreUtil.createNewKeystore("PKCS12", tokenCode);
 
@@ -123,11 +120,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
                             () -> new TokenInstanceException("Token " + tokenName + "(" + tokenUuid + ") not found"));
 
             // try to activate token using provided code
-            final String tokenCode = AttributeDefinitionUtils
-                    .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE,
-                            request.getAttributes(), SecretAttributeContentV2.class)
-                    .getData()
-                    .getSecret();
+            final String tokenCode = requiredCode(TokenInstanceAttributes.ATTRIBUTE_DATA_TOKEN_CODE,
+                    request.getAttributes());
             try {
                 KeyStoreUtil.loadKeystore(tokenInstance.getData(), tokenCode);
             } catch (IllegalStateException e) {
@@ -140,6 +134,19 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         } else {
             throw new TokenInstanceException("Unknown operation to create Token: " + action);
         }
+    }
+
+    /**
+     * The code that opens a token, which a request has to carry: a keystore can be neither made nor opened without one,
+     * and a request that states none is a request this connector cannot act on. Creation and activation name the
+     * attribute it arrives in differently.
+     */
+    private static String requiredCode(String attributeName, List<RequestAttribute> attributes) {
+        String code = AttributeValue.secret(attributeName, attributes);
+        if (code == null) {
+            throw new TokenInstanceException("The request does not carry the code that opens the token");
+        }
+        return code;
     }
 
     @Override
@@ -185,12 +192,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         if (token.getCode() != null) {
             throw new TokenInstanceException("Token instance already activated");
         } else {
-            final String tokenCode = AttributeDefinitionUtils
-                    .getSingleItemAttributeContentValue(
-                            TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE, attributes,
-                            SecretAttributeContentV2.class)
-                    .getData()
-                    .getSecret();
+            final String tokenCode = requiredCode(TokenInstanceActivationAttributes.ATTRIBUTE_DATA_ACTIVATION_CODE,
+                    attributes);
             try {
                 KeyStoreUtil.loadKeystore(token.getData(), tokenCode);
             } catch (IllegalStateException e) {
