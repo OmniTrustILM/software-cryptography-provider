@@ -6,7 +6,9 @@ import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.cp.soft.api.CorrelationFilter;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
+import com.otilm.cp.soft.exception.ExportableNotSupportedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
@@ -18,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -79,14 +82,34 @@ public class V2ExceptionHandlingAdvice {
                 "The operation identifier was reused for a request that is not the same one.", e);
     }
 
-    @ExceptionHandler(ConcurrentRequestException.class)
-    public ResponseEntity<ProblemDetailExtended> handleConcurrentRequest(ConcurrentRequestException e) {
-        return problem(ErrorCode.SERVICE_UNAVAILABLE, "Another request is creating the same object. Retry.", e);
+    /**
+     * Two requests writing the same thing at once. Either the database refused the second row, or the token both were
+     * changing moved underneath one of them: a key is written into the token's keystore, so two requests adding a key
+     * to one token contend on the token itself. Neither is a fault in the request, and repeating it reaches the state
+     * the other one left.
+     */
+    @ExceptionHandler({ConcurrentRequestException.class, OptimisticLockingFailureException.class})
+    public ResponseEntity<ProblemDetailExtended> handleConcurrentRequest(Exception e) {
+        return problem(ErrorCode.SERVICE_UNAVAILABLE, "Another request is changing the same object. Retry.", e);
     }
 
     @ExceptionHandler(OperationNotTrackedException.class)
     public ResponseEntity<ProblemDetailExtended> handleNotTracked(OperationNotTrackedException e) {
         return problem(ErrorCode.OPERATION_NOT_TRACKED, "This connector tracks no asynchronous operation.", e);
+    }
+
+    /** The material holds a key type or algorithm this connector does not take in, which the contract names. */
+    @ExceptionHandler(KeyTypeNotImportableException.class)
+    public ResponseEntity<ProblemDetailExtended> handleKeyTypeNotImportable(KeyTypeNotImportableException e) {
+        return problem(ErrorCode.KEY_TYPE_NOT_IMPORTABLE,
+                "This connector does not take in a key of that type or algorithm.", e);
+    }
+
+    /** A key that stays exportable, which this connector cannot hold while it does not offer export. */
+    @ExceptionHandler(ExportableNotSupportedException.class)
+    public ResponseEntity<ProblemDetailExtended> handleExportableNotSupported(ExportableNotSupportedException e) {
+        return problem(ErrorCode.EXPORTABLE_NOT_SUPPORTED, "This connector cannot hold a key that stays exportable.",
+                e);
     }
 
     @ExceptionHandler(NotSupportedException.class)

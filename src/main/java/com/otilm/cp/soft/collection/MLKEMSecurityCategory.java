@@ -9,7 +9,7 @@ public enum MLKEMSecurityCategory {
 
     CATEGORY_1(1, 6400, 13056, "ML-KEM-512"),
     CATEGORY_3(3, 9472, 19200, "ML-KEM-768"),
-    CATEGORY_5(5, 12544, 253444, "ML-KEM-1024");
+    CATEGORY_5(5, 12544, 25344, "ML-KEM-1024");
 
     private static final MLKEMSecurityCategory[] VALUES;
 

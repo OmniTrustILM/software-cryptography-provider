@@ -37,6 +37,8 @@ import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.TokenInstanceService;
+import com.otilm.cp.soft.util.ImportedKeyMaterial;
+import com.otilm.cp.soft.util.ImportedKeyStore;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import jakarta.transaction.Transactional;
 import java.security.KeyStore;
@@ -288,6 +290,52 @@ public class KeyManagementServiceImpl implements KeyManagementService {
         response.setPublicKeyData(publicKey.toKeyDataResponseDto());
         response.setPrivateKeyData(privateKey.toKeyDataResponseDto());
 
+        return response;
+    }
+
+    @Override
+    public KeyPairDataResponseDto storeImportedKeyPair(UUID uuid, String alias, ImportedKeyMaterial material)
+            throws NotFoundException {
+        TokenInstance tokenInstance = tokenInstanceService.getTokenInstanceEntity(uuid);
+
+        if (tokenInstance.getCode() == null) {
+            throw new TokenInstanceException("Token is not activated.");
+        }
+
+        KeyStore keyStore = KeyStoreUtil.loadKeystore(tokenInstance.getData(), tokenInstance.getCode());
+
+        if (!keyDataRepository.findByNameAndTokenInstanceUuid(alias, uuid).isEmpty()) {
+            throw new KeyManagementException("Key with alias '" + alias + "' already exists.");
+        }
+
+        KeyAlgorithm algorithm = material.algorithm();
+        ImportedKeyStore.store(keyStore, alias, algorithm, material.keyPair(), tokenInstance.getCode());
+
+        List<MetadataAttribute> metadata = new ArrayList<>();
+        metadata.add(KeyAttributes.buildAliasMetadata(alias));
+        NewKeyContext keyContext = new NewKeyContext(alias, RandomStringUtils.secure().nextAlphanumeric(16), metadata,
+                tokenInstance);
+
+        // The public half travels as its own SubjectPublicKeyInfo, and the private half stays in the token, exactly
+        // as a generated pair does.
+        KeyData publicKey = createAndSaveKeyData(keyContext, KeyType.PUBLIC_KEY, algorithm, KeyFormat.SPKI,
+                KeyStoreUtil.spkiKeyValueFromKeyStore(keyStore, alias),
+                ImportedKeyStore.publicKeySize(algorithm, material.keyPair()));
+
+        CustomKeyValue customKeyValue = new CustomKeyValue();
+        HashMap<String, String> customKeyValues = new HashMap<>();
+        customKeyValues.put("location", "managed by external token");
+        customKeyValue.setValues(customKeyValues);
+
+        KeyData privateKey = createAndSaveKeyData(keyContext, KeyType.PRIVATE_KEY, algorithm, KeyFormat.CUSTOM,
+                customKeyValue, ImportedKeyStore.privateKeySize(algorithm, material.keyPair()));
+
+        tokenInstance.setData(KeyStoreUtil.saveKeystore(keyStore, tokenInstance.getCode()));
+        tokenInstanceService.saveTokenInstance(tokenInstance);
+
+        KeyPairDataResponseDto response = new KeyPairDataResponseDto();
+        response.setPublicKeyData(publicKey.toKeyDataResponseDto());
+        response.setPrivateKeyData(privateKey.toKeyDataResponseDto());
         return response;
     }
 
