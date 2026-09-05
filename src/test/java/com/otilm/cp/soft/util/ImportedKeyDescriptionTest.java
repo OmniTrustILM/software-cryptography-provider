@@ -32,9 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A key that arrived as material has to be described exactly as the same key would have been had this provider
- * generated it: the description is what a caller reads back, and for the two algorithms that also sign a digest it is
- * what decides how the key is signed with. The two descriptions are built from different things — a request in one
- * case, the key itself in the other — so nothing but a comparison keeps them in step.
+ * generated it: the description is what a caller reads back, and for the algorithms that also sign a digest it is what
+ * decides how the key is signed with. The two descriptions are built from different things — a request in one case, the
+ * key itself in the other — so nothing but a comparison keeps them in step.
  */
 class ImportedKeyDescriptionTest {
 
@@ -147,8 +147,8 @@ class ImportedKeyDescriptionTest {
 
     /**
      * A curve is not identified by the size of its field: several curves share one. A key on a curve this provider does
-     * not offer used to be recorded as the published curve of the same size, so the row named a curve the key was not
-     * on — and that name is the reference the platform holds for the key. It is refused instead.
+     * not offer must not be recorded as the published curve of the same size, which would leave the row naming a curve
+     * the key is not on — and that name is the reference the platform holds for the key. It is refused instead.
      */
     @ParameterizedTest
     @ValueSource(strings = {"secp256k1", "brainpoolP256r1", "sect283k1"})

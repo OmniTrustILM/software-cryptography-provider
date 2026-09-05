@@ -26,8 +26,8 @@ import org.bouncycastle.jce.spec.ECNamedCurveSpec;
  *
  * <p>
  * A private key is never given out, so the row describes it instead of carrying it: which parameter set it belongs to
- * and, for the two algorithms that have both forms, whether it signs a message or a digest of one. That last one is
- * read when a signature is prepared, so a key whose row does not state it cannot be used.
+ * and, for the algorithms that have both forms, whether it signs a message or a digest of one. That last one is read
+ * when a signature is prepared, so a key whose row does not state it cannot be used.
  * </p>
  *
  * <p>
@@ -41,7 +41,7 @@ public final class PrivateKeyDescriptor {
     /** What a row says instead of the key, which is where the key is rather than what it is. */
     private static final String LOCATION = "managed by external token";
 
-    /** The parameter sets of the two algorithms that sign a digest name themselves so. */
+    /** The parameter sets of the algorithms that sign a digest name themselves so. */
     private static final String PREHASH_MARKER = "-WITH-";
 
     private PrivateKeyDescriptor() {
@@ -94,11 +94,11 @@ public final class PrivateKeyDescriptor {
      *
      * <p>
      * Neither its field nor its name identifies it. Several curves share a field size, so matching on the size alone
-     * recorded a key on {@code secp256k1} as a key on {@code secp256r1} — a row naming a curve the key is not on, and
-     * that name is the reference the platform holds for the key. And one curve answers to several names, so matching on
-     * the name alone refuses a key on {@code prime256v1}, which is the same curve as {@code secp256r1}. The identifier
-     * is what every name for a curve agrees on and no two curves share. A curve this provider does not offer is
-     * refused.
+     * would record a key on {@code secp256k1} as a key on {@code secp256r1} — a row naming a curve the key is not on,
+     * and that name is the reference the platform holds for the key. And one curve answers to several names, so
+     * matching on the name alone refuses a key on {@code prime256v1}, which is the same curve as {@code secp256r1}. The
+     * identifier is what every name for a curve agrees on and no two curves share. A curve this provider does not offer
+     * is refused.
      * </p>
      */
     static EcdsaCurveName curveOf(KeyPair keyPair) {

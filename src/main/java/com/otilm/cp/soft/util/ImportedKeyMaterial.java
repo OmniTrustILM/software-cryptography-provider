@@ -47,7 +47,7 @@ import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 public final class ImportedKeyMaterial {
 
     /**
-     * The algorithms offered the material, and how each one is read. The two algorithms that also sign a digest of a
+     * The algorithms offered the material, and how each one is read. The algorithms that also sign a digest of a
      * message state a parameter set of their own for that form, which the reader of the plain form refuses, so each is
      * offered under both names.
      */
