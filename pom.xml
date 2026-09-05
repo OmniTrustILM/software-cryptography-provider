@@ -25,7 +25,7 @@
 
         <!-- The log encoder is not managed by the parent BOM. 8.0 is the release for the logback and Jackson
              versions Spring Boot brings here. -->
-        <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
+        <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
 
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.organization>ilm</sonar.organization>
