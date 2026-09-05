@@ -68,7 +68,7 @@ class ImportedKeyMaterialTest {
                         Arguments
                                 .of(KeyAlgorithm.MLKEM, (Generator) (store, alias) -> KeyStoreUtil
                                         .generateMLKEMKey(store, alias, MLKEMSecurityCategory.CATEGORY_1, CODE)),
-                        // The two algorithms that also sign a digest state a parameter set of their own for that
+                        // The algorithms that also sign a digest state a parameter set of their own for that
                         // form, which the reader of the plain form refuses.
                         Arguments
                                 .of(KeyAlgorithm.MLDSA, (Generator) (store, alias) -> KeyStoreUtil
