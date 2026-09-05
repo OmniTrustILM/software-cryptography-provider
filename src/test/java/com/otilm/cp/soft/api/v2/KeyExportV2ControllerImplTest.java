@@ -3,6 +3,8 @@ package com.otilm.cp.soft.api.v2;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ExportKeyResponseV2Dto;
@@ -11,6 +13,9 @@ import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
+import com.otilm.cp.soft.dao.entity.KeyData;
+import com.otilm.cp.soft.dao.repository.KeyDataRepository;
+import com.otilm.cp.soft.exception.KeyManagementException;
 import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
@@ -19,6 +24,8 @@ import com.otilm.cp.soft.testsupport.KeyImportFixtures;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import com.otilm.cp.soft.util.ImportedKeyMaterial;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -46,9 +53,16 @@ class KeyExportV2ControllerImplTest {
 
     private KeyV2ControllerImpl controller;
 
+    private KeyDataRepository keyDataRepository;
+
     @Autowired
     void setController(KeyV2ControllerImpl controller) {
         this.controller = controller;
+    }
+
+    @Autowired
+    void setKeyDataRepository(KeyDataRepository keyDataRepository) {
+        this.keyDataRepository = keyDataRepository;
     }
 
     /** The key that comes out is the key that went in, and it opens under the passphrase that was asked for. */
@@ -139,6 +153,56 @@ class KeyExportV2ControllerImplTest {
 
         String asWritten = imported.getKeyReference().toUpperCase(Locale.ROOT);
         assertEquals(asWritten, controller.exportKey(request(imported, key, asWritten)).getKeyReference());
+    }
+
+    /**
+     * A keystore tells two aliases apart without regard to case, so a token written before that was enforced can hold
+     * one key under two rows. What it holds is then not what either row describes, and handing it out would give away a
+     * key the request never named — one whose own row may say it must never leave.
+     */
+    @Test
+    void refusesAKeyTheTokenHoldsThatTheRowDoesNotDescribe() {
+        // given
+        ImportKeyRequestV2Dto imported = KeyImportFixtures
+                .rsaImport(TokenContextFixtures.uniqueName("v2-export-not-described"));
+        imported.setExportable(true);
+        KeyPairDataResponseV2Dto key = (KeyPairDataResponseV2Dto) controller.importKey(imported).getBody();
+        assertNotNull(key);
+
+        // The row is made to describe another key, which is the state a case-collided alias leaves behind
+        describeAnotherKey(key.getPublicKeyData().getKeyData().getPublicKeySpki());
+
+        ExportKeyRequestV2Dto request = request(imported, key, null);
+
+        // when
+        // then
+        assertThrows(KeyManagementException.class, () -> controller.exportKey(request));
+    }
+
+    /** Rewrites the public half of the pair the import produced, leaving the token holding the key it always held. */
+    private void describeAnotherKey(byte[] describedNow) {
+        KeyData publicKey = keyDataRepository
+                .findAll()
+                .stream()
+                .filter(row -> row.getType() == KeyType.PUBLIC_KEY)
+                .filter(row -> row.getValue() instanceof SpkiKeyValue spki
+                        && Arrays.equals(Base64.getDecoder().decode(spki.getValue()), describedNow))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("the imported public key was not stored"));
+
+        SpkiKeyValue describesAnother = new SpkiKeyValue();
+        describesAnother.setValue(Base64.getEncoder().encodeToString(anotherPublicKey()));
+        publicKey.setValue(describesAnother);
+        keyDataRepository.saveAndFlush(publicKey);
+    }
+
+    private static byte[] anotherPublicKey() {
+        ImportKeyRequestV2Dto another = KeyImportFixtures.rsaImport(TokenContextFixtures.uniqueName("v2-export-other"));
+        return ImportedKeyMaterial
+                .open(another.getMaterial().getEncryptedPrivateKeyInfo(), another.getPassphrase())
+                .keyPair()
+                .getPublic()
+                .getEncoded();
     }
 
     /** An identity that is not written as one this provider issues belongs to no key of its own. */

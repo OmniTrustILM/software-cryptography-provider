@@ -54,7 +54,7 @@ public class V2DispatchFailureAdvice {
     private static final String V2_CONTROLLERS = "com.otilm.cp.soft.api.v2";
 
     /** Where the V2 interfaces are, for a path that matches no route and so names no controller. */
-    private static final String V2_PREFIX = "/v2/";
+    private static final String V2_ROOT = "/v2";
 
     private final ObjectProvider<RequestMappingHandlerMapping> routes;
 
@@ -106,7 +106,7 @@ public class V2DispatchFailureAdvice {
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Object> handleNoSuchRoute(NoResourceFoundException e, HttpServletRequest request) {
-        return path(request).startsWith(V2_PREFIX)
+        return isAddressedToV2(path(request))
                 ? problem(ErrorCode.RESOURCE_NOT_FOUND, "This connector serves nothing under that path.",
                         HttpStatus.NOT_FOUND)
                 : connectorWide.handleAll(e);
@@ -139,7 +139,7 @@ public class V2DispatchFailureAdvice {
     /** Whether a V2 route is what the request addressed, read off the routes this connector actually serves. */
     private boolean servesV2(HttpServletRequest request) {
         if (!ServletRequestPathUtils.hasParsedRequestPath(request)) {
-            return path(request).startsWith(V2_PREFIX);
+            return isAddressedToV2(path(request));
         }
         var addressed = ServletRequestPathUtils.getParsedRequestPath(request).pathWithinApplication();
         return v2Routes().stream().anyMatch(route -> route.matches(addressed));
@@ -173,6 +173,11 @@ public class V2DispatchFailureAdvice {
     private static Stream<PathPattern> patternsOf(RequestMappingInfo route) {
         PathPatternsRequestCondition patterns = route.getPathPatternsCondition();
         return patterns == null ? Stream.empty() : patterns.getPatterns().stream();
+    }
+
+    /** Whether the path is under the V2 namespace, which the namespace root itself is. */
+    private static boolean isAddressedToV2(String path) {
+        return path.equals(V2_ROOT) || path.startsWith(V2_ROOT + "/");
     }
 
     private static String path(HttpServletRequest request) {

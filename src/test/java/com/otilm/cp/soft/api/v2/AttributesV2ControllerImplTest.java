@@ -80,6 +80,20 @@ class AttributesV2ControllerImplTest {
         assertEquals(uuids.size(), uuids.stream().distinct().count(), () -> "duplicated definitions in " + uuids);
     }
 
+    /** The interfaces ask for them one at a time as well as together, so each has to be reachable on its own. */
+    @Test
+    void answersWithEveryDefinitionItPublishesByItsIdentifier() {
+        // given
+        List<BaseAttribute> published = controller.listDefinitions(null).getDefinitions();
+
+        // when
+        // then
+        for (BaseAttribute attribute : published) {
+            assertEquals(attribute.getName(), controller.getDefinition(UUID.fromString(attribute.getUuid())).getName(),
+                    () -> attribute.getName() + " cannot be reached by its own identifier");
+        }
+    }
+
     @Test
     void narrowsTheAnswerToTheDefinitionsAskedFor() {
         // given

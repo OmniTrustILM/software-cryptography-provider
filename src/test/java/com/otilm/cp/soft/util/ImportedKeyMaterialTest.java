@@ -67,7 +67,18 @@ class ImportedKeyMaterialTest {
                                                         false, CODE)),
                         Arguments
                                 .of(KeyAlgorithm.MLKEM, (Generator) (store, alias) -> KeyStoreUtil
-                                        .generateMLKEMKey(store, alias, MLKEMSecurityCategory.CATEGORY_1, CODE)));
+                                        .generateMLKEMKey(store, alias, MLKEMSecurityCategory.CATEGORY_1, CODE)),
+                        // The two algorithms that also sign a digest state a parameter set of their own for that
+                        // form, which the reader of the plain form refuses.
+                        Arguments
+                                .of(KeyAlgorithm.MLDSA, (Generator) (store, alias) -> KeyStoreUtil
+                                        .generateMLDSAKey(store, alias, MLDSASecurityCategory.MLDSA_44, true, CODE)),
+                        Arguments
+                                .of(KeyAlgorithm.SLHDSA,
+                                        (Generator) (store, alias) -> KeyStoreUtil
+                                                .generateSlhDsaKey(store, alias, SLHDSAHash.SHA2,
+                                                        SLHDSASecurityCategory.CATEGORY_1, SLHDSASignatureMode.FAST,
+                                                        true, CODE)));
     }
 
     @ParameterizedTest(name = "{0}")

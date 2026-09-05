@@ -55,7 +55,7 @@ public class SignatureUtil {
                     signatureAlgorithm += "ANDMGF1";
                 }
 
-                return getInstanceSignature(signatureAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
+                return signatureStatedBy(signatureAlgorithm);
             }
             case ECDSA -> {
                 final DigestAlgorithm digest = DigestAlgorithm
@@ -66,7 +66,7 @@ public class SignatureUtil {
 
                 signatureAlgorithm = digest.getProviderName() + "WITHECDSA";
 
-                return getInstanceSignature(signatureAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
+                return signatureStatedBy(signatureAlgorithm);
             }
             case FALCON -> {
                 return getInstanceSignature("FALCON", BouncyCastlePQCProvider.PROVIDER_NAME);
@@ -130,24 +130,34 @@ public class SignatureUtil {
     }
 
     /**
-     * The signature this request asked for.
+     * The signature the request's own parameters name.
      *
      * <p>
      * The scheme and the digest are published as separate choices, so a caller can name a pair no algorithm implements
      * — a digest one scheme signs with and another does not. That is a combination this connector cannot perform rather
-     * than a fault of its own, and it is answered as such.
+     * than a fault of its own, and it is answered as such. Only the algorithms whose name a request states are read
+     * this way: where the name comes from the key or is fixed, nothing the caller sent could be at fault.
      * </p>
      *
      * @param algorithm the signature algorithm the request's parameters name
-     * @param provider the provider that would implement it
      * @return the signature
      */
+    private static Signature signatureStatedBy(String algorithm) {
+        try {
+            return Signature.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
+        } catch (NoSuchAlgorithmException e) {
+            throw new ParameterUnsupportedException(
+                    "The signature parameters do not name anything this connector can sign with");
+        } catch (NoSuchProviderException e) {
+            throw new IllegalStateException("Invalid provider for signature", e);
+        }
+    }
+
     public static Signature getInstanceSignature(String algorithm, String provider) {
         try {
             return Signature.getInstance(algorithm, provider);
         } catch (NoSuchAlgorithmException e) {
-            throw new ParameterUnsupportedException(
-                    "The signature parameters do not name anything this connector can sign with");
+            throw new IllegalStateException("Invalid algorithm for signature", e);
         } catch (NoSuchProviderException e) {
             throw new IllegalStateException("Invalid provider for signature", e);
         }

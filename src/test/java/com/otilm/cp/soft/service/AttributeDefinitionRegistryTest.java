@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * What this connector publishes as its attribute definitions.
@@ -58,15 +57,4 @@ class AttributeDefinitionRegistryTest {
         }
     }
 
-    /** Each one has to be reachable on its own, since the interfaces ask for them one at a time as well as together. */
-    @Test
-    void reachesEveryDefinitionItPublishesByItsIdentifier() {
-        // given
-        // when
-        // then
-        for (BaseAttribute attribute : AttributeDefinitionRegistry.definitions()) {
-            assertTrue(AttributeDefinitionRegistry.definition(attribute.getUuid()).isPresent(),
-                    () -> attribute.getName() + " cannot be reached by its own identifier");
-        }
-    }
 }

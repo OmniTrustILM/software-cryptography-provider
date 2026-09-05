@@ -1,6 +1,5 @@
 package com.otilm.cp.soft.api.v2;
 
-import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -109,7 +108,7 @@ class PublishedOperationCombinationsTest {
         try {
             operation.run();
             return true;
-        } catch (ParameterUnsupportedException | ValidationException e) {
+        } catch (ParameterUnsupportedException e) {
             return false;
         } catch (RuntimeException e) {
             throw new AssertionError(describe(chosen) + " was published and then failed with " + e, e);
@@ -156,21 +155,24 @@ class PublishedOperationCombinationsTest {
     }
 
     /**
-     * Every way of answering the published attributes, one value at a time. Each attribute offering a list is walked
-     * through its own values while the others hold their first, which covers every published value without multiplying
-     * the attributes together.
+     * Every way of answering the published attributes, every value of each against every value of the others. Walking
+     * one attribute at a time while the rest hold their first value would cover every published value and still miss
+     * the combinations these are here for: a digest one scheme signs with and another does not is two values
+     * interacting, and neither of them alone is the problem.
      */
     private static List<List<RequestAttribute>> everyChoiceIn(List<BaseAttribute> published) {
         List<List<RequestAttribute>> choices = new ArrayList<>();
-        for (BaseAttribute varying : published) {
-            for (BaseAttributeContentV2<?> value : valuesOf(varying)) {
-                List<RequestAttribute> chosen = new ArrayList<>();
-                for (BaseAttribute attribute : published) {
-                    BaseAttributeContentV2<?> taken = attribute == varying ? value : valuesOf(attribute).get(0);
-                    chosen.add(stating(attribute.getName(), taken));
+        choices.add(new ArrayList<>());
+        for (BaseAttribute attribute : published) {
+            List<List<RequestAttribute>> widened = new ArrayList<>();
+            for (List<RequestAttribute> chosen : choices) {
+                for (BaseAttributeContentV2<?> value : valuesOf(attribute)) {
+                    List<RequestAttribute> widerChoice = new ArrayList<>(chosen);
+                    widerChoice.add(stating(attribute.getName(), value));
+                    widened.add(widerChoice);
                 }
-                choices.add(chosen);
             }
+            choices = widened;
         }
         return choices;
     }

@@ -29,28 +29,35 @@ public class AttributesV2ControllerImpl implements AttributesController {
 
     private final BuildProperties buildProperties;
 
+    private final List<BaseAttribute> published;
+
     public AttributesV2ControllerImpl(BuildProperties buildProperties) {
         this.buildProperties = buildProperties;
+        // Assembled as the connector starts, since they are the same for every request and a set of definitions that
+        // cannot be published has to stop it from starting rather than fail whoever asks for them first.
+        this.published = AttributeDefinitionRegistry.definitions();
     }
 
     @Override
     public AttributeDefinitionsDto listDefinitions(List<UUID> uuids) {
-        List<BaseAttribute> published = AttributeDefinitionRegistry.definitions();
+        List<BaseAttribute> answered = published;
         if (uuids != null && !uuids.isEmpty()) {
             Set<String> wanted = uuids.stream().map(UUID::toString).collect(Collectors.toSet());
-            published = published.stream().filter(attribute -> wanted.contains(attribute.getUuid())).toList();
+            answered = answered.stream().filter(attribute -> wanted.contains(attribute.getUuid())).toList();
         }
 
         AttributeDefinitionsDto definitions = new AttributeDefinitionsDto();
         definitions.setConnectorVersion(buildProperties.getVersion());
-        definitions.setDefinitions(published);
+        definitions.setDefinitions(answered);
         return definitions;
     }
 
     @Override
     public BaseAttribute getDefinition(UUID uuid) {
-        return AttributeDefinitionRegistry
-                .definition(uuid.toString())
+        return published
+                .stream()
+                .filter(attribute -> uuid.toString().equals(attribute.getUuid()))
+                .findFirst()
                 .orElseThrow(
                         () -> new AttributeDefinitionMissingException("This connector publishes no such attribute"));
     }

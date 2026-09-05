@@ -102,15 +102,20 @@ class ImportedKeyDescriptionTest {
                         .of(SLHDSAHash.values())
                         .flatMap(hash -> Stream
                                 .of(SLHDSASignatureMode.values())
-                                .map(mode -> Arguments
-                                        .of(category.name() + " " + hash + " " + mode, KeyAlgorithm.SLHDSA,
-                                                (Generator) keyStore -> KeyStoreUtil
-                                                        .generateSlhDsaKey(keyStore, "k", hash, category, mode, false,
-                                                                CODE),
-                                                Map
-                                                        .of("securityCategory", category.getNistSecurityCategory(),
-                                                                "hash", hash.getHashName(), "tradeoff", mode.name(),
-                                                                "prehash", "false")))));
+                                .flatMap(mode -> Stream
+                                        .of(false, true)
+                                        .map(prehash -> Arguments
+                                                .of(category.name()
+                                                        + " " + hash + " " + mode + (prehash ? " pre-hash" : ""),
+                                                        KeyAlgorithm.SLHDSA,
+                                                        (Generator) keyStore -> KeyStoreUtil
+                                                                .generateSlhDsaKey(keyStore, "k", hash, category, mode,
+                                                                        prehash, CODE),
+                                                        Map
+                                                                .of("securityCategory",
+                                                                        category.getNistSecurityCategory(), "hash",
+                                                                        hash.getHashName(), "tradeoff", mode.name(),
+                                                                        "prehash", String.valueOf(prehash)))))));
     }
 
     private static Stream<Arguments> mlkem() {
