@@ -66,7 +66,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
     @Override
     public List<BaseAttribute> randomAttributes(TokenProfileScopedRequestV2Dto request) {
-        tokenContextService.resolve(request.getTokenAttributes());
+        tokenContextService.locate(request.getTokenAttributes());
         return List.of();
     }
 

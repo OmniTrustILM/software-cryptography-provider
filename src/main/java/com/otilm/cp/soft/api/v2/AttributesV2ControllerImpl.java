@@ -5,8 +5,8 @@ import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackReques
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeDefinitionsDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.NotSupportedException;
-import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.service.AttributeDefinitionRegistry;
 import java.util.List;
 import java.util.Set;
@@ -51,7 +51,8 @@ public class AttributesV2ControllerImpl implements AttributesController {
     public BaseAttribute getDefinition(UUID uuid) {
         return AttributeDefinitionRegistry
                 .definition(uuid.toString())
-                .orElseThrow(() -> new ResourceMissingException("This connector publishes no such attribute"));
+                .orElseThrow(
+                        () -> new AttributeDefinitionMissingException("This connector publishes no such attribute"));
     }
 
     @Override

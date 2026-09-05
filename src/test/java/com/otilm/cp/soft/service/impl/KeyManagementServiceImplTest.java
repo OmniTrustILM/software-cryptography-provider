@@ -1,6 +1,7 @@
 package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
@@ -12,9 +13,11 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
+import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.MLDSAKeyAttributes;
 import com.otilm.cp.soft.attribute.MLKEMAttributes;
+import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
 import com.otilm.cp.soft.collection.MLDSASecurityCategory;
 import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
@@ -215,6 +218,52 @@ class KeyManagementServiceImplTest {
         attributes.add(keyAlgorithm);
 
         return attributes;
+    }
+
+    /**
+     * Every other algorithm names its parameter set through an enumeration and so refuses one this connector does not
+     * hold. An RSA size is a plain number, and a request for a key of a size no attribute offers reached the generator.
+     */
+    @Test
+    void refusesAnRsaKeyOfASizeItDoesNotOffer() {
+        CreateKeyRequestDto request = new CreateKeyRequestDto();
+        List<RequestAttribute> attributes = new ArrayList<>(
+                getCreateKeyCommonAttributes("alias", KeyAlgorithm.RSA.getCode()));
+
+        RequestAttributeV2 keySize = new RequestAttributeV2();
+        keySize.setName(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_KEY_SIZE);
+        keySize.setContentType(AttributeContentType.INTEGER);
+        keySize.setContent(List.of(new IntegerAttributeContentV2("1536", 1536)));
+        attributes.add(keySize);
+        request.setCreateKeyAttributes(attributes);
+
+        UUID token = tokenInstance.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> keyManagementService.createKeyPair(token, request));
+    }
+
+    /** Both generations serve the same keys, so a key created through either has to be nameable through the other. */
+    @Test
+    void namesEveryKeyItCreatesByTheReferenceTheV2InterfacesAddressItBy() throws NotFoundException {
+        CreateKeyRequestDto request = new CreateKeyRequestDto();
+        List<RequestAttribute> attributes = new ArrayList<>(
+                getCreateKeyCommonAttributes("v1-reachable", KeyAlgorithm.RSA.getCode()));
+
+        RequestAttributeV2 keySize = new RequestAttributeV2();
+        keySize.setName(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_KEY_SIZE);
+        keySize.setContentType(AttributeContentType.INTEGER);
+        keySize.setContent(List.of(new IntegerAttributeContentV2("2048", 2048)));
+        attributes.add(keySize);
+        request.setCreateKeyAttributes(attributes);
+
+        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenInstance.getUuid(), request);
+
+        for (var half : List.of(created.getPublicKeyData(), created.getPrivateKeyData())) {
+            String named = AttributeDefinitionUtils
+                    .getSingleItemAttributeContentValue(KeyAttributes.ATTRIBUTE_META_KEY_REFERENCE,
+                            half.getKeyData().getMetadata(), StringAttributeContentV2.class)
+                    .getData();
+            Assertions.assertEquals(half.getUuid(), named, "the reference has to name the key it was published on");
+        }
     }
 
     @Test

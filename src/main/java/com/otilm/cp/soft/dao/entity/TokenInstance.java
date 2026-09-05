@@ -37,6 +37,20 @@ public class TokenInstance extends UniquelyIdentified {
     @Version
     private Timestamp timestamp;
 
+    /**
+     * The version of this row, which the persistence layer advances on every change to it.
+     *
+     * <p>
+     * Every change to a token's keys rewrites its keystore and so advances this, which is what lets anything derived
+     * from the row say which version of it that was.
+     * </p>
+     *
+     * @return the version of this row
+     */
+    public Timestamp getTimestamp() {
+        return timestamp;
+    }
+
     public String getName() {
         return name;
     }
@@ -49,6 +63,16 @@ public class TokenInstance extends UniquelyIdentified {
         // Decrypted here rather than by a converter, so loading a token for any other reason
         // does not derive a key it will never use.
         return code == null ? null : SecretsUtilHolder.decrypt(code);
+    }
+
+    /**
+     * Whether a code is stored for this token. It says nothing about the code itself, so nothing is derived to answer
+     * it — unlike reading the code, which costs as much as opening the keystore does.
+     *
+     * @return whether a code is stored
+     */
+    public boolean hasCode() {
+        return code != null;
     }
 
     public void setCode(String code) {

@@ -7,7 +7,9 @@ import com.otilm.cp.soft.dao.entity.TokenInstance;
  *
  * <p>
  * The code travels with the context because the V2 interfaces have no activation step: it arrives with every request
- * rather than being held between them, so nothing needs to keep it to serve the next one.
+ * rather than being asked for once. The token keeps the code it was last opened with all the same, since the operations
+ * this provider performs read it from there, and a token addressed only through these interfaces would otherwise have
+ * none.
  * </p>
  *
  * @param instance the token the request addressed

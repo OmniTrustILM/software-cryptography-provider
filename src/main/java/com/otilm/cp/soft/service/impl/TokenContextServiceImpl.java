@@ -1,5 +1,6 @@
 package com.otilm.cp.soft.service.impl;
 
+import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
@@ -11,11 +12,14 @@ import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.model.TokenAvailability;
 import com.otilm.cp.soft.model.TokenContext;
 import com.otilm.cp.soft.model.TokenState;
+import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.TokenMetadataUtil;
 import jakarta.transaction.Transactional;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,6 +56,8 @@ public class TokenContextServiceImpl implements TokenContextService {
 
     private static final String KEYSTORE_TYPE = "PKCS12";
 
+    private KeyStoreCacheService keyStoreCacheService;
+
     private TokenInstanceRepository tokenInstanceRepository;
 
     @Override
@@ -59,12 +65,41 @@ public class TokenContextServiceImpl implements TokenContextService {
         String action = addressing(tokenAttributes);
         String code = requiredCode(tokenAttributes);
 
-        TokenInstance instance = locate(action, tokenAttributes)
-                .orElseGet(() -> createWhenNew(action, tokenAttributes));
+        Optional<TokenInstance> found = locate(action, tokenAttributes);
+        if (found.isEmpty()) {
+            // A token brought into existence here was made with this code, so there is nothing to check against it
+            // and nothing to write down.
+            return new TokenContext(createWhenNew(action, tokenAttributes), code);
+        }
 
-        requireCodeOpensKeystore(instance, code);
-        rememberCode(instance, code);
+        TokenInstance instance = found.get();
+        rememberCode(instance, code, requireCodeOpensToken(instance, code));
         return new TokenContext(instance, code);
+    }
+
+    @Override
+    public Optional<TokenContext> locate(List<RequestAttribute> tokenAttributes) {
+        String action = addressing(tokenAttributes);
+        String code = requiredCode(tokenAttributes);
+
+        Optional<TokenInstance> instance = locate(action, tokenAttributes);
+        if (instance.isEmpty()) {
+            requireTokenMayStillBeCreated(action);
+            return Optional.empty();
+        }
+        requireCodeOpensToken(instance.get(), code);
+        return Optional.of(new TokenContext(instance.get(), code));
+    }
+
+    /**
+     * A context selecting an existing token that is not there addresses nothing, whether or not the call would have
+     * created one. A context asking for a token by name is asking for one that this connector would create when it came
+     * to be used, so nothing is wrong with it yet.
+     */
+    private static void requireTokenMayStillBeCreated(String action) {
+        if (!ACTION_NEW.equals(action)) {
+            throw new ResourceMissingException("The selected token does not exist");
+        }
     }
 
     @Override
@@ -83,7 +118,7 @@ public class TokenContextServiceImpl implements TokenContextService {
             return new TokenState(TokenAvailability.MISSING, "No token answers to the supplied context");
         }
         try {
-            requireCodeOpensKeystore(instance.get(), code);
+            requireCodeOpensToken(instance.get(), code);
         } catch (TokenInstanceException e) {
             return new TokenState(TokenAvailability.UNUSABLE, e.getMessage());
         }
@@ -94,14 +129,21 @@ public class TokenContextServiceImpl implements TokenContextService {
      * Keeps the stored code in step with the one the context proved. The V2 interfaces have no activation step, so a
      * request carrying a code that opens the keystore is what makes the token usable; the operations the provider
      * performs read the stored code, and a token addressed only through V2 would otherwise have none.
+     *
+     * <p>
+     * A token that already had a code stored has just been held to it, so there is nothing to write; only one that had
+     * none — deactivated through the V1 interfaces — is written to, and what was cached for it went when it was
+     * deactivated.
+     * </p>
      */
-    private static void rememberCode(TokenInstance instance, String code) {
-        if (!code.equals(instance.getCode())) {
+    private void rememberCode(TokenInstance instance, String code, String stored) {
+        if (stored == null) {
             instance.setCode(code);
+            keyStoreCacheService.evictAfterCommit(instance.getUuid());
         }
     }
 
-    /** Finds the token the context addresses. Nothing is created here, so a status request changes nothing. */
+    /** Finds the token the context addresses. Nothing is created here, so a request that only reads changes nothing. */
     private Optional<TokenInstance> locate(String action, List<RequestAttribute> tokenAttributes) {
         return switch (action) {
             case ACTION_NEW -> tokenInstanceRepository.findByName(tokenName(tokenAttributes));
@@ -142,13 +184,59 @@ public class TokenContextServiceImpl implements TokenContextService {
         }
     }
 
-    private static void requireCodeOpensKeystore(TokenInstance instance, String code) {
+    /**
+     * Refuses a context whose code does not open the token, and answers with the code the token had stored.
+     *
+     * <p>
+     * A keystore has one code, and the one stored beside it is known to open it: it made the keystore, or it was
+     * written down only after it had opened it. So a code that differs from the stored one does not open the keystore,
+     * and comparing them settles it without opening anything. Both are otherwise as costly as each other — what is
+     * stored is itself protected under a key derived from a passphrase — so the comparison is made against the code
+     * kept beside the token's cached material, which the operations this provider performs load anyway.
+     * </p>
+     *
+     * <p>
+     * A token with no code stored has none to compare against, so that one is opened. It is how a token deactivated
+     * through the V1 interfaces comes back into use.
+     * </p>
+     *
+     * @return the code the token had stored, or {@code null} where it had none
+     */
+    private String requireCodeOpensToken(TokenInstance instance, String code) {
+        if (instance.hasCode()) {
+            String stored = storedCodeOf(instance);
+            if (!isTheSameCode(stored, code)) {
+                logger.debug("The supplied code is not the one stored for token {}", instance.getName());
+                throw new TokenInstanceException("The supplied code does not open token " + instance.getName());
+            }
+            return stored;
+        }
         try {
             KeyStoreUtil.loadKeystore(instance.getData(), code);
         } catch (IllegalStateException e) {
             logger.debug("The supplied code does not open token {}", instance.getName(), e);
             throw new TokenInstanceException("The supplied code does not open token " + instance.getName());
         }
+        return null;
+    }
+
+    /**
+     * The code the token has stored, taken from what was cached for it. A token whose material cannot be read is a
+     * token nothing can be done with, which is the same answer a code that does not open it gets.
+     */
+    private String storedCodeOf(TokenInstance instance) {
+        try {
+            return keyStoreCacheService.loadKeyMaterial(instance.getUuid()).openedWith();
+        } catch (NotFoundException | IllegalStateException e) {
+            logger.debug("The code stored for token {} could not be read back", instance.getName(), e);
+            throw new TokenInstanceException("Token " + instance.getName() + " cannot be opened");
+        }
+    }
+
+    /** Compared without letting how long it took say how much of it was right. */
+    private static boolean isTheSameCode(String stored, String supplied) {
+        return MessageDigest
+                .isEqual(stored.getBytes(StandardCharsets.UTF_8), supplied.getBytes(StandardCharsets.UTF_8));
     }
 
     private static String addressing(List<RequestAttribute> tokenAttributes) {
@@ -186,6 +274,11 @@ public class TokenContextServiceImpl implements TokenContextService {
             throw new TokenInstanceException("The token context does not carry the code that opens the token");
         }
         return code;
+    }
+
+    @Autowired
+    public void setKeyStoreCacheService(KeyStoreCacheService keyStoreCacheService) {
+        this.keyStoreCacheService = keyStoreCacheService;
     }
 
     @Autowired

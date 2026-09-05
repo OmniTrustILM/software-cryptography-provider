@@ -9,7 +9,7 @@ import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSAHash;
 import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSASignatureMode;
-import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.testsupport.KeyMaterialFixtures;
 import java.security.KeyStore;
 import java.security.PrivateKey;
@@ -128,7 +128,8 @@ class ImportedKeyMaterialTest {
 
         // when
         // then
-        assertThrows(KeyManagementException.class, () -> ImportedKeyMaterial.open(material, "another passphrase"));
+        assertThrows(KeyDecryptionFailedException.class,
+                () -> ImportedKeyMaterial.open(material, "another passphrase"));
     }
 
     @Test
@@ -138,7 +139,7 @@ class ImportedKeyMaterialTest {
 
         // when
         // then
-        assertThrows(KeyManagementException.class,
+        assertThrows(KeyDecryptionFailedException.class,
                 () -> ImportedKeyMaterial.open(notMaterial, KeyMaterialFixtures.PASSPHRASE));
     }
 

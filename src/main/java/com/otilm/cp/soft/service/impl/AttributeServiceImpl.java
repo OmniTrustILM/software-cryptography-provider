@@ -83,7 +83,11 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     public List<BaseAttribute> getCreateKeyAttributes(String uuid) throws NotFoundException {
         tokenInstanceService.getTokenInstance(UUID.fromString(uuid));
+        return getCreateKeyAttributes();
+    }
 
+    @Override
+    public List<BaseAttribute> getCreateKeyAttributes() {
         List<BaseAttribute> attrs = new ArrayList<>();
 
         attrs.add(KeyAttributes.buildDataKeyAlias());

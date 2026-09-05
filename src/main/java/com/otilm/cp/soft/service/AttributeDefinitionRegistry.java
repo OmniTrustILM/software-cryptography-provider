@@ -38,12 +38,27 @@ public final class AttributeDefinitionRegistry {
     /**
      * Every definition this connector publishes, each appearing once.
      *
+     * <p>
+     * An attribute several operations ask for is assembled once for each of them, so the same definition arriving twice
+     * is expected and the first is kept. Two <em>different</em> definitions under one identifier is a mistake in what
+     * this connector publishes: the platform tells attributes apart by that identifier, so it would resolve one of them
+     * to the other. Keeping the first quietly is what would let that ship, so it is refused here instead.
+     * </p>
+     *
      * @return the definitions, in a stable order
      */
     public static List<BaseAttribute> definitions() {
         Map<String, BaseAttribute> byUuid = new LinkedHashMap<>();
-        all().forEach(attribute -> byUuid.putIfAbsent(attribute.getUuid(), attribute));
+        all().forEach(attribute -> requireOneDefinitionPerIdentifier(byUuid, attribute));
         return List.copyOf(byUuid.values());
+    }
+
+    private static void requireOneDefinitionPerIdentifier(Map<String, BaseAttribute> byUuid, BaseAttribute attribute) {
+        BaseAttribute published = byUuid.putIfAbsent(attribute.getUuid(), attribute);
+        if (published != null && !published.getName().equals(attribute.getName())) {
+            throw new IllegalStateException("This connector publishes both " + published.getName() + " and "
+                    + attribute.getName() + " under " + attribute.getUuid());
+        }
     }
 
     /**

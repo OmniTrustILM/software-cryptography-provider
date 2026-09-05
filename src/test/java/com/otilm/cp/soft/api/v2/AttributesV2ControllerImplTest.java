@@ -8,8 +8,8 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
+import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.NotSupportedException;
-import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.ArrayList;
@@ -125,7 +125,7 @@ class AttributesV2ControllerImplTest {
 
         // when
         // then
-        assertThrows(ResourceMissingException.class, () -> controller.getDefinition(unknown));
+        assertThrows(AttributeDefinitionMissingException.class, () -> controller.getDefinition(unknown));
     }
 
     /**

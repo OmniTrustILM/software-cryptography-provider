@@ -12,6 +12,9 @@ public interface KeyDataRepository extends JpaRepository<KeyData, Long> {
 
     List<KeyData> findByNameAndTokenInstanceUuid(String name, UUID tokenInstanceUuid);
 
+    /** What the token already holds an alias for, as a keystore reads an alias: without regard to case. */
+    List<KeyData> findByNameIgnoreCaseAndTokenInstanceUuid(String name, UUID tokenInstanceUuid);
+
     Optional<KeyData> findByUuid(UUID uuid);
 
     List<KeyData> findAllByTokenInstanceUuid(UUID uuid);

@@ -13,11 +13,10 @@ import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationStatusRespon
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairOperationStatusResponseV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
-import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
-import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.KeyImportFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
@@ -169,7 +168,23 @@ class KeyImportV2ControllerImplTest {
 
         // when
         // then
-        assertThrows(KeyManagementException.class, () -> controller.importKey(wrongPassphrase));
+        assertThrows(KeyDecryptionFailedException.class, () -> controller.importKey(wrongPassphrase));
+    }
+
+    /**
+     * The contract names a code for a key type this connector does not take in, which a secret key is. Answering that a
+     * whole operation is unoffered would tell a caller the import interface is not there at all.
+     */
+    @Test
+    void refusesASecretKeyAsAKeyTypeItCannotTakeIn() {
+        // given
+        ImportKeyRequestV2Dto request = KeyImportFixtures
+                .rsaImport(TokenContextFixtures.uniqueName("v2-import-secret"));
+        request.setKeyRequestType(KeyRequestType.SECRET);
+
+        // when
+        // then
+        assertThrows(KeyTypeNotImportableException.class, () -> controller.importKey(request));
     }
 
     /** An algorithm this provider does not hold is a key type it cannot take in, not an unreadable key. */
@@ -244,7 +259,7 @@ class KeyImportV2ControllerImplTest {
 
         // when
         // then
-        assertThrows(ResourceMissingException.class, () -> controller.getImportKeyResult(asAnotherToken));
+        assertThrows(OperationNotTrackedException.class, () -> controller.getImportKeyResult(asAnotherToken));
     }
 
     @Test
@@ -256,7 +271,7 @@ class KeyImportV2ControllerImplTest {
 
         // when
         // then
-        assertThrows(ResourceMissingException.class, () -> controller.getImportKeyResult(unknown));
+        assertThrows(OperationNotTrackedException.class, () -> controller.getImportKeyResult(unknown));
     }
 
     /** An import completes inline, so there is never one in flight to report on or to call off. */

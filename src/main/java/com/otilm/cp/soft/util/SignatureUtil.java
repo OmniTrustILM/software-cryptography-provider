@@ -12,6 +12,7 @@ import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.NotSupportedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
 import java.io.IOException;
@@ -82,9 +83,23 @@ public class SignatureUtil {
         }
     }
 
+    /**
+     * Whether the private key signs a digest of a message rather than the message. A row that does not say cannot be
+     * signed with: guessing either way would sign under the wrong parameter set, so the row is reported as the
+     * incomplete thing it is rather than dereferenced.
+     */
+    private static boolean signsADigest(CachedKeyData key) {
+        String stated = ((CustomKeyValue) key.value()).getValues().get("prehash");
+        if (stated == null) {
+            throw new CryptographicOperationException(
+                    "The stored key does not say whether it signs a digest, so it cannot be signed with");
+        }
+        return Boolean.parseBoolean(stated);
+    }
+
     private static boolean isMlDsaPrehash(CachedKeyData key) {
         if (key.type() == KeyType.PRIVATE_KEY) {
-            return ((CustomKeyValue) key.value()).getValues().get("prehash").equals(String.valueOf(true));
+            return signsADigest(key);
         }
         SpkiKeyValue spkiKeyValue = (SpkiKeyValue) key.value();
         try {
@@ -100,7 +115,7 @@ public class SignatureUtil {
 
     private static boolean isSlhDsaPrehash(CachedKeyData key) {
         if (key.type() == KeyType.PRIVATE_KEY) {
-            return ((CustomKeyValue) key.value()).getValues().get("prehash").equals(String.valueOf(true));
+            return signsADigest(key);
         }
         SpkiKeyValue spkiKeyValue = (SpkiKeyValue) key.value();
         try {
@@ -114,11 +129,25 @@ public class SignatureUtil {
         }
     }
 
+    /**
+     * The signature this request asked for.
+     *
+     * <p>
+     * The scheme and the digest are published as separate choices, so a caller can name a pair no algorithm implements
+     * — a digest one scheme signs with and another does not. That is a combination this connector cannot perform rather
+     * than a fault of its own, and it is answered as such.
+     * </p>
+     *
+     * @param algorithm the signature algorithm the request's parameters name
+     * @param provider the provider that would implement it
+     * @return the signature
+     */
     public static Signature getInstanceSignature(String algorithm, String provider) {
         try {
             return Signature.getInstance(algorithm, provider);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Invalid algorithm for signature", e);
+            throw new ParameterUnsupportedException(
+                    "The signature parameters do not name anything this connector can sign with");
         } catch (NoSuchProviderException e) {
             throw new IllegalStateException("Invalid provider for signature", e);
         }

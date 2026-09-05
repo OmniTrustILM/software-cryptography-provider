@@ -9,6 +9,8 @@ import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
 import java.security.KeyStore;
 import java.security.Security;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -210,7 +212,7 @@ class KeyStoreUtilTest {
     void getPrivateKey_missingAlias_throwsCryptographicOperationException() {
         CachedKeyData key = new CachedKeyData(UUID.randomUUID(), UUID.randomUUID(), "ghost-alias", null, null, null,
                 null, null, 0, List.of());
-        CachedKeyMaterial material = new CachedKeyMaterial(Map.of(), Map.of());
+        CachedKeyMaterial material = new CachedKeyMaterial(Map.of(), Map.of(), "code", Timestamp.from(Instant.EPOCH));
 
         assertThrows(CryptographicOperationException.class, () -> KeyStoreUtil.getPrivateKey(key, material));
     }
@@ -219,7 +221,7 @@ class KeyStoreUtilTest {
     void getPublicKey_missingAlias_throwsCryptographicOperationException() {
         CachedKeyData key = new CachedKeyData(UUID.randomUUID(), UUID.randomUUID(), "ghost-alias", null, null, null,
                 null, null, 0, List.of());
-        CachedKeyMaterial material = new CachedKeyMaterial(Map.of(), Map.of());
+        CachedKeyMaterial material = new CachedKeyMaterial(Map.of(), Map.of(), "code", Timestamp.from(Instant.EPOCH));
 
         assertThrows(CryptographicOperationException.class, () -> KeyStoreUtil.getPublicKey(key, material));
     }

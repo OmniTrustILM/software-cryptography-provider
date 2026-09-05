@@ -46,6 +46,7 @@ import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
+import com.otilm.cp.soft.exception.OperationNotTrackedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.metrics.ConnectorEvent;
 import com.otilm.cp.soft.metrics.ConnectorMetrics;
@@ -64,8 +65,11 @@ import jakarta.transaction.Transactional;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.PrivateKey;
+import java.security.cert.Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
@@ -120,17 +124,13 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     @Override
     public List<BaseAttribute> createKeyAttributes(CreateKeyAttributesRequestV2Dto request) {
         requireKeyPair(request.getKeyRequestType());
-        TokenContext token = tokenContextService.resolve(request.getTokenAttributes());
-        try {
-            // The exportable intent is added on top of what both generations publish, since a v1 caller neither
-            // states it nor is answered by anything that reads it.
-            List<BaseAttribute> attributes = new ArrayList<>(
-                    attributeService.getCreateKeyAttributes(token.instance().getUuid().toString()));
-            attributes.add(KeyExportableAttribute.definition());
-            return attributes;
-        } catch (NotFoundException e) {
-            throw new ResourceMissingException("The addressed token does not exist", e);
-        }
+        tokenContextService.locate(request.getTokenAttributes());
+
+        // The exportable intent is added on top of what both generations publish, since a v1 caller neither states it
+        // nor is answered by anything that reads it.
+        List<BaseAttribute> attributes = new ArrayList<>(attributeService.getCreateKeyAttributes());
+        attributes.add(KeyExportableAttribute.definition());
+        return attributes;
     }
 
     @Override
@@ -182,7 +182,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     @Override
     public List<ImportableKeyTypeV2Dto> importableKeyTypes(TokenProfileScopedRequestV2Dto request) {
-        tokenContextService.resolve(request.getTokenAttributes());
+        tokenContextService.locate(request.getTokenAttributes());
 
         ImportableKeyTypeV2Dto importable = new ImportableKeyTypeV2Dto();
         importable.setKeyRequestType(KeyRequestType.KEY_PAIR);
@@ -192,8 +192,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     @Override
     public List<BaseAttribute> importKeyAttributes(ImportKeyAttributesRequestV2Dto request) {
-        requireKeyPair(request.getKeyRequestType());
-        tokenContextService.resolve(request.getTokenAttributes());
+        requireImportableKeyPair(request.getKeyRequestType());
+        tokenContextService.locate(request.getTokenAttributes());
 
         // The material states the algorithm and its parameter set, so an import asks only where to keep the key.
         return List.of(KeyAttributes.buildDataKeyAlias());
@@ -201,7 +201,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     @Override
     public KeyPairDataResponseV2Dto importKey(ImportKeyRequestV2Dto request) {
-        requireKeyPair(request.getKeyRequestType());
+        requireImportableKeyPair(request.getKeyRequestType());
         requireSynchronous(request.getExecutionMode());
 
         TokenContext token = tokenContextService.resolve(request.getTokenAttributes());
@@ -244,18 +244,20 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     @Override
     public KeyPairOperationStatusResponseV2Dto importResult(ImportKeyResultRequestV2Dto request) {
-        TokenContext token = tokenContextService.resolve(request.getTokenAttributes());
-
         // The identifier is looked up across every token, since it is the platform's own and one of them holds it.
         // What is answered is scoped to the token the caller opened: proving the code of one token says nothing about
-        // a key in another, and an import identifier is a value a caller could otherwise guess its way to.
-        List<KeyData> imported = keyDataRepository
-                .findByKeyImportId(request.getKeyImportId())
-                .stream()
-                .filter(key -> token.instance().getUuid().equals(key.getTokenInstanceUuid()))
-                .toList();
+        // a key in another, and an import identifier is a value a caller could otherwise guess its way to. A token
+        // that does not exist holds no key, so there is nothing to bring into existence to answer this.
+        List<KeyData> imported = tokenContextService
+                .locate(request.getTokenAttributes())
+                .map(token -> keyDataRepository
+                        .findByKeyImportId(request.getKeyImportId())
+                        .stream()
+                        .filter(key -> token.instance().getUuid().equals(key.getTokenInstanceUuid()))
+                        .toList())
+                .orElse(List.of());
         if (imported.isEmpty()) {
-            throw new ResourceMissingException("No key was imported under " + request.getKeyImportId());
+            throw new OperationNotTrackedException("No key was imported under " + request.getKeyImportId());
         }
 
         KeyPairOperationStatusResponseV2Dto status = new KeyPairOperationStatusResponseV2Dto();
@@ -285,7 +287,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         for (KeyData half : List.of(publicKey, privateKey)) {
             half.setKeyImportId(request.getKeyImportId());
             half.setImportFingerprint(fingerprint);
-            half.setPlatformReference(UUID.fromString(request.getKeyReference()));
+            half.setPlatformReference(reference(request.getKeyReference()));
             half.setExportable(request.getExportable());
         }
         try {
@@ -312,7 +314,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
      * repeating would free the identity.
      */
     private void requireReferenceUnclaimed(ImportKeyRequestV2Dto request) {
-        UUID reference = UUID.fromString(request.getKeyReference());
+        UUID reference = reference(request.getKeyReference());
         if (!keyDataRepository.findByPlatformReference(reference).isEmpty()) {
             throw new OperationConflictException(
                     "The platform already holds the reference " + reference + " for another key");
@@ -343,7 +345,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     @Override
     public List<ExportableKeyTypeV2Dto> exportableKeyTypes(TokenProfileScopedRequestV2Dto request) {
-        tokenContextService.resolve(request.getTokenAttributes());
+        tokenContextService.locate(request.getTokenAttributes());
 
         ExportableKeyTypeV2Dto exportable = new ExportableKeyTypeV2Dto();
         exportable.setKeyRequestType(KeyRequestType.KEY_PAIR);
@@ -362,12 +364,11 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     @Override
     public ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request) {
+        requireExportableKeyPair(request.getKeyRequestType());
         return connectorMetrics.counting(ConnectorEvent.KEY_EXPORTED, () -> export(request));
     }
 
     private ExportKeyResponseV2Dto export(ExportKeyRequestV2Dto request) {
-        requireKeyPair(request.getKeyRequestType());
-
         KeyContext addressed = keyContextService.resolve(request.getTokenAttributes(), request.getKeyMeta());
         List<KeyData> pair = keyDataRepository
                 .findByNameAndTokenInstanceUuid(addressed.key().getName(), addressed.token().instance().getUuid());
@@ -380,20 +381,39 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         String reference = echoedReference(request.getKeyReference(), privateKey);
 
         ExportKeyResponseV2Dto response = new ExportKeyResponseV2Dto();
-        response.setMaterial(protect(addressed.token(), privateKey, request.getPassphrase()));
+        response.setMaterial(protect(addressed.token(), privateKey, publicKey, request.getPassphrase()));
         response.setKeyReference(reference);
         response.setKeyData(publicKeyData(publicKey).getKeyData());
         return response;
     }
 
+    /**
+     * Refuses to hand out a key that is not the one the row asked for. A keystore tells two aliases apart without
+     * regard to case, so a token written before that was enforced can hold one key under two rows; what it holds is
+     * then not what either row describes, and handing it out would give away a key the request never named — one whose
+     * own row may say it must never leave. The certificate stored beside the key states its public half, so the two are
+     * compared before anything is protected.
+     */
+    private static void requireTheKeyTheRowDescribes(KeyStore keyStore, KeyData privateKey, KeyData publicKey)
+            throws KeyStoreException {
+        Certificate held = keyStore.getCertificate(privateKey.getName());
+        byte[] described = spki(publicKey);
+        if (held == null || described == null || !Arrays.equals(held.getPublicKey().getEncoded(), described)) {
+            throw new KeyManagementException(
+                    "The token holds a key under " + privateKey.getName() + " that this key does not describe");
+        }
+    }
+
     /** The key itself, taken out of the token's keystore and protected under the passphrase the request carried. */
-    private EncryptedKeyMaterialV2Dto protect(TokenContext token, KeyData privateKey, String passphrase) {
+    private EncryptedKeyMaterialV2Dto protect(TokenContext token, KeyData privateKey, KeyData publicKey,
+            String passphrase) {
         KeyStore keyStore = KeyStoreUtil.loadKeystore(token.instance().getData(), token.code());
         try {
             Key stored = keyStore.getKey(privateKey.getName(), token.code().toCharArray());
             if (!(stored instanceof PrivateKey key)) {
                 throw new KeyManagementException("The token holds no private key under " + privateKey.getName());
             }
+            requireTheKeyTheRowDescribes(keyStore, privateKey, publicKey);
             EncryptedKeyMaterialV2Dto material = new EncryptedKeyMaterialV2Dto();
             material.setEncryptedPrivateKeyInfo(ExportedKeyMaterial.protect(key, passphrase));
             return material;
@@ -431,11 +451,24 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             return null;
         }
         UUID held = privateKey.getPlatformReference();
-        if (held == null || !held.equals(UUID.fromString(stated))) {
+        if (held == null || !held.equals(reference(stated))) {
             throw new KeyMaterialMismatchException(
                     "The key " + privateKey.getName() + " is not the key that identity belongs to");
         }
-        return held.toString();
+        return stated;
+    }
+
+    /**
+     * The identity a request states, as the value it stands for. The contract requires it to be written as a UUID and a
+     * request is held to that before it arrives here, so this is what a request reaching here another way is held to:
+     * an identity that is not one of these belongs to no key this provider issued.
+     */
+    private static UUID reference(String stated) {
+        try {
+            return UUID.fromString(stated);
+        } catch (IllegalArgumentException e) {
+            throw new KeyMaterialMismatchException("The stated identity is not one this provider issued");
+        }
     }
 
     /**
@@ -451,13 +484,18 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         return keyPair(half(earlier, KeyType.PUBLIC_KEY, creationId), half(earlier, KeyType.PRIVATE_KEY, creationId));
     }
 
-    private static KeyData half(List<KeyData> pair, KeyType type, String creationId) {
+    /**
+     * One half of a key pair. Each half is a key in its own right and can be destroyed on its own, so what an
+     * identifier finds may no longer be a whole pair: the key is gone rather than the request being wrong, and no
+     * amount of repeating the request would bring it back.
+     */
+    private static KeyData half(List<KeyData> pair, KeyType type, String describedBy) {
         return pair
                 .stream()
                 .filter(key -> key.getType() == type)
                 .findFirst()
-                .orElseThrow(() -> new KeyManagementException(
-                        "Key creation " + creationId + " is missing the " + type.getCode() + " it made"));
+                .orElseThrow(() -> new ResourceMissingException(
+                        "The " + type.getCode() + " of the key " + describedBy + " no longer exists"));
     }
 
     /**
@@ -526,6 +564,19 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             return Base64.getDecoder().decode(spki.getValue());
         }
         return null;
+    }
+
+    /** A secret key is neither taken in nor let out, which the contract names apart from an unoffered operation. */
+    private static void requireImportableKeyPair(KeyRequestType keyRequestType) {
+        if (keyRequestType != KeyRequestType.KEY_PAIR) {
+            throw new KeyTypeNotImportableException("A secret key cannot be imported into this token");
+        }
+    }
+
+    private static void requireExportableKeyPair(KeyRequestType keyRequestType) {
+        if (keyRequestType != KeyRequestType.KEY_PAIR) {
+            throw new KeyTypeNotExportableException("A secret key cannot be exported from this token");
+        }
     }
 
     private static void requireKeyPair(KeyRequestType keyRequestType) {

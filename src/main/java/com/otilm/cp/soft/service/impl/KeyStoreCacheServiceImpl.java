@@ -1,31 +1,14 @@
 package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.cp.soft.config.CacheConfig;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
-import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
-import com.otilm.cp.soft.util.KeyStoreUtil;
-import java.security.Key;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.Certificate;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -35,62 +18,48 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class KeyStoreCacheServiceImpl implements KeyStoreCacheService {
     private static final Logger logger = LoggerFactory.getLogger(KeyStoreCacheServiceImpl.class);
 
-    private final CacheManager cacheManager;
+    private final KeyMaterialCache keyMaterialCache;
     private final TokenInstanceRepository tokenInstanceRepository;
 
-    public KeyStoreCacheServiceImpl(CacheManager cacheManager, TokenInstanceRepository tokenInstanceRepository) {
-        this.cacheManager = cacheManager;
+    public KeyStoreCacheServiceImpl(KeyMaterialCache keyMaterialCache,
+            TokenInstanceRepository tokenInstanceRepository) {
+        this.keyMaterialCache = keyMaterialCache;
         this.tokenInstanceRepository = tokenInstanceRepository;
     }
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheConfig.KEYSTORES_CACHE, key = "#tokenInstanceUuid", sync = true)
     public CachedKeyMaterial loadKeyMaterial(UUID tokenInstanceUuid) throws NotFoundException {
-        logger.debug("Cache miss — loading key material for token instance {} from database", tokenInstanceUuid);
-
         TokenInstance tokenInstance = tokenInstanceRepository
                 .findByUuid(tokenInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, tokenInstanceUuid));
 
-        String code = tokenInstance.getCode();
-        if (code == null) {
-            throw new TokenInstanceException("Token is not activated.");
+        CachedKeyMaterial material = keyMaterialCache.of(tokenInstanceUuid, tokenInstance);
+        if (isStillWhatTheTokenHolds(material, tokenInstance)) {
+            return material;
         }
 
-        KeyStore ks = KeyStoreUtil.loadKeystore(tokenInstance.getData(), code);
-
-        Map<String, PrivateKey> privateKeys = new HashMap<>();
-        Map<String, PublicKey> publicKeys = new HashMap<>();
-
-        try {
-            Enumeration<String> aliases = ks.aliases();
-            while (aliases.hasMoreElements()) {
-                extractAliasKeyMaterial(ks, aliases.nextElement(), code.toCharArray(), privateKeys, publicKeys);
-            }
-        } catch (KeyStoreException e) {
-            throw new IllegalStateException("Cannot enumerate KeyStore aliases", e);
-        }
-
-        return new CachedKeyMaterial(Collections.unmodifiableMap(privateKeys), Collections.unmodifiableMap(publicKeys));
+        // Another process changed the token and discarded only its own copy. Nothing reaches this one, so what it
+        // holds is recognised as behind the row and taken out again.
+        logger
+                .debug("Cached key material for token instance {} is older than the token; loading it again",
+                        tokenInstanceUuid);
+        keyMaterialCache.forget(tokenInstanceUuid);
+        return keyMaterialCache.of(tokenInstanceUuid, tokenInstance);
     }
 
-    private void extractAliasKeyMaterial(KeyStore ks, String alias, char[] password,
-            Map<String, PrivateKey> privateKeys, Map<String, PublicKey> publicKeys) {
-        try {
-            Key key = ks.getKey(alias, password);
-            if (key instanceof PrivateKey pk) {
-                privateKeys.put(alias, pk);
-            }
-            Certificate cert = ks.getCertificate(alias);
-            if (cert != null) {
-                publicKeys.put(alias, cert.getPublicKey());
-            }
-        } catch (UnrecoverableKeyException | NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Cannot recover key for alias '" + alias + "'", e);
-        } catch (KeyStoreException e) {
-            throw new IllegalStateException("Cannot access key material for alias '" + alias + "'", e);
-        }
+    /**
+     * Whether the material was taken out of the token as it now stands.
+     *
+     * <p>
+     * Every change to a token's keys rewrites its keystore and advances the version of its row, so material taken out
+     * of an older version is material the token no longer holds — a key it has since been given is missing from it, and
+     * a key it has since lost is still in it. The version is read from the database on every request, which is the one
+     * thing every process serving this connector shares.
+     * </p>
+     */
+    private static boolean isStillWhatTheTokenHolds(CachedKeyMaterial material, TokenInstance tokenInstance) {
+        return Objects.equals(material.builtFrom(), tokenInstance.getTimestamp());
     }
 
     /**
@@ -127,10 +96,6 @@ public class KeyStoreCacheServiceImpl implements KeyStoreCacheService {
     }
 
     private void doEvict(UUID tokenInstanceUuid) {
-        Cache cache = cacheManager.getCache(CacheConfig.KEYSTORES_CACHE);
-        if (cache != null) {
-            cache.evict(tokenInstanceUuid);
-            logger.debug("Evicted cached key material for token instance {}", tokenInstanceUuid);
-        }
+        keyMaterialCache.forget(tokenInstanceUuid);
     }
 }

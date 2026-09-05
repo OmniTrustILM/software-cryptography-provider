@@ -13,12 +13,14 @@ import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
 import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
+import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.testsupport.KeyImportFixtures;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import com.otilm.cp.soft.util.ImportedKeyMaterial;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -115,9 +117,13 @@ class KeyExportV2ControllerImplTest {
                 "the platform compares this with the record it already holds");
     }
 
-    /** The identity is echoed only when the request states one, so the platform can confirm what it received. */
+    /**
+     * The identity is echoed only when the request states one, so the platform can confirm what it received, and it is
+     * echoed as the caller wrote it: a UUID is the same value however it is written, and a caller matching the answer
+     * to what it asked would not find its own text in a rewritten one.
+     */
     @Test
-    void echoesTheIdentityOnlyWhenTheRequestStatesOne() {
+    void echoesTheIdentityTheRequestStatesAsTheCallerWroteIt() {
         // given
         ImportKeyRequestV2Dto imported = KeyImportFixtures.rsaImport(TokenContextFixtures.uniqueName("v2-export-echo"));
         imported.setExportable(true);
@@ -130,6 +136,26 @@ class KeyExportV2ControllerImplTest {
                 controller.exportKey(request(imported, key, imported.getKeyReference())).getKeyReference());
         assertNull(controller.exportKey(request(imported, key, null)).getKeyReference(),
                 "a request carrying no identity must not be answered with one");
+
+        String asWritten = imported.getKeyReference().toUpperCase(Locale.ROOT);
+        assertEquals(asWritten, controller.exportKey(request(imported, key, asWritten)).getKeyReference());
+    }
+
+    /** An identity that is not written as one this provider issues belongs to no key of its own. */
+    @Test
+    void refusesAnIdentityThatIsNotOneItIssues() {
+        // given
+        ImportKeyRequestV2Dto imported = KeyImportFixtures
+                .rsaImport(TokenContextFixtures.uniqueName("v2-export-unreadable-identity"));
+        imported.setExportable(true);
+        KeyPairDataResponseV2Dto key = (KeyPairDataResponseV2Dto) controller.importKey(imported).getBody();
+        assertNotNull(key);
+
+        ExportKeyRequestV2Dto asNoKey = request(imported, key, "not an identity");
+
+        // when
+        // then
+        assertThrows(KeyMaterialMismatchException.class, () -> controller.exportKey(asNoKey));
     }
 
     /** A request naming an identity the key does not carry is asking about another key. */
@@ -282,6 +308,31 @@ class KeyExportV2ControllerImplTest {
         // when
         // then
         assertTrue(controller.listExportKeyAttributes(scoped).isEmpty());
+    }
+
+    /**
+     * The contract names a code for a key type this connector does not let out, which a secret key is. Answering that a
+     * whole operation is unoffered would tell a caller the export interface is not there at all.
+     */
+    @Test
+    void refusesASecretKeyAsAKeyTypeItDoesNotLetOut() {
+        // given
+        var creation = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-export-secret"), "key-" + System.nanoTime());
+        KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) controller.createKey(creation).getBody();
+        assertNotNull(created);
+
+        ExportKeyRequestV2Dto request = new ExportKeyRequestV2Dto();
+        request.setTokenAttributes(creation.getTokenAttributes());
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyMeta(created.getPrivateKeyData().getKeyMeta());
+        request.setKeyRequestType(KeyRequestType.SECRET);
+        request.setExportKeyAttributes(List.of());
+        request.setPassphrase(PASSPHRASE);
+
+        // when
+        // then
+        assertThrows(KeyTypeNotExportableException.class, () -> controller.exportKey(request));
     }
 
     private static ExportKeyRequestV2Dto request(ImportKeyRequestV2Dto imported, KeyPairDataResponseV2Dto key,

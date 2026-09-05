@@ -31,8 +31,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>
  * Every operation completes inline, so nothing is ever tracked: the status and cancellation operations answer as the
- * contract states for an operation the connector does not track. Key import and export are not offered yet, so this
- * connector declares neither feature and the key types it would move are empty.
+ * contract states for an operation the connector does not track. What an import produced is still answered for, since
+ * it is a fact about the key rather than an operation in flight.
  * </p>
  */
 @RestController
