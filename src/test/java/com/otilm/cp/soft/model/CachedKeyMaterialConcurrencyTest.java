@@ -47,6 +47,8 @@ class CachedKeyMaterialConcurrencyTest {
     /**
      * Number of threads racing simultaneously on each shared key instance.
      */
+    private static final java.sql.Timestamp VERSION = java.sql.Timestamp.from(java.time.Instant.EPOCH);
+
     private static final int THREAD_COUNT = 16;
 
     /**
@@ -139,7 +141,7 @@ class CachedKeyMaterialConcurrencyTest {
         for (KeyPair freshPair : keyPool) {
             // The CachedKeyMaterial wrapping a cold key pair — this is the object every thread reads from.
             CachedKeyMaterial material = new CachedKeyMaterial(Collections.singletonMap("key", freshPair.getPrivate()),
-                    Collections.singletonMap("key", freshPair.getPublic()));
+                    Collections.singletonMap("key", freshPair.getPublic()), "code", VERSION);
 
             // Barrier placed *before* initSign so all threads touch the shared key at the same instant.
             java.util.concurrent.CyclicBarrier startGate = new java.util.concurrent.CyclicBarrier(THREAD_COUNT);

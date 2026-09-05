@@ -7,26 +7,33 @@ import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
+import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
+import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
 import com.otilm.cp.soft.exception.MetricsUnavailableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import jakarta.validation.ConstraintViolationException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -196,6 +203,82 @@ class V2ExceptionHandlingAdviceTest {
         assertEquals(ErrorCode.BAD_REQUEST, body(response).getErrorCode());
     }
 
+    @Test
+    void aPathItCannotReadIsTheCallersMistake() {
+        // given
+        MethodArgumentTypeMismatchException unreadable = new MethodArgumentTypeMismatchException("not-a-uuid",
+                UUID.class, "uuid", null, new IllegalArgumentException("Invalid UUID string"));
+
+        // when
+        ResponseEntity<ProblemDetailExtended> response = advice.handleUnreadablePath(unreadable);
+
+        // then
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(ErrorCode.BAD_REQUEST, body(response).getErrorCode());
+    }
+
+    @Test
+    void anAttributeDefinitionItDoesNotPublishHasItsOwnCode() {
+        // given
+        // when
+        ResponseEntity<ProblemDetailExtended> response = advice
+                .handleAttributeDefinitionMissing(new AttributeDefinitionMissingException("no such attribute"));
+
+        // then
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND, body(response).getErrorCode());
+    }
+
+    @Test
+    void materialThatDoesNotOpenHasItsOwnCode() {
+        // given
+        // when
+        ResponseEntity<ProblemDetailExtended> response = advice
+                .handleKeyDecryptionFailed(new KeyDecryptionFailedException("the material does not open"));
+
+        // then
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        assertEquals(ErrorCode.KEY_DECRYPTION_FAILED, body(response).getErrorCode());
+    }
+
+    @Test
+    void parametersThatNameNoOperationAreNamedAsSuch() {
+        // given
+        // when
+        ResponseEntity<ProblemDetailExtended> response = advice
+                .handleParameterUnsupported(new ParameterUnsupportedException("md5 does not go with pss"));
+
+        // then
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        assertEquals(ErrorCode.PARAMETER_UNSUPPORTED, body(response).getErrorCode());
+    }
+
+    /**
+     * Every failure this advice names is answered as a problem document. A handler answering anything else would give a
+     * V2 caller a body it cannot read, and the shape is the whole reason this advice exists, so it is read off the
+     * handlers rather than checked one at a time.
+     */
+    @Test
+    void answersEveryFailureItNamesAsAProblemDocument() {
+        // given
+        List<Method> handlers = Arrays
+                .stream(V2ExceptionHandlingAdvice.class.getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(ExceptionHandler.class))
+                .toList();
+
+        // when
+        // then
+        assertFalse(handlers.isEmpty(), "the advice has to name the failures it answers");
+        for (Method handler : handlers) {
+            assertEquals(ResponseEntity.class, handler.getReturnType(), () -> handler.getName() + " answers otherwise");
+            assertEquals(
+                    "org.springframework.http.ResponseEntity<com.otilm.api.model.common.error"
+                            + ".ProblemDetailExtended>",
+                    handler.getGenericReturnType().getTypeName(),
+                    () -> handler.getName() + " answers with something other than a problem document");
+        }
+    }
+
     /**
      * A problem document states the code, the status it was answered with and whether retrying can help, and carries a
      * timestamp. Everything a caller branches on must be present.
@@ -237,14 +320,14 @@ class V2ExceptionHandlingAdviceTest {
     }
 
     /**
-     * A message from the key technology can quote a key, an alias or a passphrase, and neither the response nor this
-     * connector's log may carry one. What is written down is the kind of failure and the identifier leading back to the
-     * request, which is what an operator acts on.
+     * A failure nothing here explains is the one an operator has only the log to go on for, so it is written down in
+     * full — the stack included. What a written line may carry is decided as the line is written, which is where
+     * everything this connector logs passes through the same redaction.
      */
     @Test
-    void recordsTheKindOfFailureAndNothingOfTheFailureItself() {
+    void writesAnUnforeseenFailureDownInFull() {
         // given
-        String secret = "correct horse battery staple";
+        IllegalStateException failure = new IllegalStateException("cannot open the keystore");
         Logger logger = (Logger) LoggerFactory.getLogger(V2ExceptionHandlingAdvice.class);
         ListAppender<ILoggingEvent> recorded = new ListAppender<>();
         recorded.start();
@@ -254,24 +337,30 @@ class V2ExceptionHandlingAdviceTest {
 
         // when
         try {
-            advice.handleUnexpectedFailure(new IllegalStateException("cannot open the keystore with " + secret));
+            advice.handleUnexpectedFailure(failure);
         } finally {
             logger.detachAppender(recorded);
             logger.setLevel(was);
         }
 
         // then
-        assertFalse(recorded.list.isEmpty(), "a failure must leave something to act on");
-        for (ILoggingEvent event : recorded.list) {
-            assertNull(event.getThrowableProxy(), "the failure itself must not be written down");
-            assertFalse(event.getFormattedMessage().contains(secret),
-                    () -> "the failure message leaked into the log: " + event.getFormattedMessage());
-        }
-        assertTrue(
-                recorded.list
-                        .stream()
-                        .anyMatch(event -> event.getFormattedMessage().contains(IllegalStateException.class.getName())),
-                "the kind of failure has to be recorded");
+        assertTrue(recorded.list.stream().anyMatch(event -> event.getThrowableProxy() != null),
+                "a failure nothing explains has to be written down to be acted on");
+    }
+
+    /** However much is logged, the response carries none of it: it leaves this connector and the log does not. */
+    @Test
+    void answersAnUnforeseenFailureWithoutQuotingIt() {
+        // given
+        String secret = "correct horse battery staple";
+
+        // when
+        ProblemDetailExtended problem = body(
+                advice.handleUnexpectedFailure(new IllegalStateException("cannot open the keystore with " + secret)));
+
+        // then
+        assertFalse(String.valueOf(problem.getDetail()).contains(secret),
+                () -> "the failure message leaked into " + problem.getDetail());
     }
 
     private static ProblemDetailExtended body(ResponseEntity<ProblemDetailExtended> response) {

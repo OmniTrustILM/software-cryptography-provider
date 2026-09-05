@@ -110,6 +110,30 @@ class V2ErrorShapeTest {
                 .andExpect(jsonPath("$.instance").value(OPERATIONS + "/encrypt/attributes"));
     }
 
+    /** An identifier in the path that is not a UUID is a request this connector cannot read, not a failure. */
+    @Test
+    void aPathItCannotReadIsAProblemDocument() throws Exception {
+        // given
+        // when
+        // then
+        mockMvc
+                .perform(get("/v2/attributes/{uuid}", "not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.BAD_REQUEST.name()));
+    }
+
+    /** The contract names a code of its own for a definition the connector does not publish. */
+    @Test
+    void anAttributeItDoesNotPublishIsNamedAsSuch() throws Exception {
+        // given
+        // when
+        // then
+        mockMvc
+                .perform(get("/v2/attributes/{uuid}", UUID.randomUUID()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND.name()));
+    }
+
     /**
      * The V1 surface is unchanged by the V2 advice, which takes precedence over the connector-wide one and would
      * otherwise answer V1 callers in a shape they do not read.

@@ -5,8 +5,8 @@ import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackReques
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeDefinitionsDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.NotSupportedException;
-import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.service.AttributeDefinitionRegistry;
 import java.util.List;
 import java.util.Set;
@@ -29,29 +29,37 @@ public class AttributesV2ControllerImpl implements AttributesController {
 
     private final BuildProperties buildProperties;
 
+    private final List<BaseAttribute> published;
+
     public AttributesV2ControllerImpl(BuildProperties buildProperties) {
         this.buildProperties = buildProperties;
+        // Assembled as the connector starts, since they are the same for every request and a set of definitions that
+        // cannot be published has to stop it from starting rather than fail whoever asks for them first.
+        this.published = AttributeDefinitionRegistry.definitions();
     }
 
     @Override
     public AttributeDefinitionsDto listDefinitions(List<UUID> uuids) {
-        List<BaseAttribute> published = AttributeDefinitionRegistry.definitions();
+        List<BaseAttribute> answered = published;
         if (uuids != null && !uuids.isEmpty()) {
             Set<String> wanted = uuids.stream().map(UUID::toString).collect(Collectors.toSet());
-            published = published.stream().filter(attribute -> wanted.contains(attribute.getUuid())).toList();
+            answered = answered.stream().filter(attribute -> wanted.contains(attribute.getUuid())).toList();
         }
 
         AttributeDefinitionsDto definitions = new AttributeDefinitionsDto();
         definitions.setConnectorVersion(buildProperties.getVersion());
-        definitions.setDefinitions(published);
+        definitions.setDefinitions(answered);
         return definitions;
     }
 
     @Override
     public BaseAttribute getDefinition(UUID uuid) {
-        return AttributeDefinitionRegistry
-                .definition(uuid.toString())
-                .orElseThrow(() -> new ResourceMissingException("This connector publishes no such attribute"));
+        return published
+                .stream()
+                .filter(attribute -> uuid.toString().equals(attribute.getUuid()))
+                .findFirst()
+                .orElseThrow(
+                        () -> new AttributeDefinitionMissingException("This connector publishes no such attribute"));
     }
 
     @Override

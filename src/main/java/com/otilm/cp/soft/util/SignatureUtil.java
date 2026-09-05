@@ -12,6 +12,7 @@ import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.NotSupportedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
 import java.io.IOException;
@@ -54,7 +55,7 @@ public class SignatureUtil {
                     signatureAlgorithm += "ANDMGF1";
                 }
 
-                return getInstanceSignature(signatureAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
+                return signatureStatedBy(signatureAlgorithm);
             }
             case ECDSA -> {
                 final DigestAlgorithm digest = DigestAlgorithm
@@ -65,7 +66,7 @@ public class SignatureUtil {
 
                 signatureAlgorithm = digest.getProviderName() + "WITHECDSA";
 
-                return getInstanceSignature(signatureAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
+                return signatureStatedBy(signatureAlgorithm);
             }
             case FALCON -> {
                 return getInstanceSignature("FALCON", BouncyCastlePQCProvider.PROVIDER_NAME);
@@ -82,9 +83,23 @@ public class SignatureUtil {
         }
     }
 
+    /**
+     * Whether the private key signs a digest of a message rather than the message. A row that does not say cannot be
+     * signed with: guessing either way would sign under the wrong parameter set, so the row is reported as the
+     * incomplete thing it is rather than dereferenced.
+     */
+    private static boolean signsADigest(CachedKeyData key) {
+        String stated = ((CustomKeyValue) key.value()).getValues().get("prehash");
+        if (stated == null) {
+            throw new CryptographicOperationException(
+                    "The stored key does not say whether it signs a digest, so it cannot be signed with");
+        }
+        return Boolean.parseBoolean(stated);
+    }
+
     private static boolean isMlDsaPrehash(CachedKeyData key) {
         if (key.type() == KeyType.PRIVATE_KEY) {
-            return ((CustomKeyValue) key.value()).getValues().get("prehash").equals(String.valueOf(true));
+            return signsADigest(key);
         }
         SpkiKeyValue spkiKeyValue = (SpkiKeyValue) key.value();
         try {
@@ -100,7 +115,7 @@ public class SignatureUtil {
 
     private static boolean isSlhDsaPrehash(CachedKeyData key) {
         if (key.type() == KeyType.PRIVATE_KEY) {
-            return ((CustomKeyValue) key.value()).getValues().get("prehash").equals(String.valueOf(true));
+            return signsADigest(key);
         }
         SpkiKeyValue spkiKeyValue = (SpkiKeyValue) key.value();
         try {
@@ -111,6 +126,30 @@ public class SignatureUtil {
             throw new CryptographicOperationException(
                     "Could not create BCSLHDSAPublicKey instance from SLH-DSA Public Key value: "
                             + spkiKeyValue.getValue());
+        }
+    }
+
+    /**
+     * The signature the request's own parameters name.
+     *
+     * <p>
+     * The scheme and the digest are published as separate choices, so a caller can name a pair no algorithm implements
+     * — a digest one scheme signs with and another does not. That is a combination this connector cannot perform rather
+     * than a fault of its own, and it is answered as such. Only the algorithms whose name a request states are read
+     * this way: where the name comes from the key or is fixed, nothing the caller sent could be at fault.
+     * </p>
+     *
+     * @param algorithm the signature algorithm the request's parameters name
+     * @return the signature
+     */
+    private static Signature signatureStatedBy(String algorithm) {
+        try {
+            return Signature.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);
+        } catch (NoSuchAlgorithmException e) {
+            throw new ParameterUnsupportedException(
+                    "The signature parameters do not name anything this connector can sign with");
+        } catch (NoSuchProviderException e) {
+            throw new IllegalStateException("Invalid provider for signature", e);
         }
     }
 

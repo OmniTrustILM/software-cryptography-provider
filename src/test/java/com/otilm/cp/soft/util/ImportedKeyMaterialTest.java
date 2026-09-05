@@ -9,7 +9,7 @@ import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSAHash;
 import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSASignatureMode;
-import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.testsupport.KeyMaterialFixtures;
 import java.security.KeyStore;
 import java.security.PrivateKey;
@@ -67,7 +67,18 @@ class ImportedKeyMaterialTest {
                                                         false, CODE)),
                         Arguments
                                 .of(KeyAlgorithm.MLKEM, (Generator) (store, alias) -> KeyStoreUtil
-                                        .generateMLKEMKey(store, alias, MLKEMSecurityCategory.CATEGORY_1, CODE)));
+                                        .generateMLKEMKey(store, alias, MLKEMSecurityCategory.CATEGORY_1, CODE)),
+                        // The two algorithms that also sign a digest state a parameter set of their own for that
+                        // form, which the reader of the plain form refuses.
+                        Arguments
+                                .of(KeyAlgorithm.MLDSA, (Generator) (store, alias) -> KeyStoreUtil
+                                        .generateMLDSAKey(store, alias, MLDSASecurityCategory.MLDSA_44, true, CODE)),
+                        Arguments
+                                .of(KeyAlgorithm.SLHDSA,
+                                        (Generator) (store, alias) -> KeyStoreUtil
+                                                .generateSlhDsaKey(store, alias, SLHDSAHash.SHA2,
+                                                        SLHDSASecurityCategory.CATEGORY_1, SLHDSASignatureMode.FAST,
+                                                        true, CODE)));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -128,7 +139,8 @@ class ImportedKeyMaterialTest {
 
         // when
         // then
-        assertThrows(KeyManagementException.class, () -> ImportedKeyMaterial.open(material, "another passphrase"));
+        assertThrows(KeyDecryptionFailedException.class,
+                () -> ImportedKeyMaterial.open(material, "another passphrase"));
     }
 
     @Test
@@ -138,7 +150,7 @@ class ImportedKeyMaterialTest {
 
         // when
         // then
-        assertThrows(KeyManagementException.class,
+        assertThrows(KeyDecryptionFailedException.class,
                 () -> ImportedKeyMaterial.open(notMaterial, KeyMaterialFixtures.PASSPHRASE));
     }
 

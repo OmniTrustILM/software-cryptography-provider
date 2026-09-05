@@ -82,16 +82,45 @@ Both generations are served at once, over the same stored keys. The v1 controlle
 suffixed `V2` because Spring derives bean names from them and `InfoControllerImpl` already exists.
 
 **A v2 request carries its token as attributes, and there is no operation that creates one.** `TokenContextService`
-turns those attributes into the token: a context asking for a new one creates it the first time it is used and finds the
-same token afterwards, while a context selecting an existing one only ever finds it. Status is the exception — it
-inspects without creating, and reports a token it cannot open rather than failing.
+turns those attributes into the token: `resolve` creates the token the first time it is *used* and finds the same one
+afterwards, while a context selecting an existing one only ever finds it. `locate` finds without creating, and is what
+every call that only reads uses — which key types can be moved, what a creation or an import asks for, what an import
+produced. A platform enumerating what this connector offers would otherwise leave a token and a keystore behind for
+every name it asked about. Status is separate again: `inspect` reports a token it cannot open rather than failing.
 
 **The code arrives with every request, and there is no activation step.** A code that opens the keystore is what makes
 the token usable, so resolution stores it: the operations read the stored code, and a token addressed only through v2
 would otherwise have none. This is what keeps a token usable from both generations.
 
+**A code is checked against the stored one, not by opening the keystore.** A keystore has one code, and the one
+stored beside it is known to open it — it made the keystore, or it was written down only after opening it. So a code
+that differs does not open it, and comparing the two settles the check. Both are otherwise as costly as each other:
+opening a keystore derives a key from the code over the whole of its content, and reading what is stored derives one
+too, since the stored code is itself protected that way. So the comparison is made against the code kept beside the
+token's cached key material — the same cache the operations load from — and a request is held to its code without
+deriving anything. Whether a code is stored at all is answered from the row without decrypting it. A token with no
+code stored has nothing to compare against, so that one is opened; it is how a token deactivated through v1 comes
+back into use, and a token brought into existence by the request itself was made with that very code, so there is
+nothing to check.
+
 **A key is addressed by the metadata the connector published for it.** Each half of a key pair gets its own handle,
-carrying the alias and `meta_keyReference` — the key row's own reference. The alias alone cannot distinguish the halves.
+carrying the alias and `meta_keyReference` — the key row's own reference. The alias alone cannot distinguish the halves,
+so the reference is the only thing in the metadata that tells them apart. Every key states it, whichever generation
+created it: a key created through v1 has to be nameable through v2, and both generations serve the same keys.
+
+**An alias means the same thing to the database and to the keystore.** A PKCS#12 keystore tells two aliases apart
+without regard to case, so a second key stored under a differently-cased alias silently replaces the first, and the
+row for the first one then describes a key the token no longer holds. Alias checks are therefore case-insensitive, and
+an export compares what the token holds under the alias against the public half the row records before it protects
+anything — a key whose row says it must never leave would otherwise have been handed out under another row's name.
+
+**An imported key is described exactly as a generated one is.** `PrivateKeyDescriptor` derives the private-key row
+descriptor from the key material, so an ML-DSA or SLH-DSA key that signs a digest carries the `prehash` flag that
+signing reads, and ECDSA sizes match. A curve is matched by the identifier it is registered under, because neither its
+field nor its name identifies it: several curves share a field size, and one curve answers to several names — so a key
+on `secp256k1` was recorded as one on `secp256r1`, while a key naming that same curve `prime256v1` would be refused. `ImportedKeyDescriptionTest` compares the descriptor of an imported key against
+the one a generated key of the same parameter set carries, for every algorithm — the two paths are separate, and that
+is what keeps them from drifting.
 
 **Creation is idempotent by `keyCreationId`.** The identifier and a fingerprint of the parts of the request that
 decide equivalence are columns on the key row, so what a creation leaves behind cannot outlive the key it describes. A
@@ -248,10 +277,21 @@ metric names, so the two cannot disagree about which build is running.
 `api/v2/`, so v1 keeps its own error shape. The detail is the connector's own wording, never the exception message: a
 message from the key technology can quote an alias or a passphrase, and a problem document is forwarded to the platform
 and logged there. Malformed context is a bad request, an absent object is not found, and a reused operation identifier
-is a conflict. The connector's own log records the kind of failure and the identifier the request is known by, not the
-failure itself, since that requirement covers the log as much as the response. The exception can be written down again
-once log output is redacted. The handler of last resort is what keeps that boundary closed: an unforeseen failure would otherwise
-reach the connector-wide advice and answer a v2 caller in the v1 shape, which carries no `errorCode`.
+is a conflict; a path that cannot be read, an attribute definition the connector does not publish, material that does
+not open, a secret key asked of import or export, and parameters naming no operation each carry the code the contract
+names for them. A failure nothing here explains is logged in full, stack included, since what may be written down is
+decided as the line is written. The handler of last resort is what keeps that boundary closed: an unforeseen failure
+would otherwise reach the connector-wide advice and answer a v2 caller in the v1 shape, which carries no `errorCode`.
+
+**A request that never reached a controller has no package to scope an advice by.** A method, a media type or a path
+no route serves is refused during dispatch, so `V2ExceptionHandlingAdvice` cannot see it and the connector-wide advice
+answered it as an internal error in the v1 shape. `V2DispatchFailureAdvice` is registered connector-wide and decides
+the generation itself, then hands anything that is not a v2 request to the connector-wide advice so v1 answers exactly
+as it did. Which generation a route belongs to is read off the routes the connector actually serves — the v2
+interfaces are not all under `/v2`, since metrics sit at `/v1/metrics` — and the `/v2` prefix is used only for a path
+that matches no route at all, where nothing else says which generation it was meant for. The true HTTP status is kept
+(405, 415, 406, 404) because a client, a library and a proxy all act on it, and the error code beside it names the
+nearest kind of failure the contract defines.
 
 **The two generations correlate batch items differently.** `OperationDataMapper` is where a v1 result becomes one the
 v2 contract accepts. Every item carries the identifier the request gave it, since that is all a caller has to pair a
@@ -265,7 +305,19 @@ answered without a signature, and a verification that failed is reported as inva
 **The operation attribute schemas are published for the first time.** The provider has always read `data_rsaSigScheme`,
 `data_sigDigest` and the RSA cipher attributes; only v2 has endpoints for their schema, so `OperationAttributes` mints
 their definitions and `AttributeDefinitionRegistry` publishes every definition the connector uses. Those attribute
-UUIDs are now a contract like any other.
+UUIDs are now a contract like any other, and `AttributeDefinitionRegistry` refuses to publish two different
+definitions under one identifier rather than quietly keeping the first.
+
+**A schema of independent choices cannot say that one choice rules out a value of another.** The signature scheme and
+the digest are separate selects, so a caller can always name a pair no algorithm implements — a digest that PKCS#1
+v1.5 signs with and PSS does not. That is answered as `PARAMETER_UNSUPPORTED` rather than failing as though the
+connector had broken. `PublishedOperationCombinationsTest` walks every combination the connector publishes and holds
+each to being either performed or named as one it cannot perform; the choices come from enumerations that grow, so
+walking them is what keeps a new value from arriving unhandled.
+
+**An RSA key size the connector does not offer is refused.** Every other algorithm names its parameter set through an
+enumeration and so refuses one it does not hold; an RSA size is a plain number, and the published attribute listing
+the sizes was all that stood between a request and a key of any size at all.
 
 ## Things worth knowing
 
@@ -315,6 +367,15 @@ material per token instance (60s TTL, 500 entries); `keydata` holds key rows per
 (300s TTL, 10000 entries). Both are configured in `CacheConfig` and overridable under
 `provider.cache.*`. `KeyStoreCacheService.evictAfterCommit` defers eviction until the
 surrounding transaction commits, so a rolled-back write cannot leave a stale entry visible.
+
+**Cached key material states the version of the token's row it came out of.** Eviction reaches only the process that
+did the evicting, and the chart lets an operator run more than one; those processes share nothing but the database, so
+a copy of a token's material can outlive the token it came out of — a key the token has since been given missing from
+it, a key it has since lost still in it and still usable. Every change to a token's keys rewrites its keystore and so
+advances the version of its row, and that version is read on every request, so material older than the row is
+recognised and taken out again. `KeyMaterialCache` keeps what was taken out; `KeyStoreCacheServiceImpl` decides
+whether it is still what the token holds. That read is what a cache hit now costs, against opening a keystore, which
+is what it saves.
 
 **`token_instance.code` is the only encrypted column.** It holds the PKCS12 keystore
 password, and `TokenInstance.getCode()`/`setCode()` do the crypto through

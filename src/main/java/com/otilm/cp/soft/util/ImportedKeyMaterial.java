@@ -1,6 +1,7 @@
 package com.otilm.cp.soft.util;
 
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import java.io.IOException;
@@ -45,14 +46,23 @@ import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
  */
 public final class ImportedKeyMaterial {
 
-    /** The algorithms offered the material, and the provider that reads each one. */
+    /**
+     * The algorithms offered the material, and how each one is read. The two algorithms that also sign a digest of a
+     * message state a parameter set of their own for that form, which the reader of the plain form refuses, so each is
+     * offered under both names.
+     */
     private static final List<Reader> READERS = List
-            .of(new Reader(KeyAlgorithm.RSA, BouncyCastleProvider.PROVIDER_NAME),
-                    new Reader(KeyAlgorithm.ECDSA, BouncyCastleProvider.PROVIDER_NAME),
-                    new Reader(KeyAlgorithm.MLDSA, BouncyCastleProvider.PROVIDER_NAME),
-                    new Reader(KeyAlgorithm.SLHDSA, BouncyCastleProvider.PROVIDER_NAME),
-                    new Reader(KeyAlgorithm.MLKEM, BouncyCastleProvider.PROVIDER_NAME),
-                    new Reader(KeyAlgorithm.FALCON, BouncyCastlePQCProvider.PROVIDER_NAME));
+            .of(reader(KeyAlgorithm.RSA), reader(KeyAlgorithm.ECDSA), reader(KeyAlgorithm.MLDSA),
+                    new Reader(KeyAlgorithm.MLDSA, "HASH-ML-DSA", BouncyCastleProvider.PROVIDER_NAME),
+                    reader(KeyAlgorithm.SLHDSA),
+                    new Reader(KeyAlgorithm.SLHDSA, "HASH-SLH-DSA", BouncyCastleProvider.PROVIDER_NAME),
+                    reader(KeyAlgorithm.MLKEM), new Reader(KeyAlgorithm.FALCON, KeyAlgorithm.FALCON.getCode(),
+                            BouncyCastlePQCProvider.PROVIDER_NAME));
+
+    /** An algorithm read under the name it calls itself, by the provider that implements most of them. */
+    private static Reader reader(KeyAlgorithm algorithm) {
+        return new Reader(algorithm, algorithm.getCode(), BouncyCastleProvider.PROVIDER_NAME);
+    }
 
     private final KeyAlgorithm algorithm;
 
@@ -132,9 +142,10 @@ public final class ImportedKeyMaterial {
                     .build(passphrase.toCharArray());
             return new PKCS8EncodedKeySpec(protectedKey.decryptPrivateKeyInfo(decryptor).getEncoded());
         } catch (IOException e) {
-            throw new KeyManagementException("The key material is not protected key material");
+            throw new KeyDecryptionFailedException("The key material is not protected key material");
         } catch (PKCSException e) {
-            throw new KeyManagementException("The key material does not open with the passphrase that came with it");
+            throw new KeyDecryptionFailedException(
+                    "The key material does not open with the passphrase that came with it");
         }
     }
 
@@ -170,11 +181,11 @@ public final class ImportedKeyMaterial {
      * One algorithm the material is offered to. A reader that does not recognise the material answers with nothing,
      * which is how the algorithm is identified rather than by reading an object identifier.
      */
-    private record Reader(KeyAlgorithm algorithm, String provider) {
+    private record Reader(KeyAlgorithm algorithm, String named, String provider) {
 
         private PrivateKey read(PKCS8EncodedKeySpec privateKeySpec) {
             try {
-                return KeyFactory.getInstance(algorithm.getCode(), provider).generatePrivate(privateKeySpec);
+                return KeyFactory.getInstance(named, provider).generatePrivate(privateKeySpec);
             } catch (GeneralSecurityException e) {
                 return null;
             }

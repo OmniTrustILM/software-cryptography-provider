@@ -81,6 +81,29 @@ class KeyV2ControllerImplTest {
         assertFalse(created.getPrivateKeyData().getKeyMeta().isEmpty());
     }
 
+    /**
+     * Each half of a pair is a key in its own right and can be destroyed on its own, so a creation identifier can
+     * outlive the key it names. Repeating that creation asks for a key that is gone, and no repeat brings it back.
+     */
+    @Test
+    void answersARepeatedCreationOfADestroyedKeyAsGone() {
+        // given
+        CreateKeyRequestV2Dto request = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-create-destroyed"), "key-" + System.nanoTime());
+        KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) controller.createKey(request).getBody();
+        assertNotNull(created);
+
+        DestroyKeyRequestV2Dto destruction = new DestroyKeyRequestV2Dto();
+        destruction.setTokenAttributes(request.getTokenAttributes());
+        destruction.setKeyMeta(created.getPrivateKeyData().getKeyMeta());
+        destruction.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
+        controller.destroyKey(destruction);
+
+        // when
+        // then
+        assertThrows(ResourceMissingException.class, () -> controller.createKey(request));
+    }
+
     /** A synchronous response must carry no tracking handle: there is no operation left to track. */
     @Test
     void publishesNoTrackingHandleForWorkItAlreadyFinished() {

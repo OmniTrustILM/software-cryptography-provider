@@ -3,10 +3,10 @@ package com.otilm.cp.soft.api.v2;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
-import com.otilm.cp.soft.api.CorrelationFilter;
+import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
-import com.otilm.cp.soft.exception.ExportableNotSupportedException;
+import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
 import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
@@ -16,12 +16,12 @@ import com.otilm.cp.soft.exception.MetricsUnavailableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.exception.TokenInstanceException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -30,6 +30,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Answers failures on the V2 interfaces as RFC 9457 problem documents.
@@ -38,14 +39,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * The document's {@code errorCode} is what a caller branches on, so each failure maps to the code the contract names
  * for it. The detail is this connector's own wording rather than the exception message: a message from the key
  * technology can quote a key, an alias or a passphrase, and a problem document is forwarded to the platform and logged
- * there. The message still reaches this connector's own log.
+ * there. The message still reaches this connector's own log, where what may be written down is decided as the line is
+ * written.
  * </p>
  *
  * <p>
  * Scoped to the V2 controllers, since the V1 surface answers with its own error shape and must keep doing so. It takes
  * precedence over the connector-wide advice for those controllers. The handler of last resort keeps that boundary
  * closed: without it an unforeseen failure would reach the connector-wide advice and answer a V2 caller in the V1
- * shape.
+ * shape. A request that never reached a controller has no package to scope by, and {@link V2DispatchFailureAdvice}
+ * answers that.
  * </p>
  *
  * <p>
@@ -56,7 +59,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * back on its own media type rather than the request being turned away as unacceptable.
  * </p>
  */
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 @RestControllerAdvice(basePackages = "com.otilm.cp.soft.api.v2")
 public class V2ExceptionHandlingAdvice {
 
@@ -72,9 +75,21 @@ public class V2ExceptionHandlingAdvice {
         return problem(ErrorCode.VALIDATION_FAILED, "The request body breaks a field rule.", e);
     }
 
+    /** A path this connector cannot read, such as an identifier that is not a UUID. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetailExtended> handleUnreadablePath(MethodArgumentTypeMismatchException e) {
+        return problem(ErrorCode.BAD_REQUEST, "The request path could not be read.", e);
+    }
+
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ProblemDetailExtended> handleAttributeValidationFailure(ValidationException e) {
         return problem(ErrorCode.VALIDATION_FAILED, "The supplied attributes break a value rule.", e);
+    }
+
+    @ExceptionHandler(AttributeDefinitionMissingException.class)
+    public ResponseEntity<ProblemDetailExtended> handleAttributeDefinitionMissing(
+            AttributeDefinitionMissingException e) {
+        return problem(ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND, "This connector publishes no such attribute.", e);
     }
 
     @ExceptionHandler(ResourceMissingException.class)
@@ -120,11 +135,10 @@ public class V2ExceptionHandlingAdvice {
                 "This connector does not take in a key of that type or algorithm.", e);
     }
 
-    /** A key that stays exportable, which this connector cannot hold while it does not offer export. */
-    @ExceptionHandler(ExportableNotSupportedException.class)
-    public ResponseEntity<ProblemDetailExtended> handleExportableNotSupported(ExportableNotSupportedException e) {
-        return problem(ErrorCode.EXPORTABLE_NOT_SUPPORTED, "This connector cannot hold a key that stays exportable.",
-                e);
+    /** The material did not open, so no key could be read out of it. */
+    @ExceptionHandler(KeyDecryptionFailedException.class)
+    public ResponseEntity<ProblemDetailExtended> handleKeyDecryptionFailed(KeyDecryptionFailedException e) {
+        return problem(ErrorCode.KEY_DECRYPTION_FAILED, "No key could be read out of the supplied material.", e);
     }
 
     /** The algorithm is one this connector does not let out of a token. */
@@ -146,6 +160,16 @@ public class V2ExceptionHandlingAdvice {
         return problem(ErrorCode.KEY_MATERIAL_MISMATCH, "The addressed key is not the key the request describes.", e);
     }
 
+    /**
+     * Parameters that name nothing this connector can perform. Each parameter is published as a choice of its own, so a
+     * caller can always assemble a combination the published schema cannot rule out.
+     */
+    @ExceptionHandler(ParameterUnsupportedException.class)
+    public ResponseEntity<ProblemDetailExtended> handleParameterUnsupported(ParameterUnsupportedException e) {
+        return problem(ErrorCode.PARAMETER_UNSUPPORTED,
+                "The supplied parameters name no operation this connector can perform.", e);
+    }
+
     @ExceptionHandler(NotSupportedException.class)
     public ResponseEntity<ProblemDetailExtended> handleNotSupported(NotSupportedException e) {
         return problem(ErrorCode.OPERATION_NOT_SUPPORTED, "This connector does not offer the requested operation.", e);
@@ -161,10 +185,15 @@ public class V2ExceptionHandlingAdvice {
         return problem(ErrorCode.BAD_REQUEST, "The cryptographic operation could not be performed.", e);
     }
 
+    /**
+     * A failure this connector did not foresee, which is the one kind nothing here explains. The response says only
+     * that the request could not be completed, so what went wrong has to be written down to be found at all: it is
+     * logged in full, and what a log line may carry is decided as it is written.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetailExtended> handleUnexpectedFailure(Exception e) {
         if (logger.isErrorEnabled()) {
-            logger.error("A v2 request known as {} failed with {}", correlationId(), classOf(e));
+            logger.error("A v2 request known as {} failed", V2Problem.correlationId(), e);
         }
         return problem(ErrorCode.INTERNAL_SERVER_ERROR, "The request could not be completed.", e);
     }
@@ -172,19 +201,10 @@ public class V2ExceptionHandlingAdvice {
     private static ResponseEntity<ProblemDetailExtended> problem(ErrorCode errorCode, String detail, Exception cause) {
         if (logger.isDebugEnabled()) {
             logger
-                    .debug("Answering the v2 request known as {} with {} after {}", correlationId(), errorCode,
-                            classOf(cause));
+                    .debug("Answering the v2 request known as {} with {} after {}", V2Problem.correlationId(),
+                            errorCode, classOf(cause));
         }
-        ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(errorCode, detail, null, correlationId());
-        return ResponseEntity.status(errorCode.getStatus()).body(problem);
-    }
-
-    /**
-     * The identifier this request is known by, which the platform matches this document to its own record of the
-     * request with. Every request has one: the caller states it, or it was given one when it arrived.
-     */
-    private static String correlationId() {
-        return MDC.get(CorrelationFilter.CORRELATION_ID);
+        return V2Problem.answer(errorCode, detail);
     }
 
     /**

@@ -12,7 +12,6 @@ import java.security.KeyStoreException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
 import java.util.stream.Stream;
-import org.bouncycastle.jce.interfaces.ECPrivateKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
@@ -98,8 +97,9 @@ public final class ImportedKeyStore {
     public static int publicKeySize(KeyAlgorithm algorithm, KeyPair keyPair) {
         return switch (algorithm) {
             case RSA -> modulusSize(keyPair);
-            // A generated elliptic-curve public key records the field size twice over, for its two coordinates.
-            case ECDSA -> fieldSize(keyPair) * 2;
+            // A generated elliptic-curve public key records the size of its curve twice over, for its two
+            // coordinates, and takes that size from the curve it names rather than from the field it measures.
+            case ECDSA -> PrivateKeyDescriptor.curveOf(keyPair).getSize() * 2;
             default -> sizesOf(algorithm, keyPair).publicBits();
         };
     }
@@ -114,7 +114,7 @@ public final class ImportedKeyStore {
     public static int privateKeySize(KeyAlgorithm algorithm, KeyPair keyPair) {
         return switch (algorithm) {
             case RSA -> modulusSize(keyPair);
-            case ECDSA -> fieldSize(keyPair);
+            case ECDSA -> PrivateKeyDescriptor.curveOf(keyPair).getSize();
             default -> sizesOf(algorithm, keyPair).privateBits();
         };
     }
@@ -133,7 +133,7 @@ public final class ImportedKeyStore {
             }
             case MLDSA -> Stream
                     .of(MLDSASecurityCategory.values())
-                    .filter(category -> named.endsWith("-" + category.getParameterSet()))
+                    .filter(category -> named.contains("-" + category.getParameterSet()))
                     .findFirst()
                     .map(category -> new KeySizes(category.getPublicKeySize(), category.getPrivateKeySize()))
                     .orElseThrow(() -> unknownParameterSet(named));
@@ -161,10 +161,6 @@ public final class ImportedKeyStore {
 
     private static int modulusSize(KeyPair keyPair) {
         return ((RSAPublicKey) keyPair.getPublic()).getModulus().bitLength();
-    }
-
-    private static int fieldSize(KeyPair keyPair) {
-        return ((ECPrivateKey) keyPair.getPrivate()).getParameters().getCurve().getFieldSize();
     }
 
     /** What one parameter set says the two halves of its keys measure, in bits. */

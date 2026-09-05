@@ -1,6 +1,8 @@
 package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
@@ -26,6 +28,7 @@ import com.otilm.cp.soft.collection.EcdsaCurveName;
 import com.otilm.cp.soft.collection.FalconDegree;
 import com.otilm.cp.soft.collection.MLDSASecurityCategory;
 import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
+import com.otilm.cp.soft.collection.RsaKeySize;
 import com.otilm.cp.soft.collection.SLHDSAHash;
 import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSASignatureMode;
@@ -42,6 +45,7 @@ import com.otilm.cp.soft.service.TokenInstanceService;
 import com.otilm.cp.soft.util.ImportedKeyMaterial;
 import com.otilm.cp.soft.util.ImportedKeyStore;
 import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.PrivateKeyDescriptor;
 import jakarta.transaction.Transactional;
 import java.security.KeyStore;
 import java.util.ArrayList;
@@ -93,10 +97,7 @@ public class KeyManagementServiceImpl implements KeyManagementService {
                         request.getCreateKeyAttributes(), StringAttributeContentV2.class)
                 .getData();
 
-        // check if the alias is already used in the keystore
-        if (!keyDataRepository.findByNameAndTokenInstanceUuid(alias, uuid).isEmpty()) {
-            throw new KeyManagementException("Key with alias '" + alias + "' already exists.");
-        }
+        requireAliasFree(alias, uuid);
 
         KeyPairDataResponseDto response = new KeyPairDataResponseDto();
         KeyData publicKey;
@@ -114,6 +115,7 @@ public class KeyManagementServiceImpl implements KeyManagementService {
                         .getSingleItemAttributeContentValue(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_KEY_SIZE,
                                 request.getCreateKeyAttributes(), IntegerAttributeContentV2.class)
                         .getData();
+                requireOfferedKeySize(keySize);
                 KeyStoreUtil.generateRsaKey(keyStore, alias, keySize, tokenInstance.getCode());
 
                 // create public key
@@ -316,9 +318,7 @@ public class KeyManagementServiceImpl implements KeyManagementService {
 
         KeyStore keyStore = KeyStoreUtil.loadKeystore(tokenInstance.getData(), tokenInstance.getCode());
 
-        if (!keyDataRepository.findByNameAndTokenInstanceUuid(alias, uuid).isEmpty()) {
-            throw new KeyManagementException("Key with alias '" + alias + "' already exists.");
-        }
+        requireAliasFree(alias, uuid);
 
         KeyAlgorithm algorithm = material.algorithm();
         ImportedKeyStore.store(keyStore, alias, algorithm, material.keyPair(), tokenInstance.getCode());
@@ -334,10 +334,7 @@ public class KeyManagementServiceImpl implements KeyManagementService {
                 KeyStoreUtil.spkiKeyValueFromKeyStore(keyStore, alias),
                 ImportedKeyStore.publicKeySize(algorithm, material.keyPair()));
 
-        CustomKeyValue customKeyValue = new CustomKeyValue();
-        HashMap<String, String> customKeyValues = new HashMap<>();
-        customKeyValues.put("location", "managed by external token");
-        customKeyValue.setValues(customKeyValues);
+        CustomKeyValue customKeyValue = PrivateKeyDescriptor.of(algorithm, material.keyPair());
 
         KeyData privateKey = createAndSaveKeyData(keyContext, KeyType.PRIVATE_KEY, algorithm, KeyFormat.CUSTOM,
                 customKeyValue, ImportedKeyStore.privateKeySize(algorithm, material.keyPair()));
@@ -427,6 +424,29 @@ public class KeyManagementServiceImpl implements KeyManagementService {
             TokenInstance tokenInstance) {
     }
 
+    /**
+     * Refuses an RSA key of a size this connector does not offer. Every other algorithm states its parameter set
+     * through an enumeration and so refuses one it does not hold on its own; an RSA size is a plain number, and the
+     * published attribute naming the sizes was all that stood between a request and a key of any size at all.
+     */
+    private static void requireOfferedKeySize(int keySize) {
+        if (RsaKeySize.resolve(keySize) == null) {
+            throw new ValidationException(
+                    ValidationError.create("An RSA key of " + keySize + " bits is not a key this token offers"));
+        }
+    }
+
+    /**
+     * The metadata a key is answered with: what both halves of its pair share, and the reference that names this one
+     * alone. The two halves share an alias, so the reference is the only thing in the metadata that tells them apart,
+     * and a caller holding a key it was answered with has to be able to name it again.
+     */
+    private static List<MetadataAttribute> describing(List<MetadataAttribute> shared, UUID uuid) {
+        List<MetadataAttribute> own = new ArrayList<>(shared);
+        own.add(KeyAttributes.buildKeyReferenceMetadata(uuid.toString()));
+        return own;
+    }
+
     private KeyData createAndSaveKeyData(NewKeyContext context, KeyType type, KeyAlgorithm algorithm, KeyFormat format,
             KeyValue value, int length) {
         KeyData keyData = new KeyData();
@@ -438,13 +458,24 @@ public class KeyManagementServiceImpl implements KeyManagementService {
         keyData.setFormat(format);
         keyData.setValue(value);
         keyData.setLength(length);
-        keyData.setMetadata(context.metadata());
+        keyData.setMetadata(describing(context.metadata(), keyData.getUuid()));
         keyData.setTokenInstance(context.tokenInstance());
 
         keyDataRepository.save(keyData);
         keyDataCacheService.evictAfterCommit(keyData.getUuid());
 
         return keyData;
+    }
+
+    /**
+     * Refuses an alias the token already holds a key under. A keystore tells two aliases apart without regard to case,
+     * so this has to as well: were it not to, a second key could take the place of the first inside the keystore while
+     * both kept a row of their own, and every later read of either alias would reach one key.
+     */
+    private void requireAliasFree(String alias, UUID tokenInstanceUuid) {
+        if (!keyDataRepository.findByNameIgnoreCaseAndTokenInstanceUuid(alias, tokenInstanceUuid).isEmpty()) {
+            throw new KeyManagementException("Key with alias '" + alias + "' already exists.");
+        }
     }
 
     @Autowired

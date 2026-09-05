@@ -16,6 +16,7 @@ import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.TokenInstanceException;
+import com.otilm.cp.soft.model.CachedKeyMaterial;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
@@ -33,9 +34,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies cache-invalidation semantics for the {@code keystores} and {@code keydata} caches.
@@ -255,6 +259,65 @@ class CacheInvalidationTest {
         Cache springCache = Objects.requireNonNull(cacheManager.getCache(cacheName));
         assertNull(springCache.get(key),
                 "Expected a cache MISS for key " + key + " in '" + cacheName + "' but found an entry");
+    }
+
+    // -----------------------------------------------------------------------
+    // Keystore cache — material that is behind the token's row
+    // -----------------------------------------------------------------------
+
+    /**
+     * A connector serving requests from more than one process shares only the database. What one of them discards, the
+     * others never hear about, so a copy of a token's material can outlive the token it came out of: a key the token
+     * has since been given would be missing from it, and a key the token has since lost would still be in it.
+     *
+     * <p>
+     * Each of these puts a copy back after the change to stand for the process that never heard about it, which is what
+     * a second replica holds.
+     * </p>
+     */
+    @Test
+    void materialOlderThanTheToken_isNotServed() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("first"));
+        CachedKeyMaterial asAnotherProcessHoldsIt = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+
+        // A key arrives, which this process is told nothing about
+        keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("second"));
+        putBack(tokenUuid, asAnotherProcessHoldsIt);
+
+        assertTrue(keyStoreCacheService.loadKeyMaterial(tokenUuid).privateKeys().containsKey("second"),
+                "a key the token has since been given has to be found");
+    }
+
+    @Test
+    void materialHoldingAKeyTheTokenHasLost_isNotServed() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("doomed"));
+        CachedKeyMaterial asAnotherProcessHoldsIt = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+
+        // The key is destroyed, which this process is told nothing about
+        keyManagementService.destroyKey(tokenUuid, UUID.fromString(created.getPrivateKeyData().getUuid()));
+        putBack(tokenUuid, asAnotherProcessHoldsIt);
+
+        assertFalse(keyStoreCacheService.loadKeyMaterial(tokenUuid).privateKeys().containsKey("doomed"),
+                "a key the token has since lost must not still be usable");
+    }
+
+    /** The token is read every time, so what is kept has to be given up when nothing about the token has changed. */
+    @Test
+    void materialAsOldAsTheToken_isServedAgain() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("kept"));
+
+        CachedKeyMaterial first = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+
+        assertSame(first, keyStoreCacheService.loadKeyMaterial(tokenUuid),
+                "an unchanged token must not have its keystore opened again");
+    }
+
+    /** Stands in for the copy a process that never heard about the change is still holding. */
+    private void putBack(UUID tokenUuid, CachedKeyMaterial material) {
+        Objects.requireNonNull(cacheManager.getCache(CacheConfig.KEYSTORES_CACHE)).put(tokenUuid, material);
     }
 
     private CreateKeyRequestDto buildRsa2048Request(String alias) {

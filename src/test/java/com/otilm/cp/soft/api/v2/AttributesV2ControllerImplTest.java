@@ -8,8 +8,8 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
+import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.NotSupportedException;
-import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.ArrayList;
@@ -80,6 +80,20 @@ class AttributesV2ControllerImplTest {
         assertEquals(uuids.size(), uuids.stream().distinct().count(), () -> "duplicated definitions in " + uuids);
     }
 
+    /** The interfaces ask for them one at a time as well as together, so each has to be reachable on its own. */
+    @Test
+    void answersWithEveryDefinitionItPublishesByItsIdentifier() {
+        // given
+        List<BaseAttribute> published = controller.listDefinitions(null).getDefinitions();
+
+        // when
+        // then
+        for (BaseAttribute attribute : published) {
+            assertEquals(attribute.getName(), controller.getDefinition(UUID.fromString(attribute.getUuid())).getName(),
+                    () -> attribute.getName() + " cannot be reached by its own identifier");
+        }
+    }
+
     @Test
     void narrowsTheAnswerToTheDefinitionsAskedFor() {
         // given
@@ -125,7 +139,7 @@ class AttributesV2ControllerImplTest {
 
         // when
         // then
-        assertThrows(ResourceMissingException.class, () -> controller.getDefinition(unknown));
+        assertThrows(AttributeDefinitionMissingException.class, () -> controller.getDefinition(unknown));
     }
 
     /**

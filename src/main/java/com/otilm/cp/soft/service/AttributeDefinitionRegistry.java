@@ -1,5 +1,7 @@
 package com.otilm.cp.soft.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
@@ -18,7 +20,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -32,28 +33,49 @@ import java.util.stream.Stream;
  */
 public final class AttributeDefinitionRegistry {
 
+    /** Writes a definition the way the platform receives it, which is how two of them are told apart. */
+    private static final ObjectMapper AS_PUBLISHED = new ObjectMapper();
+
     private AttributeDefinitionRegistry() {
     }
 
     /**
      * Every definition this connector publishes, each appearing once.
      *
+     * <p>
+     * An attribute several operations ask for is assembled once for each of them, so the same definition arriving twice
+     * is expected and the first is kept. Two definitions that differ in anything under one identifier is a mistake in
+     * what this connector publishes: the platform tells attributes apart by that identifier, so it would resolve one of
+     * them to the other. Keeping the first quietly is what would let that ship, so it is refused here instead.
+     * </p>
+     *
      * @return the definitions, in a stable order
      */
     public static List<BaseAttribute> definitions() {
         Map<String, BaseAttribute> byUuid = new LinkedHashMap<>();
-        all().forEach(attribute -> byUuid.putIfAbsent(attribute.getUuid(), attribute));
+        all().forEach(attribute -> requireOneDefinitionPerIdentifier(byUuid, attribute));
         return List.copyOf(byUuid.values());
     }
 
+    private static void requireOneDefinitionPerIdentifier(Map<String, BaseAttribute> byUuid, BaseAttribute attribute) {
+        BaseAttribute published = byUuid.putIfAbsent(attribute.getUuid(), attribute);
+        if (published != null && !asPublished(published).equals(asPublished(attribute))) {
+            throw new IllegalStateException("This connector publishes both " + published.getName() + " and "
+                    + attribute.getName() + " under " + attribute.getUuid());
+        }
+    }
+
     /**
-     * The definition with the given identifier.
-     *
-     * @param uuid the definition's identifier
-     * @return the definition, or empty when this connector publishes no such definition
+     * What the platform receives for an attribute, which is what decides whether two definitions are the same one.
+     * Comparing the objects themselves does not: what a definition carries its properties in states no equality of its
+     * own, so two definitions assembled the same way are never equal.
      */
-    public static Optional<BaseAttribute> definition(String uuid) {
-        return definitions().stream().filter(attribute -> uuid.equals(attribute.getUuid())).findFirst();
+    private static String asPublished(BaseAttribute attribute) {
+        try {
+            return AS_PUBLISHED.writeValueAsString(attribute);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("An attribute this connector publishes cannot be written down", e);
+        }
     }
 
     /** Stands in for the value a published metadata attribute carries, which its definition leaves out. */
