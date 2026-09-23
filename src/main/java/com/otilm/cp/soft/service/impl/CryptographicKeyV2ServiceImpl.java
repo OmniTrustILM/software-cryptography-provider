@@ -532,6 +532,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     private KeyPairDataResponseV2Dto keyPair(KeyData publicKey, KeyData privateKey) {
         KeyPairDataResponseV2Dto response = new KeyPairDataResponseV2Dto();
+        response.setKeyPairMeta(keyContextService.publishPair(publicKey));
         response.setPublicKeyData(publicKeyData(publicKey));
         response.setPrivateKeyData(privateKeyData(privateKey));
         return response;

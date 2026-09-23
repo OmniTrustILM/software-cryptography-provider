@@ -14,6 +14,7 @@ import com.otilm.cp.soft.model.TokenContext;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.TokenContextService;
 import jakarta.transaction.Transactional;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,10 +58,15 @@ public class KeyContextServiceImpl implements KeyContextService {
     }
 
     @Override
+    public List<MetadataAttribute> publishPair(KeyData key) {
+        return List.of(KeyAttributes.buildAliasMetadata(key.getName()));
+    }
+
+    @Override
     public List<MetadataAttribute> publish(KeyData key) {
-        return List
-                .of(KeyAttributes.buildAliasMetadata(key.getName()),
-                        KeyAttributes.buildKeyReferenceMetadata(key.getUuid().toString()));
+        List<MetadataAttribute> metadata = new ArrayList<>(publishPair(key));
+        metadata.add(KeyAttributes.buildKeyReferenceMetadata(key.getUuid().toString()));
+        return metadata;
     }
 
     private static UUID reference(List<MetadataAttribute> keyMeta) {
