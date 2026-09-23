@@ -4,12 +4,10 @@ import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequestV2Dto;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,7 +89,6 @@ class V2ReadOnlyCallsTest {
         request.setTokenAttributes(TokenContextFixtures.newToken(name));
         request.setTokenProfileAttributes(List.of());
         request.setKeyRequestType(KeyRequestType.KEY_PAIR);
-        request.setKeyUsages(Set.of(KeyUsage.SIGN, KeyUsage.VERIFY));
 
         // when
         assertFalse(controller.listCreateKeyAttributes(request).isEmpty());
@@ -108,7 +105,6 @@ class V2ReadOnlyCallsTest {
         request.setTokenAttributes(TokenContextFixtures.newToken(name));
         request.setTokenProfileAttributes(List.of());
         request.setKeyRequestType(KeyRequestType.KEY_PAIR);
-        request.setKeyUsages(Set.of(KeyUsage.SIGN, KeyUsage.VERIFY));
 
         // when
         assertFalse(controller.listImportKeyAttributes(request).isEmpty());

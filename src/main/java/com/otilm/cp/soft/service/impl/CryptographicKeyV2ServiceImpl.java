@@ -141,6 +141,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         TokenContext token = tokenContextService.resolve(request.getTokenAttributes());
         // The resolved token stands for the context the request carried. The context itself carries the code that
         // opens the token, and the fingerprint is stored, so what identifies the token is fingerprinted instead.
+        // Token-profile key usages are Core policy; changing them preserves the key-creation replay identity.
         String fingerprint = RequestFingerprint
                 .of(request.getKeyRequestType(), request.getExecutionMode(), token.instance().getUuid(),
                         request.getTokenProfileAttributes(), request.getCreateKeyAttributes());
@@ -214,6 +215,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
                 .open(request.getMaterial().getEncryptedPrivateKeyInfo(), request.getPassphrase());
         requireImportable(material.algorithm());
 
+        // Token-profile key usages are Core policy; changing them preserves the key-import replay identity.
         String fingerprint = RequestFingerprint
                 .of(request.getKeyRequestType(), request.getExecutionMode(), token.instance().getUuid(),
                         request.getKeyReference(), request.getTokenProfileAttributes(),

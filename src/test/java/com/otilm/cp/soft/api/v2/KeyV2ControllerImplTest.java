@@ -11,7 +11,6 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
@@ -19,7 +18,6 @@ import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -52,7 +50,6 @@ class KeyV2ControllerImplTest {
         CreateKeyAttributesRequestV2Dto request = new CreateKeyAttributesRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(TokenContextFixtures.uniqueName("v2-key-attrs")));
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN));
         request.setKeyRequestType(KeyRequestType.KEY_PAIR);
 
         // when
@@ -133,23 +130,6 @@ class KeyV2ControllerImplTest {
         // then
         assertNotNull(first);
         assertNotNull(repeat);
-        assertEquals(first.getPrivateKeyData().getKeyMeta().toString(),
-                repeat.getPrivateKeyData().getKeyMeta().toString());
-    }
-
-    @Test
-    void answersARepeatedCreationAfterKeyUsagesChange() {
-        CreateKeyRequestV2Dto request = KeyRequestFixtures
-                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-replay-usages"), "key-" + System.nanoTime());
-        KeyPairDataResponseV2Dto first = (KeyPairDataResponseV2Dto) controller.createKey(request).getBody();
-
-        request.setKeyUsages(Set.of(KeyUsage.ENCRYPT));
-        KeyPairDataResponseV2Dto repeat = (KeyPairDataResponseV2Dto) controller.createKey(request).getBody();
-
-        assertNotNull(first);
-        assertNotNull(repeat);
-        assertEquals(first.getPublicKeyData().getKeyMeta().toString(),
-                repeat.getPublicKeyData().getKeyMeta().toString());
         assertEquals(first.getPrivateKeyData().getKeyMeta().toString(),
                 repeat.getPrivateKeyData().getKeyMeta().toString());
     }
@@ -252,7 +232,6 @@ class KeyV2ControllerImplTest {
         DestroyKeyRequestV2Dto request = new DestroyKeyRequestV2Dto();
         request.setTokenAttributes(tokenAttributes);
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN));
         request.setKeyMeta(keyMeta);
         request.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         return request;
