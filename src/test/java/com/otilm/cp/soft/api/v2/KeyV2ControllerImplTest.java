@@ -138,6 +138,23 @@ class KeyV2ControllerImplTest {
     }
 
     @Test
+    void answersARepeatedCreationAfterKeyUsagesChange() {
+        CreateKeyRequestV2Dto request = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-replay-usages"), "key-" + System.nanoTime());
+        KeyPairDataResponseV2Dto first = (KeyPairDataResponseV2Dto) controller.createKey(request).getBody();
+
+        request.setKeyUsages(Set.of(KeyUsage.ENCRYPT));
+        KeyPairDataResponseV2Dto repeat = (KeyPairDataResponseV2Dto) controller.createKey(request).getBody();
+
+        assertNotNull(first);
+        assertNotNull(repeat);
+        assertEquals(first.getPublicKeyData().getKeyMeta().toString(),
+                repeat.getPublicKeyData().getKeyMeta().toString());
+        assertEquals(first.getPrivateKeyData().getKeyMeta().toString(),
+                repeat.getPrivateKeyData().getKeyMeta().toString());
+    }
+
+    @Test
     void refusesACreationIdentifierReusedForADifferentRequest() {
         // given
         CreateKeyRequestV2Dto first = KeyRequestFixtures

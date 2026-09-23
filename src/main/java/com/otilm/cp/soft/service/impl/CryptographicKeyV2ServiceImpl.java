@@ -143,7 +143,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         // opens the token, and the fingerprint is stored, so what identifies the token is fingerprinted instead.
         String fingerprint = RequestFingerprint
                 .of(request.getKeyRequestType(), request.getExecutionMode(), token.instance().getUuid(),
-                        request.getTokenProfileAttributes(), request.getKeyUsages(), request.getCreateKeyAttributes());
+                        request.getTokenProfileAttributes(), request.getCreateKeyAttributes());
 
         List<KeyData> earlier = keyDataRepository.findByKeyCreationId(request.getKeyCreationId());
         if (!earlier.isEmpty()) {
@@ -216,7 +216,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
         String fingerprint = RequestFingerprint
                 .of(request.getKeyRequestType(), request.getExecutionMode(), token.instance().getUuid(),
-                        request.getKeyReference(), request.getTokenProfileAttributes(), request.getKeyUsages(),
+                        request.getKeyReference(), request.getTokenProfileAttributes(),
                         request.getImportKeyAttributes(), request.getExportable(), material.algorithm(),
                         material.keyPair().getPublic().getEncoded());
 

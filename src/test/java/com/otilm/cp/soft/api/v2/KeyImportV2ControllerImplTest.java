@@ -12,6 +12,7 @@ import com.otilm.api.model.connector.cryptography.v2.key.ImportableKeyTypeV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairOperationStatusResponseV2Dto;
+import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
@@ -20,6 +21,7 @@ import com.otilm.cp.soft.exception.OperationNotTrackedException;
 import com.otilm.cp.soft.testsupport.KeyImportFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,6 +102,23 @@ class KeyImportV2ControllerImplTest {
         // then
         assertNotNull(first);
         assertNotNull(repeat);
+        assertEquals(first.getPrivateKeyData().getKeyMeta().toString(),
+                repeat.getPrivateKeyData().getKeyMeta().toString());
+    }
+
+    @Test
+    void answersARepeatedImportAfterKeyUsagesChange() {
+        ImportKeyRequestV2Dto request = KeyImportFixtures
+                .rsaImport(TokenContextFixtures.uniqueName("v2-import-usages"));
+        KeyPairDataResponseV2Dto first = (KeyPairDataResponseV2Dto) controller.importKey(request).getBody();
+
+        request.setKeyUsages(Set.of(KeyUsage.ENCRYPT));
+        KeyPairDataResponseV2Dto repeat = (KeyPairDataResponseV2Dto) controller.importKey(request).getBody();
+
+        assertNotNull(first);
+        assertNotNull(repeat);
+        assertEquals(first.getPublicKeyData().getKeyMeta().toString(),
+                repeat.getPublicKeyData().getKeyMeta().toString());
         assertEquals(first.getPrivateKeyData().getKeyMeta().toString(),
                 repeat.getPrivateKeyData().getKeyMeta().toString());
     }
