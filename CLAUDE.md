@@ -107,7 +107,6 @@ nothing to check.
 carrying the alias and `meta_keyReference` — the key row's own reference. The alias alone cannot distinguish the halves,
 so the reference is the only thing in the metadata that tells them apart. Every key states it, whichever generation
 created it: a key created through v1 has to be nameable through v2, and both generations serve the same keys.
-The pair is addressed by its alias.
 
 **An alias means the same thing to the database and to the keystore.** A PKCS#12 keystore tells two aliases apart
 without regard to case, so a second key stored under a differently-cased alias silently replaces the first, and the
