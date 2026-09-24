@@ -7,8 +7,7 @@ import com.otilm.cp.soft.model.KeyContext;
 import java.util.List;
 
 /**
- * Turns the key metadata a V2 request carries into the key the provider works with, and publishes the metadata a caller
- * sends back to address that key again.
+ * Turns the key metadata a V2 request carries into the key the provider works with.
  */
 public interface KeyContextService {
 
@@ -20,6 +19,14 @@ public interface KeyContextService {
      * @return the key and its token
      */
     KeyContext resolve(List<RequestAttribute> tokenAttributes, List<MetadataAttribute> keyMeta);
+
+    /**
+     * The metadata that addresses a key pair on later requests.
+     *
+     * @param key either half of the pair
+     * @return the pair's metadata
+     */
+    List<MetadataAttribute> publishPair(KeyData key);
 
     /**
      * The metadata that addresses a key on later requests.

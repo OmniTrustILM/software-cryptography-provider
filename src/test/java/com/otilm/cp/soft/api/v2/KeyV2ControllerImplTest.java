@@ -4,6 +4,7 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
+import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.OperationTrackingRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
@@ -11,6 +12,7 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
+import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
@@ -18,6 +20,8 @@ import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -76,6 +80,22 @@ class KeyV2ControllerImplTest {
         assertNotNull(created.getPublicKeyData().getKeyData().getPublicKeySpki(), "the public key travels as its SPKI");
         assertFalse(created.getPublicKeyData().getKeyMeta().isEmpty());
         assertFalse(created.getPrivateKeyData().getKeyMeta().isEmpty());
+    }
+
+    @Test
+    void namesThePairByItsAlias() {
+        // given
+        String alias = "key-" + System.nanoTime();
+        CreateKeyRequestV2Dto request = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-pair-meta"), alias);
+
+        // when
+        KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) controller.createKey(request).getBody();
+
+        // then
+        assertNotNull(created);
+        assertNotNull(created.getKeyPairMeta(), "the pair is named");
+        assertEquals(Map.of(KeyAttributes.ATTRIBUTE_META_KEY_ALIAS, alias), byName(created.getKeyPairMeta()));
     }
 
     /**
@@ -235,5 +255,13 @@ class KeyV2ControllerImplTest {
         request.setKeyMeta(keyMeta);
         request.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         return request;
+    }
+
+    private static Map<String, String> byName(List<MetadataAttribute> metadata) {
+        return metadata
+                .stream()
+                .collect(Collectors
+                        .toMap(MetadataAttribute::getName,
+                                item -> item.<List<StringAttributeContentV2>>getContent().get(0).getData()));
     }
 }
