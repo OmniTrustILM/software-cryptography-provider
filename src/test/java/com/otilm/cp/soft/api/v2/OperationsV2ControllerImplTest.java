@@ -21,7 +21,6 @@ import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRespon
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.VerificationResponseItemV2Dto;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.attribute.RsaCipherAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.exception.NotSupportedException;
@@ -31,7 +30,6 @@ import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -221,7 +219,6 @@ class OperationsV2ControllerImplTest {
         RandomDataRequestV2Dto request = new RandomDataRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(TokenContextFixtures.uniqueName("v2-random")));
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN));
         request.setOperationAttributes(List.of());
         request.setLength(32);
 
@@ -238,7 +235,6 @@ class OperationsV2ControllerImplTest {
         TokenProfileScopedRequestV2Dto request = new TokenProfileScopedRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(TokenContextFixtures.uniqueName("v2-random-attrs")));
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN));
 
         // when
         // then
@@ -277,7 +273,6 @@ class OperationsV2ControllerImplTest {
             List<MetadataAttribute> keyMeta) {
         request.setTokenAttributes(tokenAttributes);
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN, KeyUsage.VERIFY));
         request.setKeyMeta(keyMeta);
     }
 

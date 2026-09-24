@@ -10,7 +10,6 @@ import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -150,7 +149,6 @@ class TokenV2ControllerImplTest {
         TokenProfileScopedRequestV2Dto request = new TokenProfileScopedRequestV2Dto();
         request.setTokenAttributes(tokenAttributes);
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN));
         return request;
     }
 }

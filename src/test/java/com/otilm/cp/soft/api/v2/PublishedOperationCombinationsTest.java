@@ -18,14 +18,12 @@ import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponse
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -210,7 +208,6 @@ class PublishedOperationCombinationsTest {
     private static void apply(KeyScopedRequestV2Dto request, KeyPair pair, List<MetadataAttribute> keyMeta) {
         request.setTokenAttributes(pair.tokenAttributes());
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN, KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.DECRYPT));
         request.setKeyMeta(keyMeta);
     }
 

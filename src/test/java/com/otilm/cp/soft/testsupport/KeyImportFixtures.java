@@ -13,7 +13,6 @@ import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.api.v2.OperationsV2ControllerImpl;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
@@ -23,7 +22,6 @@ import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -53,7 +51,6 @@ public final class KeyImportFixtures {
         ImportKeyRequestV2Dto request = new ImportKeyRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(tokenName));
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN, KeyUsage.VERIFY));
         request.setKeyRequestType(KeyRequestType.KEY_PAIR);
         request.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         request.setKeyImportId(UUID.randomUUID().toString());
@@ -111,7 +108,6 @@ public final class KeyImportFixtures {
         ImportKeyRequestV2Dto repeat = new ImportKeyRequestV2Dto();
         repeat.setTokenAttributes(original.getTokenAttributes());
         repeat.setTokenProfileAttributes(original.getTokenProfileAttributes());
-        repeat.setKeyUsages(original.getKeyUsages());
         repeat.setKeyRequestType(original.getKeyRequestType());
         repeat.setExecutionMode(original.getExecutionMode());
         repeat.setKeyImportId(original.getKeyImportId());

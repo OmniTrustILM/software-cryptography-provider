@@ -8,12 +8,10 @@ import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -29,7 +27,6 @@ public final class KeyRequestFixtures {
         CreateKeyRequestV2Dto request = new CreateKeyRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(tokenName));
         request.setTokenProfileAttributes(List.of());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN, KeyUsage.VERIFY));
         request.setKeyRequestType(KeyRequestType.KEY_PAIR);
         request.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         request.setKeyCreationId(UUID.randomUUID().toString());

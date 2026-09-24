@@ -51,10 +51,6 @@ class RequestFingerprintTest {
         assertEquals(RequestFingerprint.of(one), RequestFingerprint.of(other));
     }
 
-    /**
-     * Key usages arrive as a set, which has no order of its own. The one a set iterates in can differ between runs of
-     * the same program, so a repeat arriving after a restart would otherwise look like a different request.
-     */
     @Test
     void theOrderASetIteratesInDoesNotMatter() {
         // given
