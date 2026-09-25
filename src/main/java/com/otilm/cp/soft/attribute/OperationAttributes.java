@@ -15,14 +15,8 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * What an operation needs to be told, beyond the key it runs on.
- *
- * <p>
- * The provider has always read these attributes when signing or encrypting; the V2 interfaces are the first to publish
- * their schema, so a caller can populate them from the document rather than knowing them in advance. Which ones apply
- * depends on the key's algorithm: the post-quantum signature algorithms carry every parameter in the key itself and
- * need nothing here.
- * </p>
+ * Definitions for the shared sign and cipher operations. V2 translates its signature selection into the split signing
+ * parameters defined here.
  */
 public final class OperationAttributes {
 
@@ -50,12 +44,12 @@ public final class OperationAttributes {
     }
 
     /**
-     * What signing or verifying with a key of the given algorithm needs to be told.
+     * The registry keeps the shared signer's split parameters discoverable.
      *
-     * @param algorithm the key's algorithm
-     * @return the attribute schema, empty when the algorithm needs nothing
+     * @param algorithm the key algorithm
+     * @return the definitions for its split signing parameters
      */
-    public static List<BaseAttribute> signatureAttributes(KeyAlgorithm algorithm) {
+    public static List<BaseAttribute> signatureParameterDefinitions(KeyAlgorithm algorithm) {
         return switch (algorithm) {
             case RSA -> List.of(buildRsaSignatureScheme(), buildSignatureDigest());
             case ECDSA -> List.of(buildSignatureDigest());

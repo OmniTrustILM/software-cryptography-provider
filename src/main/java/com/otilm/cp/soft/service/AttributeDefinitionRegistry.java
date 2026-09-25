@@ -6,6 +6,7 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
 import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
@@ -99,8 +100,9 @@ public final class AttributeDefinitionRegistry {
         attributes.addAll(MLDSAKeyAttributes.getMldsaKeySpecAttributes());
         attributes.addAll(SLHDSAKeyAttributes.getSlhDsaKeySpecAttributes());
         attributes.addAll(MLKEMAttributes.getMLKEMKeySpecAttributes());
+        attributes.add(SignatureAlgorithmAttribute.definition(List.of()));
         Stream.of(KeyAlgorithm.RSA, KeyAlgorithm.ECDSA).forEach(algorithm -> {
-            attributes.addAll(OperationAttributes.signatureAttributes(algorithm));
+            attributes.addAll(OperationAttributes.signatureParameterDefinitions(algorithm));
             attributes.addAll(OperationAttributes.cipherAttributes(algorithm));
         });
         // The metadata this connector publishes on the objects it answers with. A caller reads these identifiers off a

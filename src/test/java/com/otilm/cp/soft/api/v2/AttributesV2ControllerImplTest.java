@@ -6,6 +6,7 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
 import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
@@ -130,6 +131,13 @@ class AttributesV2ControllerImplTest {
 
         // then
         assertEquals(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, definition.getName());
+    }
+
+    @Test
+    void reservedSignatureAlgorithmResolvesByItsIdentifier() {
+        BaseAttribute definition = controller.getDefinition(SignatureAlgorithmAttribute.ATTRIBUTE_UUID);
+
+        assertEquals(SignatureAlgorithmAttribute.NAME, definition.getName());
     }
 
     @Test

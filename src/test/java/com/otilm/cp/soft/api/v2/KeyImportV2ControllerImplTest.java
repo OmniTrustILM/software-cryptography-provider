@@ -2,8 +2,12 @@ package com.otilm.cp.soft.api.v2;
 
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.common.v2.OperationStatus;
+import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
@@ -12,11 +16,15 @@ import com.otilm.api.model.connector.cryptography.v2.key.ImportableKeyTypeV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairOperationStatusResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
+import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.testsupport.KeyImportFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
@@ -85,6 +93,42 @@ class KeyImportV2ControllerImplTest {
                         .signsAndVerifies(operations, request.getTokenAttributes(),
                                 imported.getPrivateKeyData().getKeyMeta(), imported.getPublicKeyData().getKeyMeta()),
                 "a signature made with an imported key must verify with its own public half");
+    }
+
+    @Test
+    void smallImportedRsaKeyOffersOnlySignaturesItsModulusCanHold() {
+        ImportKeyRequestV2Dto request = KeyImportFixtures
+                .rsaImport(TokenContextFixtures.uniqueName("v2-small-rsa"), 768);
+        KeyPairDataResponseV2Dto imported = (KeyPairDataResponseV2Dto) controller.importKey(request).getBody();
+        assertNotNull(imported);
+
+        KeyScopedRequestV2Dto scope = new KeyScopedRequestV2Dto();
+        scope.setTokenAttributes(request.getTokenAttributes());
+        scope.setKeyMeta(imported.getPrivateKeyData().getKeyMeta());
+        DataAttributeV3 selection = (DataAttributeV3) operations.listSignAttributes(scope).get(0);
+
+        assertEquals(
+                List
+                        .of(SignatureAlgorithm.SHA256_WITH_RSA, SignatureAlgorithm.SHA384_WITH_RSA,
+                                SignatureAlgorithm.SHA512_WITH_RSA, SignatureAlgorithm.SHA256_WITH_RSA_PSS),
+                selection
+                        .getContent()
+                        .stream()
+                        .map(value -> SignatureAlgorithm.findByCode((String) value.getData()))
+                        .toList());
+
+        SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
+        signing.setTokenAttributes(request.getTokenAttributes());
+        signing.setKeyMeta(imported.getPrivateKeyData().getKeyMeta());
+        signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
+        signing
+                .setSignatureAttributes(
+                        List.of(SignatureAlgorithmAttribute.request(SignatureAlgorithm.SHA384_WITH_RSA_PSS)));
+        SignatureDataV2Dto item = new SignatureDataV2Dto();
+        item.setIdentifier("one");
+        item.setData(new byte[]{1});
+        signing.setData(List.of(item));
+        assertThrows(ParameterUnsupportedException.class, () -> operations.signData(signing));
     }
 
     /** A caller that lost the response repeats the request, and must be given the key rather than a second one. */
