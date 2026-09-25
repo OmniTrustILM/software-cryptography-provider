@@ -20,10 +20,10 @@ import java.util.List;
 public interface CryptographicOperationsV2Service {
 
     /**
-     * What signing or verifying with the addressed key needs to be told.
+     * Publishes the addressed key's supported signature algorithms for V2 signing and verification.
      *
      * @param request the token and key context
-     * @return the attribute schema
+     * @return the reserved signature algorithm selection schema
      */
     List<BaseAttribute> signatureAttributes(KeyScopedRequestV2Dto request);
 

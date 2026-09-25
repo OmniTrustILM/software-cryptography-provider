@@ -3,19 +3,18 @@ package com.otilm.cp.soft.testsupport;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
-import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
-import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.OperationTrackingRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
 import com.otilm.cp.soft.api.v2.OperationsV2ControllerImpl;
 import com.otilm.cp.soft.attribute.KeyAttributes;
-import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
@@ -48,6 +47,10 @@ public final class KeyImportFixtures {
 
     /** A request importing a 2048-bit RSA key pair into a token of the given name. */
     public static ImportKeyRequestV2Dto rsaImport(String tokenName) {
+        return rsaImport(tokenName, 2048);
+    }
+
+    public static ImportKeyRequestV2Dto rsaImport(String tokenName, int keySize) {
         ImportKeyRequestV2Dto request = new ImportKeyRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(tokenName));
         request.setTokenProfileAttributes(List.of());
@@ -62,7 +65,7 @@ public final class KeyImportFixtures {
                                 .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, "imported-" + System.nanoTime())));
 
         EncryptedKeyMaterialV2Dto material = new EncryptedKeyMaterialV2Dto();
-        material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(generatedRsaKey(), PASSPHRASE));
+        material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(generatedRsaKey(keySize), PASSPHRASE));
         request.setMaterial(material);
         request.setPassphrase(PASSPHRASE);
         return request;
@@ -122,7 +125,7 @@ public final class KeyImportFixtures {
     /** Material holding a different key of the same algorithm, so only the key tells two requests apart. */
     public static EncryptedKeyMaterialV2Dto anotherKey() {
         EncryptedKeyMaterialV2Dto material = new EncryptedKeyMaterialV2Dto();
-        material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(generatedRsaKey(), PASSPHRASE));
+        material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(generatedRsaKey(2048), PASSPHRASE));
         return material;
     }
 
@@ -141,10 +144,10 @@ public final class KeyImportFixtures {
     }
 
     /** A key generated the way a user's own key would have been, before the platform protected it. */
-    private static PrivateKey generatedRsaKey() {
+    private static PrivateKey generatedRsaKey(int keySize) {
         try {
             KeyStore keyStore = KeyStoreUtil.loadKeystore(KeyStoreUtil.createNewKeystore("PKCS12", CODE), CODE);
-            KeyStoreUtil.generateRsaKey(keyStore, "source", 2048, CODE);
+            KeyStoreUtil.generateRsaKey(keyStore, "source", keySize, CODE);
             return (PrivateKey) keyStore.getKey("source", CODE.toCharArray());
         } catch (Exception e) {
             throw new IllegalStateException("Cannot generate the key an import would carry", e);
@@ -152,12 +155,7 @@ public final class KeyImportFixtures {
     }
 
     private static List<RequestAttribute> rsaSignatureAttributes() {
-        return List
-                .of(TokenContextFixtures
-                        .string(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME,
-                                RsaSignatureScheme.PKCS1_v1_5.getCode()),
-                        TokenContextFixtures
-                                .string(RsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, DigestAlgorithm.SHA_256.getCode()));
+        return List.of(SignatureAlgorithmAttribute.request(SignatureAlgorithm.SHA256_WITH_RSA));
     }
 
     private static SignatureDataV2Dto item(String identifier, byte[] data) {

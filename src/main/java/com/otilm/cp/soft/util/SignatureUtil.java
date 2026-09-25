@@ -129,19 +129,7 @@ public class SignatureUtil {
         }
     }
 
-    /**
-     * The signature the request's own parameters name.
-     *
-     * <p>
-     * The scheme and the digest are published as separate choices, so a caller can name a pair no algorithm implements
-     * — a digest one scheme signs with and another does not. That is a combination this connector cannot perform rather
-     * than a fault of its own, and it is answered as such. Only the algorithms whose name a request states are read
-     * this way: where the name comes from the key or is fixed, nothing the caller sent could be at fault.
-     * </p>
-     *
-     * @param algorithm the signature algorithm the request's parameters name
-     * @return the signature
-     */
+    /** An unavailable RSA or ECDSA provider algorithm is reported as a request parameter error. */
     private static Signature signatureStatedBy(String algorithm) {
         try {
             return Signature.getInstance(algorithm, BouncyCastleProvider.PROVIDER_NAME);

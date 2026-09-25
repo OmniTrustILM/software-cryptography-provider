@@ -302,19 +302,6 @@ while the code performing it pairs them by position, so the signatures are reord
 item itself and leave its data unset, so an item that could not be signed fails the whole request rather than being
 answered without a signature, and a verification that failed is reported as invalid with this connector's own wording.
 
-**The operation attribute schemas are published for the first time.** The provider has always read `data_rsaSigScheme`,
-`data_sigDigest` and the RSA cipher attributes; only v2 has endpoints for their schema, so `OperationAttributes` mints
-their definitions and `AttributeDefinitionRegistry` publishes every definition the connector uses. Those attribute
-UUIDs are now a contract like any other, and `AttributeDefinitionRegistry` refuses to publish two different
-definitions under one identifier rather than quietly keeping the first.
-
-**A schema of independent choices cannot say that one choice rules out a value of another.** The signature scheme and
-the digest are separate selects, so a caller can always name a pair no algorithm implements — a digest that PKCS#1
-v1.5 signs with and PSS does not. That is answered as `PARAMETER_UNSUPPORTED` rather than failing as though the
-connector had broken. `PublishedOperationCombinationsTest` walks every combination the connector publishes and holds
-each to being either performed or named as one it cannot perform; the choices come from enumerations that grow, so
-walking them is what keeps a new value from arriving unhandled.
-
 **An RSA key size the connector does not offer is refused.** Every other algorithm names its parameter set through an
 enumeration and so refuses one it does not hold; an RSA size is a plain number, and the published attribute listing
 the sizes was all that stood between a request and a key of any size at all.

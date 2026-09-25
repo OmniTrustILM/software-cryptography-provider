@@ -3,13 +3,11 @@ package com.otilm.cp.soft.api.v2;
 import com.jayway.jsonpath.JsonPath;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.dao.entity.KeyData;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,7 +53,6 @@ class KeyCreationWireTest {
         // given
         CreateKeyRequestV2Dto request = KeyRequestFixtures
                 .rsaKeyPair(TokenContextFixtures.uniqueName("v2-wire-intent"), "key-" + System.nanoTime());
-        request.setKeyUsages(Set.of(KeyUsage.SIGN));
         request.getCreateKeyAttributes().add(KeyExportableAttribute.request(exportable));
         String body = Jackson2ObjectMapperBuilder.json().build().writeValueAsString(request);
         List<Object> intents = JsonPath.read(body, V3_INTENT);
