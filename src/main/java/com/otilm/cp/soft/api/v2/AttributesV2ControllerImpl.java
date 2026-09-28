@@ -5,9 +5,13 @@ import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackReques
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeDefinitionsDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.cp.soft.attribute.KeyAttributes;
+import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
 import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.service.AttributeDefinitionRegistry;
+import com.otilm.cp.soft.util.AttributeValue;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -20,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>
  * The definitions are published as a whole so the platform can cache them and tell when a connector build changed them,
- * which is what the connector version alongside them is for. This connector resolves no attribute content at runtime,
- * so it has no callback to answer.
+ * which is what the connector version alongside them is for. The one attribute resolved at runtime is the key
+ * specification, whose parameters depend on the key algorithm a creation chose.
  * </p>
  */
 @RestController
@@ -64,6 +68,18 @@ public class AttributesV2ControllerImpl implements AttributesController {
 
     @Override
     public AttributeCallbackResponseDto callback(AttributeCallbackRequestDto request) {
-        throw new NotSupportedException("This connector publishes no attribute that is resolved by a callback.");
+        BaseAttribute attribute = getDefinition(request.getAttributeUuid());
+        if (!KeySpecV2Attributes.ATTRIBUTE_GROUP_KEY_SPEC_UUID.equals(attribute.getUuid())) {
+            throw new NotSupportedException("This attribute is not resolved by a callback.");
+        }
+        String algorithm = AttributeValue
+                .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, request.getCurrentAttributes());
+
+        AttributeCallbackResponseDto response = new AttributeCallbackResponseDto();
+        response
+                .setAttributes(algorithm == null
+                        ? List.of()
+                        : KeySpecV2Attributes.forAlgorithm(KeyAlgorithm.findByCode(algorithm)));
+        return response;
     }
 }

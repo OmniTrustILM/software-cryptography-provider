@@ -20,6 +20,11 @@ import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV
 import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
+import com.otilm.cp.soft.collection.FalconDegree;
+import com.otilm.cp.soft.collection.MLDSASecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSAHash;
+import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSASignatureMode;
 import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.OperationConflictException;
@@ -27,9 +32,14 @@ import com.otilm.cp.soft.exception.OperationNotTrackedException;
 import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.testsupport.KeyImportFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
+import com.otilm.cp.soft.util.KeyStoreUtil;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -242,6 +252,90 @@ class KeyImportV2ControllerImplTest {
         // when
         // then
         assertThrows(KeyTypeNotImportableException.class, () -> controller.importKey(request));
+    }
+
+    static Stream<Arguments> keysNoPlatformAlgorithmNames() {
+        return Stream
+                .of(Arguments
+                        .of("Falcon-512",
+                                (KeyImportFixtures.Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                        .generateFalconKey(keyStore, alias, FalconDegree.FALCON_512, code)),
+                        Arguments
+                                .of("HashML-DSA-65",
+                                        (KeyImportFixtures.Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                                .generateMLDSAKey(keyStore, alias, MLDSASecurityCategory.MLDSA_65, true,
+                                                        code)),
+                        Arguments
+                                .of("SLH-DSA-SHAKE-128S",
+                                        (KeyImportFixtures.Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                                .generateSlhDsaKey(keyStore, alias, SLHDSAHash.SHAKE256,
+                                                        SLHDSASecurityCategory.CATEGORY_1, SLHDSASignatureMode.SMALL,
+                                                        false, code)),
+                        Arguments
+                                .of("HashSLH-DSA-SHA2-128S",
+                                        (KeyImportFixtures.Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                                .generateSlhDsaKey(keyStore, alias, SLHDSAHash.SHA2,
+                                                        SLHDSASecurityCategory.CATEGORY_1, SLHDSASignatureMode.SMALL,
+                                                        true, code)));
+    }
+
+    /** V2 names every signature by a platform algorithm, so it takes in only signing keys one of them names. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("keysNoPlatformAlgorithmNames")
+    void refusesAKeyNoPlatformSignatureAlgorithmNames(String variant, KeyImportFixtures.Generation generation) {
+        // given
+        ImportKeyRequestV2Dto request = KeyImportFixtures
+                .importOf(TokenContextFixtures.uniqueName("v2-import-unsignable"),
+                        KeyImportFixtures.generatedKey(generation));
+
+        // when
+        // then
+        assertThrows(KeyTypeNotImportableException.class, () -> controller.importKey(request));
+    }
+
+    static Stream<Arguments> keysAPlatformAlgorithmNames() {
+        return Stream
+                .of(Arguments
+                        .of(SignatureAlgorithm.FALCON_1024,
+                                (KeyImportFixtures.Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                        .generateFalconKey(keyStore, alias, FalconDegree.FALCON_1024, code)),
+                        Arguments
+                                .of(SignatureAlgorithm.ML_DSA_65,
+                                        (KeyImportFixtures.Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                                .generateMLDSAKey(keyStore, alias, MLDSASecurityCategory.MLDSA_65,
+                                                        false, code)),
+                        Arguments
+                                .of(SignatureAlgorithm.SLH_DSA_SHA2_128S,
+                                        (KeyImportFixtures.Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                                .generateSlhDsaKey(keyStore, alias, SLHDSAHash.SHA2,
+                                                        SLHDSASecurityCategory.CATEGORY_1, SLHDSASignatureMode.SMALL,
+                                                        false, code)));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("keysAPlatformAlgorithmNames")
+    void importsAPostQuantumKeyAndOffersTheAlgorithmNamingIt(SignatureAlgorithm offered,
+            KeyImportFixtures.Generation generation) {
+        // given
+        ImportKeyRequestV2Dto request = KeyImportFixtures
+                .importOf(TokenContextFixtures.uniqueName("v2-import-signable"),
+                        KeyImportFixtures.generatedKey(generation));
+        KeyPairDataResponseV2Dto imported = (KeyPairDataResponseV2Dto) controller.importKey(request).getBody();
+        assertNotNull(imported);
+        KeyScopedRequestV2Dto scope = new KeyScopedRequestV2Dto();
+        scope.setTokenAttributes(request.getTokenAttributes());
+        scope.setKeyMeta(imported.getPrivateKeyData().getKeyMeta());
+
+        // when
+        DataAttributeV3 selection = (DataAttributeV3) operations.listSignAttributes(scope).get(0);
+
+        // then
+        assertEquals(List.of(offered),
+                selection
+                        .getContent()
+                        .stream()
+                        .map(value -> SignatureAlgorithm.findByCode((String) value.getData()))
+                        .toList());
     }
 
     /**

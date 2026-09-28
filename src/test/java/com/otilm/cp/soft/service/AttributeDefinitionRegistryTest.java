@@ -1,14 +1,18 @@
 package com.otilm.cp.soft.service;
 
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.v3.GroupAttributeV3;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * What this connector publishes as its attribute definitions.
@@ -54,6 +58,25 @@ class AttributeDefinitionRegistryTest {
             String taken = byUuid.put(attribute.getUuid(), attribute.getName());
             assertNull(taken, () -> "both " + taken + " and " + attribute.getName() + " are published under "
                     + attribute.getUuid());
+        }
+    }
+
+    /** A callback fires on the attributes it names, so each of them has to be one this connector publishes. */
+    @Test
+    void publishesEveryAttributeACallbackDependsOn() {
+        // given
+        List<BaseAttribute> published = AttributeDefinitionRegistry.definitions();
+        Set<String> names = published.stream().map(BaseAttribute::getName).collect(Collectors.toSet());
+
+        // when
+        // then
+        for (BaseAttribute attribute : published) {
+            if (attribute instanceof GroupAttributeV3 group && group.getAttributeCallback().getDependsOn() != null) {
+                for (String dependsOn : group.getAttributeCallback().getDependsOn()) {
+                    assertTrue(names.contains(dependsOn),
+                            () -> attribute.getName() + " depends on " + dependsOn + ", which is not published");
+                }
+            }
         }
     }
 

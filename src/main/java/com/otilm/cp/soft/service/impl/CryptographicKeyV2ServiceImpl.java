@@ -13,6 +13,7 @@ import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.common.v2.OperationStatus;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
+import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
@@ -36,6 +37,7 @@ import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.cp.soft.attribute.KeyAttributes;
+import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
 import com.otilm.cp.soft.dao.entity.KeyData;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
@@ -47,20 +49,23 @@ import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.metrics.ConnectorEvent;
 import com.otilm.cp.soft.metrics.ConnectorMetrics;
 import com.otilm.cp.soft.model.KeyContext;
 import com.otilm.cp.soft.model.TokenContext;
-import com.otilm.cp.soft.service.AttributeService;
 import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.TokenContextService;
+import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.ExportedKeyMaterial;
 import com.otilm.cp.soft.util.ImportedKeyMaterial;
 import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.PrivateKeyDescriptor;
 import com.otilm.cp.soft.util.RequestFingerprint;
+import com.otilm.cp.soft.util.SignatureAlgorithms;
 import jakarta.transaction.Transactional;
 import java.security.GeneralSecurityException;
 import java.security.Key;
@@ -72,6 +77,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -109,7 +115,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             .of(KeyAlgorithm.RSA, KeyAlgorithm.ECDSA, KeyAlgorithm.FALCON, KeyAlgorithm.MLDSA, KeyAlgorithm.SLHDSA,
                     KeyAlgorithm.MLKEM);
 
-    private AttributeService attributeService;
+    private static final Set<KeyAlgorithm> POST_QUANTUM_SIGNATURE_ALGORITHMS = Set
+            .of(KeyAlgorithm.FALCON, KeyAlgorithm.MLDSA, KeyAlgorithm.SLHDSA);
 
     private ConnectorMetrics connectorMetrics;
 
@@ -126,11 +133,11 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         requireKeyPair(request.getKeyRequestType());
         tokenContextService.locate(request.getTokenAttributes());
 
-        // The exportable intent is added on top of what both generations publish, since a v1 caller neither states it
-        // nor is answered by anything that reads it.
-        List<BaseAttribute> attributes = new ArrayList<>(attributeService.getCreateKeyAttributes());
-        attributes.add(KeyExportableAttribute.definition());
-        return attributes;
+        // V1's key specification offers keys V2 cannot sign with, so V2 asks for its own. The exportable intent is V2's
+        // alone, since a v1 caller neither states it nor is answered by anything that reads it.
+        return List
+                .of(KeyAttributes.buildDataKeyAlias(), KeyAttributes.buildDataKeyAlgorithmSelect(),
+                        KeySpecV2Attributes.buildGroup(), KeyExportableAttribute.definition());
     }
 
     @Override
@@ -153,7 +160,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
         CreateKeyRequestDto creation = new CreateKeyRequestDto();
         creation.setTokenProfileAttributes(request.getTokenProfileAttributes());
-        creation.setCreateKeyAttributes(request.getCreateKeyAttributes());
+        creation.setCreateKeyAttributes(withFixedParameters(request.getCreateKeyAttributes()));
 
         KeyPairDataResponseDto created;
         try {
@@ -163,6 +170,13 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
         KeyData publicKey = key(created.getPublicKeyData().getUuid());
         KeyData privateKey = key(created.getPrivateKeyData().getUuid());
+        if (signsUnderNoPlatformAlgorithm(privateKey.getAlgorithm(),
+                ((CustomKeyValue) privateKey.getValue()).getValues())) {
+            // Refused after the key is made, so it is the shared creation that decides which parameter set was asked
+            // for; the transaction takes the key back with it.
+            throw new ParameterUnsupportedException(
+                    "V2 creates a signing key only in a parameter set a platform signature algorithm names");
+        }
         remember(request.getKeyCreationId(), fingerprint, exportable(request.getCreateKeyAttributes()), publicKey,
                 privateKey);
 
@@ -214,6 +228,11 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         ImportedKeyMaterial material = ImportedKeyMaterial
                 .open(request.getMaterial().getEncryptedPrivateKeyInfo(), request.getPassphrase());
         requireImportable(material.algorithm());
+        if (signsUnderNoPlatformAlgorithm(material.algorithm(),
+                PrivateKeyDescriptor.of(material.algorithm(), material.keyPair()).getValues())) {
+            throw new KeyTypeNotImportableException(
+                    "A key whose parameter set no platform signature algorithm names cannot be imported");
+        }
 
         // Token-profile key usages are Core policy; changing them preserves the key-import replay identity.
         String fingerprint = RequestFingerprint
@@ -335,6 +354,34 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             throw new ValidationException(
                     ValidationError.create("The exportable intent must be stated once, as a single boolean value"));
         }
+    }
+
+    /**
+     * A creation states nothing for the choices V2 leaves out of its key specification, so it is given the one value V2
+     * offers there. What it does state is left for the shared creation to read.
+     */
+    private static List<RequestAttribute> withFixedParameters(List<RequestAttribute> attributes) {
+        String algorithm = attributes == null
+                ? null
+                : AttributeValue.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, attributes);
+        if (algorithm == null) {
+            return attributes;
+        }
+        List<RequestAttribute> stated = new ArrayList<>(attributes);
+        KeySpecV2Attributes
+                .fixedParameters(KeyAlgorithm.findByCode(algorithm))
+                .stream()
+                .filter(fixed -> attributes
+                        .stream()
+                        .noneMatch(attribute -> fixed.getName().equals(attribute.getName())))
+                .forEach(stated::add);
+        return stated;
+    }
+
+    /** V2 names every signature by a platform algorithm, and only a post-quantum signing key can lack one. */
+    private static boolean signsUnderNoPlatformAlgorithm(KeyAlgorithm algorithm, Map<String, String> parameters) {
+        return POST_QUANTUM_SIGNATURE_ALGORITHMS.contains(algorithm)
+                && SignatureAlgorithms.ofPostQuantumKey(algorithm, parameters).isEmpty();
     }
 
     /** An algorithm the material holds that this connector does not accept as an import. */
@@ -597,11 +644,6 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     @Autowired
     public void setConnectorMetrics(ConnectorMetrics connectorMetrics) {
         this.connectorMetrics = connectorMetrics;
-    }
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
     }
 
     @Autowired

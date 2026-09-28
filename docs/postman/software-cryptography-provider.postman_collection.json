@@ -170,6 +170,52 @@
           ]
         },
         {
+          "name": "POST /v2/attributes/callback (key specification)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{connectorUrl}}/v2/attributes/callback",
+              "host": [
+                "{{connectorUrl}}"
+              ],
+              "path": [
+                "v2",
+                "attributes",
+                "callback"
+              ]
+            },
+            "description": "What creating a key of the chosen algorithm asks for. V2 offers a signing key only in a parameter set a platform signature algorithm names, so ML-DSA asks for its security category alone.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"connectorInterface\": \"cryptography\",\n  \"interfaceVersion\": \"v2\",\n  \"attributeUuid\": \"05927c10-b5ca-43cb-a69f-098885b8c307\",\n  \"attributeName\": \"group_keySpecV2\",\n  \"contextAttributes\": [],\n  \"currentAttributes\": [\n    {\n      \"uuid\": \"72159c04-d1a9-4703-8b23-469224425d5f\",\n      \"name\": \"data_keyAlgorithm\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"ML-DSA\",\n          \"data\": \"ML-DSA\"\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"asks for the security category alone\", function () { pm.expect(pm.response.json().attributes.map(function (a) { return a.name; })).to.eql([\"data_mldsaLevel\"]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "GET /v2/cryptographyProvider/tokens/attributes",
           "request": {
             "method": "GET",

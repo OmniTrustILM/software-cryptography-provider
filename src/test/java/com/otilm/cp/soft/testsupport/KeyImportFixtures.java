@@ -51,6 +51,12 @@ public final class KeyImportFixtures {
     }
 
     public static ImportKeyRequestV2Dto rsaImport(String tokenName, int keySize) {
+        return importOf(tokenName,
+                generatedKey((keyStore, alias, code) -> KeyStoreUtil.generateRsaKey(keyStore, alias, keySize, code)));
+    }
+
+    /** A request importing the given key into a token of the given name. */
+    public static ImportKeyRequestV2Dto importOf(String tokenName, PrivateKey key) {
         ImportKeyRequestV2Dto request = new ImportKeyRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(tokenName));
         request.setTokenProfileAttributes(List.of());
@@ -65,7 +71,7 @@ public final class KeyImportFixtures {
                                 .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, "imported-" + System.nanoTime())));
 
         EncryptedKeyMaterialV2Dto material = new EncryptedKeyMaterialV2Dto();
-        material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(generatedRsaKey(keySize), PASSPHRASE));
+        material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(key, PASSPHRASE));
         request.setMaterial(material);
         request.setPassphrase(PASSPHRASE);
         return request;
@@ -125,7 +131,11 @@ public final class KeyImportFixtures {
     /** Material holding a different key of the same algorithm, so only the key tells two requests apart. */
     public static EncryptedKeyMaterialV2Dto anotherKey() {
         EncryptedKeyMaterialV2Dto material = new EncryptedKeyMaterialV2Dto();
-        material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(generatedRsaKey(2048), PASSPHRASE));
+        material
+                .setEncryptedPrivateKeyInfo(KeyMaterialFixtures
+                        .protect(generatedKey(
+                                (keyStore, alias, code) -> KeyStoreUtil.generateRsaKey(keyStore, alias, 2048, code)),
+                                PASSPHRASE));
         return material;
     }
 
@@ -143,11 +153,18 @@ public final class KeyImportFixtures {
         }
     }
 
+    /** How a key is generated into a keystore, under an alias protected by a code. */
+    @FunctionalInterface
+    public interface Generation {
+
+        void into(KeyStore keyStore, String alias, String code);
+    }
+
     /** A key generated the way a user's own key would have been, before the platform protected it. */
-    private static PrivateKey generatedRsaKey(int keySize) {
+    public static PrivateKey generatedKey(Generation generation) {
         try {
             KeyStore keyStore = KeyStoreUtil.loadKeystore(KeyStoreUtil.createNewKeystore("PKCS12", CODE), CODE);
-            KeyStoreUtil.generateRsaKey(keyStore, "source", keySize, CODE);
+            generation.into(keyStore, "source", CODE);
             return (PrivateKey) keyStore.getKey("source", CODE.toCharArray());
         } catch (Exception e) {
             throw new IllegalStateException("Cannot generate the key an import would carry", e);

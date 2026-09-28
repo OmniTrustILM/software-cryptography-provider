@@ -161,8 +161,8 @@ public class V2ExceptionHandlingAdvice {
     }
 
     /**
-     * Parameters that name nothing this connector can perform. Each parameter is published as a choice of its own, so a
-     * caller can always assemble a combination the published schema cannot rule out.
+     * Parameters that name nothing this connector can perform: a value it does not offer, a signature algorithm the key
+     * does not support, or a key no platform signature algorithm names.
      */
     @ExceptionHandler(ParameterUnsupportedException.class)
     public ResponseEntity<ProblemDetailExtended> handleParameterUnsupported(ParameterUnsupportedException e) {
