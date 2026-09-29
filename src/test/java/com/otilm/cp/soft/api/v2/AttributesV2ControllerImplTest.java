@@ -1,21 +1,40 @@
 package com.otilm.cp.soft.api.v2;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackRequestDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeDefinitionsDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
+import com.otilm.cp.soft.api.CallbackController;
+import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
+import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
+import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
+import com.otilm.cp.soft.attribute.MLDSAKeyAttributes;
+import com.otilm.cp.soft.attribute.MLKEMAttributes;
+import com.otilm.cp.soft.attribute.RsaKeyAttributes;
+import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
 import com.otilm.cp.soft.exception.AttributeDefinitionMissingException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -32,11 +51,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest
 class AttributesV2ControllerImplTest {
 
+    /** Writes a definition the way the platform receives it. */
+    private static final ObjectMapper AS_PUBLISHED = new ObjectMapper();
+
     private AttributesV2ControllerImpl controller;
 
     private TokenV2ControllerImpl tokenController;
 
     private KeyV2ControllerImpl keyController;
+
+    private CallbackController v1Callback;
 
     @Autowired
     void setController(AttributesV2ControllerImpl controller) {
@@ -51,6 +75,11 @@ class AttributesV2ControllerImplTest {
     @Autowired
     void setKeyController(KeyV2ControllerImpl keyController) {
         this.keyController = keyController;
+    }
+
+    @Autowired
+    void setV1Callback(CallbackController v1Callback) {
+        this.v1Callback = v1Callback;
     }
 
     @Test
@@ -133,6 +162,13 @@ class AttributesV2ControllerImplTest {
     }
 
     @Test
+    void reservedSignatureAlgorithmResolvesByItsIdentifier() {
+        BaseAttribute definition = controller.getDefinition(SignatureAlgorithmAttribute.ATTRIBUTE_UUID);
+
+        assertEquals(SignatureAlgorithmAttribute.NAME, definition.getName());
+    }
+
+    @Test
     void refusesADefinitionItDoesNotPublish() {
         // given
         UUID unknown = UUID.randomUUID();
@@ -203,12 +239,87 @@ class AttributesV2ControllerImplTest {
         }
     }
 
-    @Test
-    void answersNoCallback() {
+    static Stream<Arguments> keySpecifications() {
+        return Stream
+                .of(Arguments.of(KeyAlgorithm.RSA, List.of(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_KEY_SIZE)),
+                        Arguments.of(KeyAlgorithm.ECDSA, List.of(EcdsaKeyAttributes.ATTRIBUTE_DATA_ECDSA_CURVE)),
+                        Arguments.of(KeyAlgorithm.FALCON, List.of()),
+                        Arguments.of(KeyAlgorithm.MLDSA, List.of(MLDSAKeyAttributes.ATTRIBUTE_DATA_MLDSA_LEVEL)),
+                        Arguments
+                                .of(KeyAlgorithm.SLHDSA,
+                                        List
+                                                .of(SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_SECURITY_CATEGORY,
+                                                        SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_SIGNATURE_MODE)),
+                        Arguments.of(KeyAlgorithm.MLKEM, List.of(MLKEMAttributes.ATTRIBUTE_DATA_MLKEM_LEVEL)));
+    }
+
+    /** V2 leaves out every choice beyond the parameter sets a platform signature algorithm names. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("keySpecifications")
+    void answersTheKeySpecificationOfTheChosenAlgorithm(KeyAlgorithm algorithm, List<String> asked) {
         // given
+        AttributeCallbackRequestDto request = keySpecification(algorithm);
+
+        // when
+        List<BaseAttribute> children = controller.callback(request).getAttributes();
+
+        // then
+        assertEquals(asked, children.stream().map(BaseAttribute::getName).toList());
+    }
+
+    /**
+     * The platform keeps one definition per identifier for a connector, whichever interface published it, so a child
+     * that differed from V1's under the same identifier would replace it for V1 callers too.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("keySpecifications")
+    void answersOnlyDefinitionsV1PublishesUnderTheSameIdentifiers(KeyAlgorithm algorithm, List<String> asked)
+            throws JsonProcessingException {
+        // given
+        Map<String, String> v1 = new HashMap<>();
+        for (BaseAttribute attribute : v1Callback.getKeySpecAttributes(algorithm)) {
+            v1.put(attribute.getUuid(), AS_PUBLISHED.writeValueAsString(attribute));
+        }
+
+        // when
+        List<BaseAttribute> children = controller.callback(keySpecification(algorithm)).getAttributes();
+
+        // then
+        for (BaseAttribute child : children) {
+            assertEquals(v1.get(child.getUuid()), AS_PUBLISHED.writeValueAsString(child), child::getName);
+        }
+    }
+
+    @Test
+    void answersNoKeySpecificationBeforeAnAlgorithmIsChosen() {
+        // given
+        AttributeCallbackRequestDto request = new AttributeCallbackRequestDto();
+        request.setAttributeUuid(UUID.fromString(KeySpecV2Attributes.ATTRIBUTE_GROUP_KEY_SPEC_UUID));
+        request.setCurrentAttributes(List.of());
+
+        // when
+        List<BaseAttribute> children = controller.callback(request).getAttributes();
+
+        // then
+        assertTrue(children.isEmpty());
+    }
+
+    @Test
+    void refusesACallbackForAnAttributeItDoesNotPublish() {
+        // given
+        AttributeCallbackRequestDto request = new AttributeCallbackRequestDto();
+        request.setAttributeUuid(UUID.randomUUID());
+
         // when
         // then
+        assertThrows(AttributeDefinitionMissingException.class, () -> controller.callback(request));
+    }
+
+    @Test
+    void refusesACallbackForAnAttributeNoCallbackResolves() {
+        // given
         AttributeCallbackRequestDto request = new AttributeCallbackRequestDto();
+        request.setAttributeUuid(UUID.fromString(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID));
 
         // when
         // then
@@ -228,8 +339,57 @@ class AttributesV2ControllerImplTest {
                 .toList();
 
         // then
-        assertTrue(names.contains("data_rsaSigScheme"), () -> "got " + names);
-        assertTrue(names.contains("data_sigDigest"), () -> "got " + names);
+        assertTrue(names.contains(SignatureAlgorithmAttribute.NAME), () -> "got " + names);
         assertTrue(names.contains("data_rsaEncScheme"), () -> "got " + names);
+        assertFalse(names.contains("data_rsaSigScheme"), () -> "got " + names);
+        assertFalse(names.contains("data_sigDigest"), () -> "got " + names);
+    }
+
+    @Test
+    void offersEverySignatureAlgorithmAKeyCanOffer() {
+        // given
+        UUID uuid = SignatureAlgorithmAttribute.ATTRIBUTE_UUID;
+
+        // when
+        DataAttributeV3 definition = (DataAttributeV3) controller.getDefinition(uuid);
+
+        // then
+        assertEquals(List
+                .of("SHA256withRSA", "SHA384withRSA", "SHA512withRSA", "SHA256withRSAandMGF1", "SHA384withRSAandMGF1",
+                        "SHA512withRSAandMGF1", "SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA", "FALCON-1024",
+                        "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "SLH-DSA-SHA2-128S", "SLH-DSA-SHA2-128F",
+                        "SLH-DSA-SHA2-192S", "SLH-DSA-SHA2-192F", "SLH-DSA-SHA2-256S", "SLH-DSA-SHA2-256F"),
+                definition.getContent().stream().map(content -> (String) content.getData()).toList());
+    }
+
+    @Test
+    void publishesOnlyTheKeySpecificationV2Offers() {
+        // given
+        // when
+        List<String> names = controller
+                .listDefinitions(null)
+                .getDefinitions()
+                .stream()
+                .map(BaseAttribute::getName)
+                .toList();
+
+        // then
+        assertTrue(names.contains(KeySpecV2Attributes.ATTRIBUTE_GROUP_KEY_SPEC), () -> "got " + names);
+        for (String left : List
+                .of(KeyAttributes.ATTRIBUTE_GROUP_KEY_SPEC, FalconKeyAttributes.ATTRIBUTE_DATA_FALCON_DEGREE,
+                        MLDSAKeyAttributes.ATTRIBUTE_DATA_MLDSA_PREHASH, SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_HASH,
+                        SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_PREHASH)) {
+            assertFalse(names.contains(left), () -> left + " is V1's alone, got " + names);
+        }
+    }
+
+    private static AttributeCallbackRequestDto keySpecification(KeyAlgorithm algorithm) {
+        AttributeCallbackRequestDto request = new AttributeCallbackRequestDto();
+        request.setAttributeUuid(UUID.fromString(KeySpecV2Attributes.ATTRIBUTE_GROUP_KEY_SPEC_UUID));
+        request
+                .setCurrentAttributes(List
+                        .of(TokenContextFixtures
+                                .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, algorithm.getCode())));
+        return request;
     }
 }

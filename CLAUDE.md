@@ -142,6 +142,13 @@ stores the pair the way a generated one is stored, beside a self-signed certific
 the parameter set the key states rather than measuring them, since an encoded lattice private key carries more than
 the key itself.
 
+**A signing key V2 creates or imports is one it can sign with.** V2 names every signature by a platform algorithm, and V1 creates
+post-quantum parameter sets that none of them names. So V2 asks for a key specification of its own, resolved through
+the V2 attributes callback, which leaves those choices out and states the one value V2 offers in their place; a
+creation or an import that asks for one anyway is refused. The children of that group are V1's own definitions rather
+than narrowed copies, because the platform keeps one definition per identifier for a connector, whichever interface
+published it.
+
 **A migration that has shipped anywhere is never rewritten.** Repairing a checksum realigns the schema history; it
 does not run statements added to a migration a database already applied. So a change to what an applied migration
 does goes into a new version, and the one that shipped stays as it was.
@@ -301,19 +308,6 @@ while the code performing it pairs them by position, so the signatures are reord
 **A v2 result item states its own outcome, which the v1 types do not.** The v1 interfaces report a failed item in the
 item itself and leave its data unset, so an item that could not be signed fails the whole request rather than being
 answered without a signature, and a verification that failed is reported as invalid with this connector's own wording.
-
-**The operation attribute schemas are published for the first time.** The provider has always read `data_rsaSigScheme`,
-`data_sigDigest` and the RSA cipher attributes; only v2 has endpoints for their schema, so `OperationAttributes` mints
-their definitions and `AttributeDefinitionRegistry` publishes every definition the connector uses. Those attribute
-UUIDs are now a contract like any other, and `AttributeDefinitionRegistry` refuses to publish two different
-definitions under one identifier rather than quietly keeping the first.
-
-**A schema of independent choices cannot say that one choice rules out a value of another.** The signature scheme and
-the digest are separate selects, so a caller can always name a pair no algorithm implements — a digest that PKCS#1
-v1.5 signs with and PSS does not. That is answered as `PARAMETER_UNSUPPORTED` rather than failing as though the
-connector had broken. `PublishedOperationCombinationsTest` walks every combination the connector publishes and holds
-each to being either performed or named as one it cannot perform; the choices come from enumerations that grow, so
-walking them is what keeps a new value from arriving unhandled.
 
 **An RSA key size the connector does not offer is refused.** Every other algorithm names its parameter set through an
 enumeration and so refuses one it does not hold; an RSA size is a plain number, and the published attribute listing

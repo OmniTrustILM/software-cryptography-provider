@@ -38,9 +38,7 @@ Software Cryptography Provider `Connector` supports the following asymmetric alg
 
 ## Interfaces
 
-Software Cryptography Provider implements `Cryptography Provider` interfaces. To learn more about the interfaces and end points, refer to the [Interfaces](https://github.com/OmniTrustILM/interfaces).
-
-For more information, please refer to the [documentation](https://docs.otilm.com).
+Software Cryptography Provider implements the [Cryptography Provider interfaces](https://github.com/OmniTrustILM/interfaces). For V2 signing and verification, it offers the algorithms supported by the addressed key and honours the selected algorithm, and every signing key it creates or imports over V2 is one it can sign with. See the [ILM documentation](https://docs.otilm.com) for more information.
 
 ## Docker container
 

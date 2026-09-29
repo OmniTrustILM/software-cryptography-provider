@@ -6,6 +6,8 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
@@ -15,6 +17,7 @@ import com.otilm.api.model.connector.cryptography.v2.operations.DecryptDataRespo
 import com.otilm.api.model.connector.cryptography.v2.operations.EncryptDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
@@ -22,30 +25,25 @@ import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Every combination this connector publishes as a choice is either performed or refused for what it is.
- *
- * <p>
- * The operation attributes are what a caller picks from, and each is a choice of its own, so nothing in the schema can
- * say that one choice rules out a value of another — a digest one signature scheme signs with and another does not. A
- * caller can therefore always assemble a combination that cannot be performed, and the answer has to say so rather than
- * fail as though the connector had broken.
- * </p>
- *
- * <p>
- * The choices come from enumerations the interfaces define, which grow, so what is published is walked here rather than
- * listed: a value added to one of them is either performed or named as one this connector cannot perform.
- * </p>
+ * Checks advertised V2 choices against the operations. Every RSA signing choice must work; cipher combinations may be
+ * performed or refused with a parameter error.
  */
 @SpringBootTest
 class PublishedOperationCombinationsTest {
@@ -69,18 +67,18 @@ class PublishedOperationCombinationsTest {
     }
 
     @Test
-    void signsAndVerifiesWithEveryCombinationItPublishesForAnRsaKey() {
+    void rsaKeySignsAndVerifiesWithEveryPublishedAlgorithm() throws GeneralSecurityException {
         // given
         KeyPair pair = keyPair("v2-published-rsa-sign");
         List<BaseAttribute> published = operations.listSignAttributes(scoped(pair, pair.privateKeyMeta()));
-        int performed = 0;
+        List<List<RequestAttribute>> choices = everyChoiceIn(published);
 
         // when
         // then
-        for (List<RequestAttribute> chosen : everyChoiceIn(published)) {
-            performed += performedOrRefusedForWhatItIs(() -> signsAndVerifies(pair, chosen), chosen) ? 1 : 0;
+        assertFalse(choices.isEmpty());
+        for (List<RequestAttribute> chosen : choices) {
+            signsAndVerifies(pair, chosen);
         }
-        assertTrue(performed > 0, "a schema whose every combination is refused offers nothing");
     }
 
     @Test
@@ -113,7 +111,8 @@ class PublishedOperationCombinationsTest {
         }
     }
 
-    private void signsAndVerifies(KeyPair pair, List<RequestAttribute> signatureAttributes) {
+    private void signsAndVerifies(KeyPair pair, List<RequestAttribute> signatureAttributes)
+            throws GeneralSecurityException {
         SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
         apply(signing, pair, pair.privateKeyMeta());
         signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
@@ -122,6 +121,16 @@ class PublishedOperationCombinationsTest {
 
         SignDataResponseV2Dto made = operations.signData(signing).getBody();
         assertNotNull(made, () -> "nothing was signed with " + describe(signatureAttributes));
+        SignatureAlgorithm selected = SignatureAlgorithmAttribute.selectedAlgorithm(signatureAttributes);
+        Signature externalVerifier = Signature
+                .getInstance(rsaSignatureName(selected), BouncyCastleProvider.PROVIDER_NAME);
+        externalVerifier
+                .initVerify(KeyFactory
+                        .getInstance("RSA", BouncyCastleProvider.PROVIDER_NAME)
+                        .generatePublic(new X509EncodedKeySpec(pair.publicKeySpki())));
+        externalVerifier.update(MESSAGE);
+        assertTrue(externalVerifier.verify(made.getSignatures().get(0).getData()),
+                () -> selected + " did not produce its selected RSA signature");
 
         VerifyDataRequestV2Dto verification = new VerifyDataRequestV2Dto();
         apply(verification, pair, pair.publicKeyMeta());
@@ -131,6 +140,18 @@ class PublishedOperationCombinationsTest {
 
         assertTrue(operations.verifyData(verification).getVerifications().get(0).getResult(),
                 () -> "a signature made with " + describe(signatureAttributes) + " did not verify");
+    }
+
+    private static String rsaSignatureName(SignatureAlgorithm selected) {
+        return switch (selected) {
+            case SHA256_WITH_RSA -> "SHA256withRSA";
+            case SHA384_WITH_RSA -> "SHA384withRSA";
+            case SHA512_WITH_RSA -> "SHA512withRSA";
+            case SHA256_WITH_RSA_PSS -> "SHA256withRSAandMGF1";
+            case SHA384_WITH_RSA_PSS -> "SHA384withRSAandMGF1";
+            case SHA512_WITH_RSA_PSS -> "SHA512withRSAandMGF1";
+            default -> throw new AssertionError("Unexpected RSA signature selection: " + selected);
+        };
     }
 
     private void encryptsAndDecrypts(KeyPair pair, List<RequestAttribute> cipherAttributes) {
@@ -152,21 +173,16 @@ class PublishedOperationCombinationsTest {
                 () -> "what was encrypted with " + describe(cipherAttributes) + " did not come back");
     }
 
-    /**
-     * Every way of answering the published attributes, every value of each against every value of the others. Walking
-     * one attribute at a time while the rest hold their first value would cover every published value and still miss
-     * the combinations these are here for: a digest one scheme signs with and another does not is two values
-     * interacting, and neither of them alone is the problem.
-     */
+    /** Expands independent schema choices so interactions between attributes are exercised. */
     private static List<List<RequestAttribute>> everyChoiceIn(List<BaseAttribute> published) {
         List<List<RequestAttribute>> choices = new ArrayList<>();
         choices.add(new ArrayList<>());
         for (BaseAttribute attribute : published) {
             List<List<RequestAttribute>> widened = new ArrayList<>();
             for (List<RequestAttribute> chosen : choices) {
-                for (BaseAttributeContentV2<?> value : valuesOf(attribute)) {
+                for (RequestAttribute selection : selectionsOf(attribute)) {
                     List<RequestAttribute> widerChoice = new ArrayList<>(chosen);
-                    widerChoice.add(stating(attribute.getName(), value));
+                    widerChoice.add(selection);
                     widened.add(widerChoice);
                 }
             }
@@ -175,8 +191,21 @@ class PublishedOperationCombinationsTest {
         return choices;
     }
 
-    private static List<BaseAttributeContentV2<?>> valuesOf(BaseAttribute attribute) {
-        return ((DataAttributeV2) attribute).getContent();
+    private static List<RequestAttribute> selectionsOf(BaseAttribute attribute) {
+        if (attribute instanceof DataAttributeV3 data) {
+            return data
+                    .getContent()
+                    .stream()
+                    .map(value -> SignatureAlgorithmAttribute
+                            .request(SignatureAlgorithm.findByCode((String) value.getData())))
+                    .map(RequestAttribute.class::cast)
+                    .toList();
+        }
+        return ((DataAttributeV2) attribute)
+                .getContent()
+                .stream()
+                .map(value -> stating(attribute.getName(), value))
+                .toList();
     }
 
     private static RequestAttribute stating(String name, BaseAttributeContentV2<?> value) {
@@ -196,7 +225,7 @@ class PublishedOperationCombinationsTest {
         KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) keys.createKey(creation).getBody();
         assertNotNull(created);
         return new KeyPair(creation.getTokenAttributes(), created.getPublicKeyData().getKeyMeta(),
-                created.getPrivateKeyData().getKeyMeta());
+                created.getPrivateKeyData().getKeyMeta(), created.getPublicKeyData().getKeyData().getPublicKeySpki());
     }
 
     private static KeyScopedRequestV2Dto scoped(KeyPair pair, List<MetadataAttribute> keyMeta) {
@@ -226,6 +255,6 @@ class PublishedOperationCombinationsTest {
     }
 
     private record KeyPair(List<RequestAttribute> tokenAttributes, List<MetadataAttribute> publicKeyMeta,
-            List<MetadataAttribute> privateKeyMeta) {
+            List<MetadataAttribute> privateKeyMeta, byte[] publicKeySpki) {
     }
 }

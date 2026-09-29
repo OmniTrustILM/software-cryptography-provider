@@ -1,10 +1,16 @@
 package com.otilm.cp.soft.api.v2;
 
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
+import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.otilm.api.model.common.attribute.v3.GroupAttributeV3;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.OperationTrackingRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
@@ -12,17 +18,27 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
+import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
+import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
+import com.otilm.cp.soft.attribute.MLDSAKeyAttributes;
+import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
@@ -31,6 +47,7 @@ import org.springframework.http.ResponseEntity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,6 +78,100 @@ class KeyV2ControllerImplTest {
 
         // then
         assertFalse(attributes.isEmpty());
+    }
+
+    /** V1's key specification resolves through a V1 callback and offers keys V2 cannot sign with. */
+    @Test
+    void asksForItsOwnKeySpecificationResolvedThroughTheV2Callback() {
+        // given
+        CreateKeyAttributesRequestV2Dto request = new CreateKeyAttributesRequestV2Dto();
+        request.setTokenAttributes(TokenContextFixtures.newToken(TokenContextFixtures.uniqueName("v2-key-spec")));
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyRequestType(KeyRequestType.KEY_PAIR);
+
+        // when
+        List<BaseAttribute> attributes = controller.listCreateKeyAttributes(request);
+
+        // then
+        List<String> names = attributes.stream().map(BaseAttribute::getName).toList();
+        assertFalse(names.contains(KeyAttributes.ATTRIBUTE_GROUP_KEY_SPEC), () -> "got " + names);
+        GroupAttributeV3 group = (GroupAttributeV3) attributes
+                .stream()
+                .filter(attribute -> KeySpecV2Attributes.ATTRIBUTE_GROUP_KEY_SPEC.equals(attribute.getName()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(List.of(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM), group.getAttributeCallback().getDependsOn());
+        assertNull(group.getAttributeCallback().getCallbackContext());
+    }
+
+    static Stream<Arguments> creationsNoPlatformAlgorithmNames() {
+        return Stream
+                .of(Arguments
+                        .of("Falcon-512",
+                                List
+                                        .of(algorithm(KeyAlgorithm.FALCON),
+                                                stated(FalconKeyAttributes.ATTRIBUTE_DATA_FALCON_DEGREE,
+                                                        new IntegerAttributeContentV2("FALCON_512", 512)))),
+                        Arguments
+                                .of("HashML-DSA-65",
+                                        List
+                                                .of(algorithm(KeyAlgorithm.MLDSA),
+                                                        stated(MLDSAKeyAttributes.ATTRIBUTE_DATA_MLDSA_LEVEL,
+                                                                new IntegerAttributeContentV2("MLDSA_65", 3)),
+                                                        stated(MLDSAKeyAttributes.ATTRIBUTE_DATA_MLDSA_PREHASH,
+                                                                new BooleanAttributeContentV2(true)))),
+                        Arguments
+                                .of("SLH-DSA-SHAKE-128S",
+                                        slhdsa(stated(SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_HASH,
+                                                new StringAttributeContentV2("SHAKE256", "SHAKE")))),
+                        Arguments
+                                .of("HashSLH-DSA-SHA2-128S",
+                                        slhdsa(stated(SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_PREHASH,
+                                                new BooleanAttributeContentV2(true)))));
+    }
+
+    /**
+     * The key is made before it is refused, so what matters is that the refusal leaves nothing behind: the alias it was
+     * made under is still free in a token that already exists.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("creationsNoPlatformAlgorithmNames")
+    void refusesToCreateAKeyNoPlatformSignatureAlgorithmNames(String variant, List<RequestAttribute> parameters) {
+        // given
+        String token = TokenContextFixtures.uniqueName("v2-unsignable-creation");
+        controller.createKey(KeyRequestFixtures.rsaKeyPair(token, "key-" + System.nanoTime()));
+        String alias = "key-" + System.nanoTime();
+        CreateKeyRequestV2Dto refused = KeyRequestFixtures.rsaKeyPair(token, alias);
+        List<RequestAttribute> attributes = new ArrayList<>(parameters);
+        attributes.add(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, alias));
+        refused.setCreateKeyAttributes(attributes);
+
+        // when
+        assertThrows(ParameterUnsupportedException.class, () -> controller.createKey(refused));
+
+        // then
+        assertNotNull(controller.createKey(KeyRequestFixtures.rsaKeyPair(token, alias)).getBody());
+    }
+
+    private static List<RequestAttribute> slhdsa(RequestAttribute outsideWhatV2Offers) {
+        return List
+                .of(algorithm(KeyAlgorithm.SLHDSA),
+                        stated(SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_SECURITY_CATEGORY,
+                                new StringAttributeContentV2("CATEGORY_1", "1")),
+                        stated(SLHDSAKeyAttributes.ATTRIBUTE_DATA_SLHDSA_SIGNATURE_MODE,
+                                new StringAttributeContentV2("SMALL", "SMALL")),
+                        outsideWhatV2Offers);
+    }
+
+    private static RequestAttribute algorithm(KeyAlgorithm algorithm) {
+        return TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, algorithm.getCode());
+    }
+
+    private static RequestAttribute stated(String name, BaseAttributeContentV2<?> content) {
+        RequestAttributeV2 attribute = new RequestAttributeV2();
+        attribute.setName(name);
+        attribute.setContent(List.of(content));
+        return attribute;
     }
 
     @Test

@@ -6,15 +6,14 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
-import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
 import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
-import com.otilm.cp.soft.attribute.MLDSAKeyAttributes;
-import com.otilm.cp.soft.attribute.MLKEMAttributes;
+import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
 import com.otilm.cp.soft.attribute.OperationAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
-import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
 import com.otilm.cp.soft.attribute.TokenInstanceAttributes;
+import com.otilm.cp.soft.util.SignatureAlgorithms;
 import com.otilm.cp.soft.util.TokenMetadataUtil;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -92,17 +91,14 @@ public final class AttributeDefinitionRegistry {
         attributes.add(KeyAttributes.buildDataKeyAlias());
         attributes.add(KeyExportableAttribute.definition());
         attributes.add(KeyAttributes.buildDataKeyAlgorithmSelect());
-        attributes.add(KeyAttributes.buildGroupKeyAttributesBasedOnSelectedAlgorithm());
-        attributes.addAll(RsaKeyAttributes.getRsaKeySpecAttributes());
-        attributes.addAll(EcdsaKeyAttributes.getEcdsaKeySpecAttributes());
-        attributes.addAll(FalconKeyAttributes.getFalconKeySpecAttributes());
-        attributes.addAll(MLDSAKeyAttributes.getMldsaKeySpecAttributes());
-        attributes.addAll(SLHDSAKeyAttributes.getSlhDsaKeySpecAttributes());
-        attributes.addAll(MLKEMAttributes.getMLKEMKeySpecAttributes());
-        Stream.of(KeyAlgorithm.RSA, KeyAlgorithm.ECDSA).forEach(algorithm -> {
-            attributes.addAll(OperationAttributes.signatureAttributes(algorithm));
-            attributes.addAll(OperationAttributes.cipherAttributes(algorithm));
-        });
+        attributes.add(KeySpecV2Attributes.buildGroup());
+        Stream
+                .of(KeyAlgorithm.RSA, KeyAlgorithm.ECDSA, KeyAlgorithm.FALCON, KeyAlgorithm.MLDSA, KeyAlgorithm.SLHDSA,
+                        KeyAlgorithm.MLKEM)
+                .forEach(algorithm -> attributes.addAll(KeySpecV2Attributes.forAlgorithm(algorithm)));
+        // Which of these a key offers is decided by the key, so the definition on its own lists every one of them.
+        attributes.add(SignatureAlgorithmAttribute.definition(SignatureAlgorithms.offered()));
+        attributes.addAll(OperationAttributes.cipherAttributes(KeyAlgorithm.RSA));
         // The metadata this connector publishes on the objects it answers with. A caller reads these identifiers off a
         // key or a token it was given, so looking them up here has to reach a definition like any other attribute.
         attributes.add(definition(KeyAttributes.buildKeyReferenceMetadata(PUBLISHED_WITH_A_VALUE)));
