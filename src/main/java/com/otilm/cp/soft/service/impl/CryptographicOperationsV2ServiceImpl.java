@@ -166,9 +166,14 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         }
     }
 
+    /**
+     * Offers the reserved encryption profiles supported by the addressed key and its modulus size.
+     */
     @Override
     public List<BaseAttribute> cipherAttributes(KeyScopedRequestV2Dto request) {
-        return OperationAttributes.cipherAttributes(key(request).key().getAlgorithm());
+        Objects.requireNonNull(request, "request must not be null");
+        KeyData key = key(request).key();
+        return OperationAttributes.cipherAttributes(key.getAlgorithm(), key.getLength());
     }
 
     @Override
@@ -212,24 +217,32 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         return response;
     }
 
+    /**
+     * Encrypts with the selected V2 profile using the shared cipher service.
+     */
     @Override
     public EncryptDataResponseV2Dto encryptData(CipherDataRequestV2Dto request) {
+        Objects.requireNonNull(request, "request must not be null");
         KeyContext key = key(request);
 
         EncryptDataResponseDto encrypted = perform(() -> cryptographicOperationsService
-                .encryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(request)));
+                .encryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(key.key(), request)));
 
         EncryptDataResponseV2Dto response = new EncryptDataResponseV2Dto();
         response.setEncryptedData(OperationDataMapper.toCipherData(encrypted.getEncryptedData()));
         return response;
     }
 
+    /**
+     * Decrypts with the selected V2 profile using the shared cipher service.
+     */
     @Override
     public DecryptDataResponseV2Dto decryptData(CipherDataRequestV2Dto request) {
+        Objects.requireNonNull(request, "request must not be null");
         KeyContext key = key(request);
 
         DecryptDataResponseDto decrypted = perform(() -> cryptographicOperationsService
-                .decryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(request)));
+                .decryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(key.key(), request)));
 
         DecryptDataResponseV2Dto response = new DecryptDataResponseV2Dto();
         response.setDecryptedData(OperationDataMapper.toCipherData(decrypted.getDecryptedData()));
@@ -252,9 +265,16 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         return response;
     }
 
-    private static CipherDataRequestDto cipher(CipherDataRequestV2Dto request) {
+    /**
+     * Adapts the reserved algorithm selection and batch data to the shared cipher request.
+     */
+    private static CipherDataRequestDto cipher(KeyData key, CipherDataRequestV2Dto request) {
+        Objects.requireNonNull(key, "key must not be null");
+        Objects.requireNonNull(request, "request must not be null");
         CipherDataRequestDto cipher = new CipherDataRequestDto();
-        cipher.setCipherAttributes(request.getCipherAttributes());
+        cipher
+                .setCipherAttributes(OperationAttributes
+                        .cipherParameters(key.getAlgorithm(), key.getLength(), request.getCipherAttributes()));
         cipher.setCipherData(OperationDataMapper.toCipherRequests(request.getCipherData()));
         return cipher;
     }

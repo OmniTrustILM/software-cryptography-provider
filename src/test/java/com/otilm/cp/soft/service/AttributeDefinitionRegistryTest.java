@@ -2,6 +2,7 @@ package com.otilm.cp.soft.service;
 
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.v3.GroupAttributeV3;
+import com.otilm.api.model.connector.cryptography.v2.operations.EncryptionAlgorithmAttribute;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -25,6 +27,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </p>
  */
 class AttributeDefinitionRegistryTest {
+
+    @Test
+    void publishesReservedEncryptionAlgorithmDefinition() {
+        // given
+        String reservedUuid = EncryptionAlgorithmAttribute.ATTRIBUTE_UUID.toString();
+
+        // when
+        BaseAttribute definition = AttributeDefinitionRegistry
+                .definitions()
+                .stream()
+                .filter(attribute -> reservedUuid.equals(attribute.getUuid()))
+                .findFirst()
+                .orElseThrow();
+
+        // then
+        assertEquals(EncryptionAlgorithmAttribute.NAME, definition.getName());
+    }
 
     @Test
     void publishesSomethingForEveryOperationToAskFor() {
