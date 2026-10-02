@@ -2,6 +2,7 @@ package com.otilm.cp.soft.api.v2;
 
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
@@ -31,6 +32,7 @@ import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -191,13 +193,16 @@ class PublishedOperationCombinationsTest {
         return choices;
     }
 
+    /**
+     * Preserves each published selector's identifiers and content version when choosing a value.
+     */
     private static List<RequestAttribute> selectionsOf(BaseAttribute attribute) {
         if (attribute instanceof DataAttributeV3 data) {
             return data
                     .getContent()
                     .stream()
-                    .map(value -> SignatureAlgorithmAttribute
-                            .request(SignatureAlgorithm.findByCode((String) value.getData())))
+                    .map(value -> new RequestAttributeV3(UUID.fromString(data.getUuid()), data.getName(),
+                            data.getContentType(), List.of(value)))
                     .map(RequestAttribute.class::cast)
                     .toList();
         }
