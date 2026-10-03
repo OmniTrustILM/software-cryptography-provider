@@ -4,13 +4,14 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
-import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.EncryptionAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaEncryptionScheme;
 import com.otilm.api.model.connector.cryptography.v2.operations.EncryptionAlgorithmAttribute;
 import com.otilm.cp.soft.exception.ParameterUnsupportedException;
+import com.otilm.cp.soft.util.RequestAttributes;
+import com.otilm.cp.soft.util.RsaEncodingConstants;
 import java.util.List;
 import java.util.Objects;
 
@@ -77,15 +78,20 @@ public final class OperationAttributes {
         }
         if (selected == EncryptionAlgorithm.RSA_PKCS1_V1_5) {
             return List
-                    .of(string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME,
-                            RsaEncryptionScheme.PKCS1_v1_5.getCode()));
+                    .of(RequestAttributes
+                            .string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME,
+                                    RsaEncryptionScheme.PKCS1_v1_5.getCode()));
         }
         RequestAttributeV2 mgf = new RequestAttributeV2();
         mgf.setName(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
         mgf.setContent(List.of(new BooleanAttributeContentV2(Boolean.TRUE)));
         return List
-                .of(string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME, RsaEncryptionScheme.OAEP.getCode()),
-                        string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME, oaepDigest(selected).getCode()),
+                .of(RequestAttributes
+                        .string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME,
+                                RsaEncryptionScheme.OAEP.getCode()),
+                        RequestAttributes
+                                .string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME,
+                                        oaepDigest(selected).getCode()),
                         mgf);
     }
 
@@ -98,8 +104,9 @@ public final class OperationAttributes {
                 ? SUPPORTED_RSA_ALGORITHMS
                         .stream()
                         .filter(profile -> profile == EncryptionAlgorithm.RSA_PKCS1_V1_5
-                                ? modulusBytes >= 11
-                                : modulusBytes >= 2 * oaepDigest(profile).getDigestSizeBytes() + 2)
+                                ? modulusBytes >= RsaEncodingConstants.PKCS1_V1_5_PADDING_BYTES
+                                : modulusBytes >= 2 * oaepDigest(profile).getDigestSizeBytes()
+                                        + RsaEncodingConstants.OAEP_PADDING_BYTES)
                         .toList()
                 : List.of();
         if (supported.isEmpty()) {
@@ -122,10 +129,4 @@ public final class OperationAttributes {
         };
     }
 
-    private static RequestAttribute string(String name, String value) {
-        RequestAttributeV2 attribute = new RequestAttributeV2();
-        attribute.setName(name);
-        attribute.setContent(List.of(new StringAttributeContentV2(value, value)));
-        return attribute;
-    }
 }
