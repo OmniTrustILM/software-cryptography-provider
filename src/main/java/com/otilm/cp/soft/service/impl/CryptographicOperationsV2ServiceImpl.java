@@ -269,8 +269,6 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
      * Adapts the reserved algorithm selection and batch data to the shared cipher request.
      */
     private static CipherDataRequestDto cipher(KeyData key, CipherDataRequestV2Dto request) {
-        Objects.requireNonNull(key, "key must not be null");
-        Objects.requireNonNull(request, "request must not be null");
         CipherDataRequestDto cipher = new CipherDataRequestDto();
         cipher
                 .setCipherAttributes(OperationAttributes

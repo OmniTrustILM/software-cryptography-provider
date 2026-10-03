@@ -93,7 +93,6 @@ public final class OperationAttributes {
      * Requires enough modulus bytes for PKCS1 v1.5 padding or the OAEP digest and padding overhead.
      */
     private static List<EncryptionAlgorithm> supportedAlgorithms(KeyAlgorithm algorithm, int keyLength) {
-        Objects.requireNonNull(algorithm, "algorithm must not be null");
         int modulusBytes = (keyLength + 7) / 8;
         List<EncryptionAlgorithm> supported = algorithm == KeyAlgorithm.RSA
                 ? SUPPORTED_RSA_ALGORITHMS
@@ -109,8 +108,10 @@ public final class OperationAttributes {
         return supported;
     }
 
+    /**
+     * Supplies the matching message and MGF1 digest fixed by an OAEP profile.
+     */
     private static DigestAlgorithm oaepDigest(EncryptionAlgorithm algorithm) {
-        Objects.requireNonNull(algorithm, "algorithm must not be null");
         return switch (algorithm) {
             case RSA_OAEP_SHA1 -> DigestAlgorithm.SHA_1;
             case RSA_OAEP_SHA256 -> DigestAlgorithm.SHA_256;
@@ -122,8 +123,6 @@ public final class OperationAttributes {
     }
 
     private static RequestAttribute string(String name, String value) {
-        Objects.requireNonNull(name, "name must not be null");
-        Objects.requireNonNull(value, "value must not be null");
         RequestAttributeV2 attribute = new RequestAttributeV2();
         attribute.setName(name);
         attribute.setContent(List.of(new StringAttributeContentV2(value, value)));
