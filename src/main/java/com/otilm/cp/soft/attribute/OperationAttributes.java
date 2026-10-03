@@ -55,20 +55,22 @@ public final class OperationAttributes {
     }
 
     /**
-     * Validates a reserved selection against the key and supplies all parameters fixed by its profile. OAEP uses
-     * matching message and MGF1 hashes and the shared cipher's empty label.
+     * Checks the key's encryption capability before validating a reserved selection and supplies all parameters fixed
+     * by its profile. OAEP uses matching message and MGF1 hashes and the shared cipher's empty label.
      *
      * @param algorithm the key's algorithm
      * @param keyLength the RSA modulus length in bits
      * @param attributes the request's cipher attributes
      * @return parameters understood by the shared V1 cipher service
-     * @throws ParameterUnsupportedException when the selected profile is unavailable for this key
+     * @throws ParameterUnsupportedException when the key has no supported encryption profile or the selected profile is
+     * unavailable for this key
      */
     public static List<RequestAttribute> cipherParameters(KeyAlgorithm algorithm, int keyLength,
             List<RequestAttribute> attributes) {
         Objects.requireNonNull(algorithm, "algorithm must not be null");
+        List<EncryptionAlgorithm> supported = supportedAlgorithms(algorithm, keyLength);
         EncryptionAlgorithm selected = EncryptionAlgorithmAttribute.selectedAlgorithm(attributes);
-        if (!supportedAlgorithms(algorithm, keyLength).contains(selected)) {
+        if (!supported.contains(selected)) {
             throw new ParameterUnsupportedException("The selected encryption algorithm is unavailable for this key");
         }
         if (selected == EncryptionAlgorithm.RSA_PKCS1_V1_5) {

@@ -91,6 +91,50 @@ class OperationAttributesTest {
         assertThrows(ParameterUnsupportedException.class, definition);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = KeyAlgorithm.class, names = "RSA", mode = EnumSource.Mode.EXCLUDE)
+    void cipherParameters_refusesUnsupportedKeyBeforeValidatingMissingSelection(KeyAlgorithm algorithm) {
+        // given
+        int keyLength = 2048;
+        List<RequestAttribute> missingSelection = List.of();
+
+        // when
+        Executable conversion = () -> OperationAttributes.cipherParameters(algorithm, keyLength, missingSelection);
+
+        // then
+        assertThrows(ParameterUnsupportedException.class, conversion);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = KeyAlgorithm.class, names = "RSA", mode = EnumSource.Mode.EXCLUDE)
+    void cipherParameters_refusesUnsupportedKeyBeforeValidatingLegacyAttributes(KeyAlgorithm algorithm) {
+        // given
+        int keyLength = 2048;
+        List<RequestAttribute> legacy = List
+                .of(string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME,
+                        RsaEncryptionScheme.PKCS1_v1_5.getCode()));
+
+        // when
+        Executable conversion = () -> OperationAttributes.cipherParameters(algorithm, keyLength, legacy);
+
+        // then
+        assertThrows(ParameterUnsupportedException.class, conversion);
+    }
+
+    @Test
+    void cipherParameters_requiresReservedSelectionForSupportedKey() {
+        // given
+        KeyAlgorithm algorithm = KeyAlgorithm.RSA;
+        int modulusBits = 2048;
+        List<RequestAttribute> missingSelection = List.of();
+
+        // when
+        Executable conversion = () -> OperationAttributes.cipherParameters(algorithm, modulusBits, missingSelection);
+
+        // then
+        assertThrows(ValidationException.class, conversion);
+    }
+
     @Test
     void cipherParameters_mapsPkcs1SelectionToSharedCipherScheme() {
         // given
