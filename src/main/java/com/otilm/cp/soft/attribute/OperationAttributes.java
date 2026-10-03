@@ -32,13 +32,15 @@ public final class OperationAttributes {
      * Defines every encryption profile supported for the given key algorithm, without a key-size restriction.
      *
      * @param algorithm the key's algorithm
-     * @return the reserved encryption selector, or no attributes for an unsupported key algorithm
+     * @return the reserved encryption selector
+     * @throws ParameterUnsupportedException when the key algorithm has no supported encryption profile
      */
     public static List<BaseAttribute> cipherAttributes(KeyAlgorithm algorithm) {
         Objects.requireNonNull(algorithm, "algorithm must not be null");
-        return algorithm == KeyAlgorithm.RSA
-                ? List.of(EncryptionAlgorithmAttribute.definition(SUPPORTED_RSA_ALGORITHMS))
-                : List.of();
+        if (algorithm != KeyAlgorithm.RSA) {
+            throw new ParameterUnsupportedException("This key has no supported encryption algorithm");
+        }
+        return List.of(EncryptionAlgorithmAttribute.definition(SUPPORTED_RSA_ALGORITHMS));
     }
 
     /**

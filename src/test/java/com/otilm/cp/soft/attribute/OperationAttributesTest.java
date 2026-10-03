@@ -55,6 +55,17 @@ class OperationAttributesTest {
     }
 
     @ParameterizedTest
+    @EnumSource(value = KeyAlgorithm.class, names = "RSA", mode = EnumSource.Mode.EXCLUDE)
+    void cipherAttributesWithoutKeySize_refusesKeysWithoutEncryptionProfiles(KeyAlgorithm algorithm) {
+        // given
+        // when
+        Executable definition = () -> OperationAttributes.cipherAttributes(algorithm);
+
+        // then
+        assertThrows(ParameterUnsupportedException.class, definition);
+    }
+
+    @ParameterizedTest
     @MethodSource("rsaModulusProfiles")
     void cipherAttributes_offersOnlyProfilesWhosePaddingFits(int modulusBits, List<EncryptionAlgorithm> expected) {
         // given
