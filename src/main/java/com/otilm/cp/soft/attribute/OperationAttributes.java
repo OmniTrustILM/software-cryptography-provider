@@ -1,105 +1,132 @@
 package com.otilm.cp.soft.attribute;
 
-import com.otilm.api.model.common.attribute.common.AttributeType;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
-import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
-import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.EncryptionAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaEncryptionScheme;
+import com.otilm.api.model.connector.cryptography.v2.operations.EncryptionAlgorithmAttribute;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
+import com.otilm.cp.soft.util.RequestAttributes;
+import com.otilm.cp.soft.util.RsaEncodingConstants;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Objects;
 
-/** What a cipher operation needs to be told, beyond the key it runs on. */
+/**
+ * Publishes explicitly supported V2 cipher profiles and translates their selections into the shared cipher service's
+ * parameters.
+ */
 public final class OperationAttributes {
 
-    public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID = "d4c3b2a1-9e87-4f65-8d21-0a1b2c3d4e5f";
-    public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_LABEL = "RSA Encryption Scheme";
-    public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_DESCRIPTION = "Select the RSA encryption scheme to use";
-
-    public static final String ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID = "e5a49b73-1c2d-4e8f-b0a6-7d8e9f0a1b2c";
-    public static final String ATTRIBUTE_DATA_RSA_OAEP_HASH_LABEL = "OAEP Hash";
-    public static final String ATTRIBUTE_DATA_RSA_OAEP_HASH_DESCRIPTION = "Hash used by OAEP padding, required when the encryption scheme is OAEP";
-
-    public static final String ATTRIBUTE_DATA_RSA_OAEP_MGF_UUID = "f6b58c84-2d3e-4f90-a1b7-8e9f0a1b2c3d";
-    public static final String ATTRIBUTE_DATA_RSA_OAEP_MGF_LABEL = "OAEP Mask Generation";
-    public static final String ATTRIBUTE_DATA_RSA_OAEP_MGF_DESCRIPTION = "Whether OAEP padding uses MGF1, required when the encryption scheme is OAEP";
+    private static final List<EncryptionAlgorithm> SUPPORTED_RSA_ALGORITHMS = List
+            .of(EncryptionAlgorithm.RSA_PKCS1_V1_5, EncryptionAlgorithm.RSA_OAEP_SHA1,
+                    EncryptionAlgorithm.RSA_OAEP_SHA256, EncryptionAlgorithm.RSA_OAEP_SHA384,
+                    EncryptionAlgorithm.RSA_OAEP_SHA512);
 
     private OperationAttributes() {
     }
 
     /**
-     * What encrypting or decrypting with a key of the given algorithm needs to be told.
+     * Defines every encryption profile supported for the given key algorithm, without a key-size restriction.
      *
      * @param algorithm the key's algorithm
-     * @return the attribute schema, empty when the algorithm cannot be used this way
+     * @return the reserved encryption selector
+     * @throws ParameterUnsupportedException when the key algorithm has no supported encryption profile
      */
     public static List<BaseAttribute> cipherAttributes(KeyAlgorithm algorithm) {
+        Objects.requireNonNull(algorithm, "algorithm must not be null");
         if (algorithm != KeyAlgorithm.RSA) {
-            return List.of();
+            throw new ParameterUnsupportedException("This key has no supported encryption algorithm");
         }
-        return List.of(buildRsaEncryptionScheme(), buildRsaOaepHash(), buildRsaOaepMaskGeneration());
+        return List.of(EncryptionAlgorithmAttribute.definition(SUPPORTED_RSA_ALGORITHMS));
     }
 
-    private static BaseAttribute buildRsaEncryptionScheme() {
-        return select(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID, RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME,
-                ATTRIBUTE_DATA_RSA_ENC_SCHEME_LABEL, ATTRIBUTE_DATA_RSA_ENC_SCHEME_DESCRIPTION, true,
-                Stream
-                        .of(RsaEncryptionScheme.values())
-                        .map(scheme -> new StringAttributeContentV2(scheme.getLabel(), scheme.getCode()))
-                        .toList());
+    /**
+     * Defines the encryption profiles whose padding fits the addressed key.
+     *
+     * @param algorithm the key's algorithm
+     * @param keyLength the RSA modulus length in bits
+     * @return the reserved encryption selector
+     * @throws ParameterUnsupportedException when the key has no supported encryption profile
+     */
+    public static List<BaseAttribute> cipherAttributes(KeyAlgorithm algorithm, int keyLength) {
+        Objects.requireNonNull(algorithm, "algorithm must not be null");
+        return List.of(EncryptionAlgorithmAttribute.definition(supportedAlgorithms(algorithm, keyLength)));
     }
 
-    private static BaseAttribute buildRsaOaepHash() {
-        return select(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID, RsaCipherAttributes.ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME,
-                ATTRIBUTE_DATA_RSA_OAEP_HASH_LABEL, ATTRIBUTE_DATA_RSA_OAEP_HASH_DESCRIPTION, false,
-                Stream
-                        .of(DigestAlgorithm.values())
-                        .map(digest -> new StringAttributeContentV2(digest.getLabel(), digest.getCode()))
-                        .toList());
+    /**
+     * Checks the key's encryption capability before validating a reserved selection and supplies all parameters fixed
+     * by its profile. OAEP uses matching message and MGF1 hashes and the shared cipher's empty label.
+     *
+     * @param algorithm the key's algorithm
+     * @param keyLength the RSA modulus length in bits
+     * @param attributes the request's cipher attributes
+     * @return parameters understood by the shared V1 cipher service
+     * @throws ParameterUnsupportedException when the key has no supported encryption profile or the selected profile is
+     * unavailable for this key
+     */
+    public static List<RequestAttribute> cipherParameters(KeyAlgorithm algorithm, int keyLength,
+            List<RequestAttribute> attributes) {
+        Objects.requireNonNull(algorithm, "algorithm must not be null");
+        List<EncryptionAlgorithm> supported = supportedAlgorithms(algorithm, keyLength);
+        EncryptionAlgorithm selected = EncryptionAlgorithmAttribute.selectedAlgorithm(attributes);
+        if (!supported.contains(selected)) {
+            throw new ParameterUnsupportedException("The selected encryption algorithm is unavailable for this key");
+        }
+        if (selected == EncryptionAlgorithm.RSA_PKCS1_V1_5) {
+            return List
+                    .of(RequestAttributes
+                            .string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME,
+                                    RsaEncryptionScheme.PKCS1_v1_5.getCode()));
+        }
+        RequestAttributeV2 mgf = new RequestAttributeV2();
+        mgf.setName(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
+        mgf.setContent(List.of(new BooleanAttributeContentV2(Boolean.TRUE)));
+        return List
+                .of(RequestAttributes
+                        .string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME,
+                                RsaEncryptionScheme.OAEP.getCode()),
+                        RequestAttributes
+                                .string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME,
+                                        oaepDigest(selected).getCode()),
+                        mgf);
     }
 
-    private static BaseAttribute buildRsaOaepMaskGeneration() {
-        DataAttributeV2 attribute = new DataAttributeV2();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_MGF_UUID);
-        attribute.setName(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
-        attribute.setDescription(ATTRIBUTE_DATA_RSA_OAEP_MGF_DESCRIPTION);
-        attribute.setType(AttributeType.DATA);
-        attribute.setContentType(AttributeContentType.BOOLEAN);
-
-        DataAttributeProperties properties = new DataAttributeProperties();
-        properties.setLabel(ATTRIBUTE_DATA_RSA_OAEP_MGF_LABEL);
-        properties.setRequired(false);
-        properties.setVisible(true);
-        properties.setReadOnly(false);
-        attribute.setProperties(properties);
-        attribute.setContent(List.of(new BooleanAttributeContentV2(Boolean.TRUE)));
-
-        return attribute;
+    /**
+     * Requires enough modulus bytes for PKCS1 v1.5 padding or the OAEP digest and padding overhead.
+     */
+    private static List<EncryptionAlgorithm> supportedAlgorithms(KeyAlgorithm algorithm, int keyLength) {
+        int modulusBytes = (keyLength + 7) / 8;
+        List<EncryptionAlgorithm> supported = algorithm == KeyAlgorithm.RSA
+                ? SUPPORTED_RSA_ALGORITHMS
+                        .stream()
+                        .filter(profile -> profile == EncryptionAlgorithm.RSA_PKCS1_V1_5
+                                ? modulusBytes >= RsaEncodingConstants.PKCS1_V1_5_PADDING_BYTES
+                                : modulusBytes >= 2 * oaepDigest(profile).getDigestSizeBytes()
+                                        + RsaEncodingConstants.OAEP_PADDING_BYTES)
+                        .toList()
+                : List.of();
+        if (supported.isEmpty()) {
+            throw new ParameterUnsupportedException("This key has no supported encryption algorithm");
+        }
+        return supported;
     }
 
-    private static BaseAttribute select(String uuid, String name, String label, String description, boolean required,
-            List<StringAttributeContentV2> content) {
-        DataAttributeV2 attribute = new DataAttributeV2();
-        attribute.setUuid(uuid);
-        attribute.setName(name);
-        attribute.setDescription(description);
-        attribute.setType(AttributeType.DATA);
-        attribute.setContentType(AttributeContentType.STRING);
-
-        DataAttributeProperties properties = new DataAttributeProperties();
-        properties.setLabel(label);
-        properties.setRequired(required);
-        properties.setVisible(true);
-        properties.setList(true);
-        properties.setMultiSelect(false);
-        properties.setReadOnly(false);
-        attribute.setProperties(properties);
-        attribute.setContent(content);
-
-        return attribute;
+    /**
+     * Supplies the matching message and MGF1 digest fixed by an OAEP profile.
+     */
+    private static DigestAlgorithm oaepDigest(EncryptionAlgorithm algorithm) {
+        return switch (algorithm) {
+            case RSA_OAEP_SHA1 -> DigestAlgorithm.SHA_1;
+            case RSA_OAEP_SHA256 -> DigestAlgorithm.SHA_256;
+            case RSA_OAEP_SHA384 -> DigestAlgorithm.SHA_384;
+            case RSA_OAEP_SHA512 -> DigestAlgorithm.SHA_512;
+            default ->
+                throw new ParameterUnsupportedException("The encryption algorithm has no supported OAEP profile");
+        };
     }
+
 }

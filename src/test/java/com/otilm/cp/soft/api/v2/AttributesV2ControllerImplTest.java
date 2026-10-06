@@ -10,6 +10,7 @@ import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.EncryptionAlgorithmAttribute;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
 import com.otilm.cp.soft.api.CallbackController;
 import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
@@ -340,7 +341,8 @@ class AttributesV2ControllerImplTest {
 
         // then
         assertTrue(names.contains(SignatureAlgorithmAttribute.NAME), () -> "got " + names);
-        assertTrue(names.contains("data_rsaEncScheme"), () -> "got " + names);
+        assertTrue(names.contains(EncryptionAlgorithmAttribute.NAME), () -> "got " + names);
+        assertFalse(names.contains("data_rsaEncScheme"), () -> "got " + names);
         assertFalse(names.contains("data_rsaSigScheme"), () -> "got " + names);
         assertFalse(names.contains("data_sigDigest"), () -> "got " + names);
     }

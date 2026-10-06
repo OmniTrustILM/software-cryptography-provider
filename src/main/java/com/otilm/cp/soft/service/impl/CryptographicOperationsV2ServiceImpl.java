@@ -2,9 +2,7 @@ package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
-import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
@@ -47,6 +45,8 @@ import com.otilm.cp.soft.service.CryptographicOperationsV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.OperationDataMapper;
+import com.otilm.cp.soft.util.RequestAttributes;
+import com.otilm.cp.soft.util.RsaEncodingConstants;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
 import jakarta.transaction.Transactional;
 import java.util.Base64;
@@ -68,12 +68,6 @@ import org.springframework.stereotype.Service;
 @Service
 @Transactional
 public class CryptographicOperationsV2ServiceImpl implements CryptographicOperationsV2Service {
-
-    private static final int PKCS1_V1_5_PADDING_BYTES = 11;
-
-    private static final int DIGEST_INFO_PREFIX_BYTES = 19;
-
-    private static final int PSS_TRAILER_BYTES = 2;
 
     private static final Set<SignatureAlgorithm> RSA_PSS_ALGORITHMS = EnumSet
             .of(SignatureAlgorithm.SHA256_WITH_RSA_PSS, SignatureAlgorithm.SHA384_WITH_RSA_PSS,
@@ -118,14 +112,18 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         return supported;
     }
 
+    /**
+     * Checks whether the signature's digest and padding fit the RSA modulus.
+     */
     private static boolean fitsRsaKey(SignatureAlgorithm algorithm, int modulusBits) {
         int digestBytes = DIGESTS.get(algorithm).getDigestSizeBytes();
         if (RSA_PSS_ALGORITHMS.contains(algorithm)) {
             int encodedBytes = (modulusBits + 6) / 8;
-            return encodedBytes >= 2 * digestBytes + PSS_TRAILER_BYTES;
+            return encodedBytes >= 2 * digestBytes + RsaEncodingConstants.PSS_PADDING_BYTES;
         }
         int modulusBytes = (modulusBits + 7) / 8;
-        return modulusBytes >= DIGEST_INFO_PREFIX_BYTES + digestBytes + PKCS1_V1_5_PADDING_BYTES;
+        return modulusBytes >= RsaEncodingConstants.DIGEST_INFO_PREFIX_BYTES + digestBytes
+                + RsaEncodingConstants.PKCS1_V1_5_PADDING_BYTES;
     }
 
     private List<SignatureAlgorithm> supportedPostQuantumAlgorithm(KeyData key) {
@@ -166,9 +164,14 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         }
     }
 
+    /**
+     * Offers the reserved encryption profiles supported by the addressed key and its modulus size.
+     */
     @Override
     public List<BaseAttribute> cipherAttributes(KeyScopedRequestV2Dto request) {
-        return OperationAttributes.cipherAttributes(key(request).key().getAlgorithm());
+        Objects.requireNonNull(request, "request must not be null");
+        KeyData key = key(request).key();
+        return OperationAttributes.cipherAttributes(key.getAlgorithm(), key.getLength());
     }
 
     @Override
@@ -212,24 +215,32 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         return response;
     }
 
+    /**
+     * Encrypts with the selected V2 profile using the shared cipher service.
+     */
     @Override
     public EncryptDataResponseV2Dto encryptData(CipherDataRequestV2Dto request) {
+        Objects.requireNonNull(request, "request must not be null");
         KeyContext key = key(request);
 
         EncryptDataResponseDto encrypted = perform(() -> cryptographicOperationsService
-                .encryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(request)));
+                .encryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(key.key(), request)));
 
         EncryptDataResponseV2Dto response = new EncryptDataResponseV2Dto();
         response.setEncryptedData(OperationDataMapper.toCipherData(encrypted.getEncryptedData()));
         return response;
     }
 
+    /**
+     * Decrypts with the selected V2 profile using the shared cipher service.
+     */
     @Override
     public DecryptDataResponseV2Dto decryptData(CipherDataRequestV2Dto request) {
+        Objects.requireNonNull(request, "request must not be null");
         KeyContext key = key(request);
 
         DecryptDataResponseDto decrypted = perform(() -> cryptographicOperationsService
-                .decryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(request)));
+                .decryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(key.key(), request)));
 
         DecryptDataResponseV2Dto response = new DecryptDataResponseV2Dto();
         response.setDecryptedData(OperationDataMapper.toCipherData(decrypted.getDecryptedData()));
@@ -252,13 +263,21 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         return response;
     }
 
-    private static CipherDataRequestDto cipher(CipherDataRequestV2Dto request) {
+    /**
+     * Adapts the reserved algorithm selection and batch data to the shared cipher request.
+     */
+    private static CipherDataRequestDto cipher(KeyData key, CipherDataRequestV2Dto request) {
         CipherDataRequestDto cipher = new CipherDataRequestDto();
-        cipher.setCipherAttributes(request.getCipherAttributes());
+        cipher
+                .setCipherAttributes(OperationAttributes
+                        .cipherParameters(key.getAlgorithm(), key.getLength(), request.getCipherAttributes()));
         cipher.setCipherData(OperationDataMapper.toCipherRequests(request.getCipherData()));
         return cipher;
     }
 
+    /**
+     * Translates a supported reserved signature selection into the shared signer's parameters.
+     */
     private List<RequestAttribute> signingParameters(KeyData key, List<RequestAttribute> attributes) {
         SignatureAlgorithm selected = SignatureAlgorithmAttribute.selectedAlgorithm(attributes);
         if (!supportedAlgorithms(key).contains(selected)) {
@@ -270,20 +289,16 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
                         ? RsaSignatureScheme.PSS
                         : RsaSignatureScheme.PKCS1_v1_5;
                 yield List
-                        .of(string(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, scheme.getCode()),
-                                string(RsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, DIGESTS.get(selected).getCode()));
+                        .of(RequestAttributes.string(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, scheme.getCode()),
+                                RequestAttributes
+                                        .string(RsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
+                                                DIGESTS.get(selected).getCode()));
             }
-            case ECDSA ->
-                List.of(string(EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, DIGESTS.get(selected).getCode()));
+            case ECDSA -> List
+                    .of(RequestAttributes
+                            .string(EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, DIGESTS.get(selected).getCode()));
             default -> List.of();
         };
-    }
-
-    private static RequestAttribute string(String name, String value) {
-        RequestAttributeV2 attribute = new RequestAttributeV2();
-        attribute.setName(name);
-        attribute.setContent(List.of(new StringAttributeContentV2(value, value)));
-        return attribute;
     }
 
     private KeyContext key(KeyScopedRequestV2Dto request) {

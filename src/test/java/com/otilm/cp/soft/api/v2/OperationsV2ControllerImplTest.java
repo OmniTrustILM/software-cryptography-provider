@@ -13,6 +13,7 @@ import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.enums.cryptography.EncryptionAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
@@ -26,6 +27,7 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.CipherDataRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.EncryptionAlgorithmAttribute;
 import com.otilm.api.model.connector.cryptography.v2.operations.RandomDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponseV2Dto;
@@ -40,7 +42,6 @@ import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.MLDSAKeyAttributes;
-import com.otilm.cp.soft.attribute.RsaCipherAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
 import com.otilm.cp.soft.dao.entity.KeyData;
@@ -56,7 +57,9 @@ import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
+import java.security.PublicKey;
 import java.security.Signature;
+import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -65,10 +68,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.crypto.Cipher;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -193,14 +200,16 @@ class OperationsV2ControllerImplTest {
      * the batch, which is how a caller pairs a result with what it sent. Two items are used because a batch is where
      * pairing by anything else breaks down.
      */
-    @Test
-    void encryptsAndDecryptsThroughKeysAddressedByMetadata() {
+    @ParameterizedTest
+    @EnumSource(value = EncryptionAlgorithm.class,
+            names = {"RSA_PKCS1_V1_5", "RSA_OAEP_SHA1", "RSA_OAEP_SHA256", "RSA_OAEP_SHA384", "RSA_OAEP_SHA512"})
+    void encryptsAndDecryptsThroughKeysAddressedByMetadata(EncryptionAlgorithm algorithm) {
         // given
         byte[] second = "a second message".getBytes(StandardCharsets.UTF_8);
         KeyPair pair = rsaKeyPair("v2-cipher");
         CipherDataRequestV2Dto encryption = new CipherDataRequestV2Dto();
         apply(encryption, pair.tokenAttributes(), pair.publicKeyMeta());
-        encryption.setCipherAttributes(rsaCipherAttributes());
+        encryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         encryption.setCipherData(List.of(cipherItem("one", MESSAGE), cipherItem("two", second)));
 
         // when
@@ -211,7 +220,7 @@ class OperationsV2ControllerImplTest {
 
         CipherDataRequestV2Dto decryption = new CipherDataRequestV2Dto();
         apply(decryption, pair.tokenAttributes(), pair.privateKeyMeta());
-        decryption.setCipherAttributes(rsaCipherAttributes());
+        decryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         decryption.setCipherData(encrypted);
 
         List<CipherDataV2Dto> decrypted = controller.decryptData(decryption).getDecryptedData();
@@ -582,17 +591,64 @@ class OperationsV2ControllerImplTest {
     }
 
     @Test
-    void publishesWhatEncryptingWithTheKeyNeeds() {
+    void publishesReservedAlgorithmForEncryptingAndDecrypting() {
         // given
         KeyPair pair = rsaKeyPair("v2-cipher-attrs");
         KeyScopedRequestV2Dto request = new KeyScopedRequestV2Dto();
         apply(request, pair.tokenAttributes(), pair.publicKeyMeta());
 
         // when
-        List<String> names = controller.listEncryptAttributes(request).stream().map(BaseAttribute::getName).toList();
+        List<BaseAttribute> encryption = controller.listEncryptAttributes(request);
+        apply(request, pair.tokenAttributes(), pair.privateKeyMeta());
+        List<BaseAttribute> decryption = controller.listDecryptAttributes(request);
 
         // then
-        assertTrue(names.contains(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME), () -> "got " + names);
+        assertEquals(List.of(EncryptionAlgorithmAttribute.NAME),
+                encryption.stream().map(BaseAttribute::getName).toList());
+        assertEquals(List.of(EncryptionAlgorithmAttribute.NAME),
+                decryption.stream().map(BaseAttribute::getName).toList());
+        assertEquals(EncryptionAlgorithmAttribute.ATTRIBUTE_UUID.toString(), encryption.get(0).getUuid());
+        assertEquals(EncryptionAlgorithmAttribute.ATTRIBUTE_UUID.toString(), decryption.get(0).getUuid());
+    }
+
+    /**
+     * An explicit JCA profile proves OAEP uses the matching MGF1 hash and empty label expected by external callers.
+     */
+    @ParameterizedTest
+    @EnumSource(value = EncryptionAlgorithm.class,
+            names = {"RSA_PKCS1_V1_5", "RSA_OAEP_SHA1", "RSA_OAEP_SHA256", "RSA_OAEP_SHA384", "RSA_OAEP_SHA512"})
+    void decryptsCiphertextFromExplicitExternalEncryptionProfile(EncryptionAlgorithm algorithm)
+            throws GeneralSecurityException {
+        // given
+        KeyPair pair = rsaKeyPair("v2-cipher-external");
+        PublicKey publicKey = KeyFactory
+                .getInstance("RSA")
+                .generatePublic(new X509EncodedKeySpec(pair.publicKeySpki()));
+        Cipher cipher = Cipher.getInstance(algorithm.getCode());
+        if (algorithm == EncryptionAlgorithm.RSA_PKCS1_V1_5) {
+            cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+        } else {
+            String digest = switch (algorithm) {
+                case RSA_OAEP_SHA1 -> "SHA-1";
+                case RSA_OAEP_SHA256 -> "SHA-256";
+                case RSA_OAEP_SHA384 -> "SHA-384";
+                case RSA_OAEP_SHA512 -> "SHA-512";
+                default -> throw new IllegalArgumentException("Not an OAEP profile");
+            };
+            cipher
+                    .init(Cipher.ENCRYPT_MODE, publicKey, new OAEPParameterSpec(digest, "MGF1",
+                            new MGF1ParameterSpec(digest), PSource.PSpecified.DEFAULT));
+        }
+        CipherDataRequestV2Dto decryption = new CipherDataRequestV2Dto();
+        apply(decryption, pair.tokenAttributes(), pair.privateKeyMeta());
+        decryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
+        decryption.setCipherData(List.of(cipherItem("one", cipher.doFinal(MESSAGE))));
+
+        // when
+        byte[] plaintext = controller.decryptData(decryption).getDecryptedData().get(0).getData();
+
+        // then
+        assertArrayEquals(MESSAGE, plaintext);
     }
 
     @Test
@@ -855,8 +911,7 @@ class OperationsV2ControllerImplTest {
     }
 
     private static List<RequestAttribute> rsaCipherAttributes() {
-        return List
-                .of(TokenContextFixtures.string(RsaCipherAttributes.ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME, "PKCS1-v1_5"));
+        return List.of(EncryptionAlgorithmAttribute.request(EncryptionAlgorithm.RSA_PKCS1_V1_5));
     }
 
     private static SignatureDataV2Dto item(String identifier, byte[] data) {

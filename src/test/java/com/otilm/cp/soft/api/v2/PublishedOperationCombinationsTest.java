@@ -2,6 +2,7 @@ package com.otilm.cp.soft.api.v2;
 
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
@@ -21,7 +22,6 @@ import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorit
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
-import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +31,7 @@ import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,8 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Checks advertised V2 choices against the operations. Every RSA signing choice must work; cipher combinations may be
- * performed or refused with a parameter error.
+ * Checks advertised V2 choices against the operations. Every published RSA signing and cipher choice must work.
  */
 @SpringBootTest
 class PublishedOperationCombinationsTest {
@@ -86,28 +86,13 @@ class PublishedOperationCombinationsTest {
         // given
         KeyPair pair = keyPair("v2-published-rsa-cipher");
         List<BaseAttribute> published = operations.listEncryptAttributes(scoped(pair, pair.publicKeyMeta()));
-        int performed = 0;
+        List<List<RequestAttribute>> choices = everyChoiceIn(published);
 
         // when
         // then
-        for (List<RequestAttribute> chosen : everyChoiceIn(published)) {
-            performed += performedOrRefusedForWhatItIs(() -> encryptsAndDecrypts(pair, chosen), chosen) ? 1 : 0;
-        }
-        assertTrue(performed > 0, "a schema whose every combination is refused offers nothing");
-    }
-
-    /**
-     * Whether the combination was performed. One that cannot be has to be named as such: any other failure is the
-     * connector breaking on a combination it published, which is what a caller cannot act on.
-     */
-    private static boolean performedOrRefusedForWhatItIs(Runnable operation, List<RequestAttribute> chosen) {
-        try {
-            operation.run();
-            return true;
-        } catch (ParameterUnsupportedException e) {
-            return false;
-        } catch (RuntimeException e) {
-            throw new AssertionError(describe(chosen) + " was published and then failed with " + e, e);
+        assertFalse(choices.isEmpty());
+        for (List<RequestAttribute> chosen : choices) {
+            encryptsAndDecrypts(pair, chosen);
         }
     }
 
@@ -191,13 +176,16 @@ class PublishedOperationCombinationsTest {
         return choices;
     }
 
+    /**
+     * Preserves each published selector's identifiers and content version when choosing a value.
+     */
     private static List<RequestAttribute> selectionsOf(BaseAttribute attribute) {
         if (attribute instanceof DataAttributeV3 data) {
             return data
                     .getContent()
                     .stream()
-                    .map(value -> SignatureAlgorithmAttribute
-                            .request(SignatureAlgorithm.findByCode((String) value.getData())))
+                    .map(value -> new RequestAttributeV3(UUID.fromString(data.getUuid()), data.getName(),
+                            data.getContentType(), List.of(value)))
                     .map(RequestAttribute.class::cast)
                     .toList();
         }
