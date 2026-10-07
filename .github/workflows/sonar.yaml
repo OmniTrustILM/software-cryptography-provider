@@ -185,7 +185,7 @@ jobs:
       # git clean, so extracting directly there could write through it into ~/.m2/settings.xml
       # and make Maven resolve an attacker-supplied plugin with SONAR_TOKEN in scope.
       - name: Download Compiled Classes
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: compiled-classes
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -193,7 +193,7 @@ jobs:
           path: ${{ runner.temp }}/artifacts/classes
 
       - name: Download Coverage Reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: coverage-reports
           github-token: ${{ secrets.GITHUB_TOKEN }}
