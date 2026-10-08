@@ -1,0 +1,15 @@
+{
+  "status" : 422,
+  "contentType" : "application/problem+json",
+  "body" : {
+    "correlationId" : "<correlation>",
+    "detail" : "The key was not made exportable and cannot leave the token.",
+    "errorCode" : "KEY_NOT_EXPORTABLE",
+    "instance" : "/v2/cryptographyProvider/keys/export",
+    "retryable" : false,
+    "status" : 422,
+    "timestamp" : "9999-99-99T99:99:99.9<zone>",
+    "title" : "Key was not created or imported as exportable",
+    "type" : "https://docs.otilm.com/problems/connector/cryptography/KEY_NOT_EXPORTABLE"
+  }
+}

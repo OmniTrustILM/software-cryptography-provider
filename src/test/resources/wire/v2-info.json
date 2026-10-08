@@ -1,0 +1,34 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "connector" : {
+      "description" : "Software cryptography provider storing key material in PKCS12 keystores",
+      "id" : "software-cryptography-provider",
+      "metadata" : null,
+      "name" : "ILM-Software-Cryptography-Provider",
+      "version" : "0.0.0-test"
+    },
+    "interfaces" : [ {
+      "code" : "info",
+      "features" : [ ],
+      "version" : "v2"
+    }, {
+      "code" : "health",
+      "features" : [ ],
+      "version" : "v2"
+    }, {
+      "code" : "metrics",
+      "features" : [ "openMetrics" ],
+      "version" : "v1"
+    }, {
+      "code" : "attributes",
+      "features" : [ ],
+      "version" : "v2"
+    }, {
+      "code" : "cryptography",
+      "features" : [ "keyImport", "keyExport" ],
+      "version" : "v2"
+    } ]
+  }
+}

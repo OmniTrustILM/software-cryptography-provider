@@ -1,0 +1,15 @@
+{
+  "status" : 400,
+  "contentType" : "application/problem+json",
+  "body" : {
+    "correlationId" : "<correlation>",
+    "detail" : "The request body could not be read.",
+    "errorCode" : "BAD_REQUEST",
+    "instance" : "/v2/cryptographyProvider/tokens/status",
+    "retryable" : false,
+    "status" : 400,
+    "timestamp" : "9999-99-99T99:99:99.9<zone>",
+    "title" : "Bad Request",
+    "type" : "https://docs.otilm.com/problems/common/BAD_REQUEST"
+  }
+}

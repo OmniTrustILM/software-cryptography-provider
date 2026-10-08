@@ -1,0 +1,8 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "algorithms" : [ "ECDSA", "FALCON", "ML-DSA", "ML-KEM", "RSA", "SLH-DSA" ],
+    "keyRequestType" : "keyPair"
+  } ]
+}

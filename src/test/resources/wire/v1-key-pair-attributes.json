@@ -1,0 +1,90 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "contentType" : "string",
+    "description" : "Alias for the Key that should be unique within the Token",
+    "name" : "data_keyAlias",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Cryptographic Key Alias",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "61a228de-c54e-461e-b0d7-ad156a547b51",
+    "version" : 2
+  }, {
+    "content" : [ {
+      "data" : "RSA",
+      "reference" : "RSA"
+    }, {
+      "data" : "ECDSA",
+      "reference" : "ECDSA"
+    }, {
+      "data" : "FALCON",
+      "reference" : "FALCON"
+    }, {
+      "data" : "ML-DSA",
+      "reference" : "ML-DSA"
+    }, {
+      "data" : "SLH-DSA",
+      "reference" : "SLH-DSA"
+    }, {
+      "data" : "ML-KEM",
+      "reference" : "ML-KEM"
+    }, {
+      "data" : "CRYSTALS-Dilithium",
+      "reference" : "CRYSTALS-Dilithium"
+    }, {
+      "data" : "SPHINCS+",
+      "reference" : "SPHINCS+"
+    }, {
+      "data" : "AES",
+      "reference" : "AES"
+    }, {
+      "data" : "Unknown",
+      "reference" : "Unknown"
+    } ],
+    "contentType" : "string",
+    "description" : "Select one of the supported cryptographic key algorithms",
+    "name" : "data_keyAlgorithm",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Cryptographic Key Algorithm",
+      "list" : true,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "72159c04-d1a9-4703-8b23-469224425d5f",
+    "version" : 2
+  }, {
+    "attributeCallback" : {
+      "callbackContext" : "/v1/cryptographyProvider/callbacks/keyspec/{algorithm}/attributes",
+      "callbackMethod" : "GET",
+      "dependsOn" : null,
+      "mappings" : [ {
+        "from" : "data_keyAlgorithm.reference",
+        "targets" : [ "pathVariable" ],
+        "to" : "algorithm"
+      } ]
+    },
+    "description" : "Cryptographic Key Specification",
+    "name" : "group_keySpec",
+    "type" : "group",
+    "uuid" : "<uuid>",
+    "version" : 2
+  } ]
+}

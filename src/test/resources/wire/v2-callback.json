@@ -1,0 +1,42 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "attributes" : [ {
+      "content" : [ {
+        "data" : "secp192r1",
+        "reference" : "secp192r1"
+      }, {
+        "data" : "secp224r1",
+        "reference" : "secp224r1"
+      }, {
+        "data" : "secp256r1",
+        "reference" : "secp256r1"
+      }, {
+        "data" : "secp384r1",
+        "reference" : "secp384r1"
+      }, {
+        "data" : "secp521r1",
+        "reference" : "secp521r1"
+      } ],
+      "contentType" : "string",
+      "description" : "Select one of the supported named curves",
+      "name" : "data_ecdsaCurve",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Named Curve",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "08730b36-90f3-4046-9f13-3cf827ad6cc7",
+      "version" : 2
+    } ]
+  }
+}

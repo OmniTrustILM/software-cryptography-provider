@@ -1,0 +1,28 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "metadata" : [ {
+      "content" : [ {
+        "data" : "wireGoldenV1",
+        "reference" : "tokenName"
+      } ],
+      "contentType" : "string",
+      "description" : "Reference name of the Token instance",
+      "name" : "meta_tokenName",
+      "properties" : {
+        "global" : false,
+        "group" : null,
+        "label" : "Token instance name",
+        "overwrite" : false,
+        "protectionLevel" : "none",
+        "visible" : true
+      },
+      "type" : "meta",
+      "uuid" : "81d8c383-e499-4914-b6de-d92139bfe742",
+      "version" : 2
+    } ],
+    "name" : "wireGoldenV1",
+    "uuid" : "<uuid>"
+  }
+}

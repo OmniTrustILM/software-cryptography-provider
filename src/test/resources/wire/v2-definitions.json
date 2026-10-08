@@ -1,0 +1,666 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "connectorVersion" : "0.0.0-test",
+    "definitions" : [ {
+      "content" : [ {
+        "data" : "new",
+        "reference" : "new"
+      } ],
+      "contentType" : "string",
+      "description" : "Select action to be performed on the Token",
+      "name" : "data_createTokenAction",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Token Action",
+        "list" : false,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : false
+      },
+      "type" : "data",
+      "uuid" : "cc781ba3-d90b-4fe9-915a-e8d44e1cff86",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : "It seems that there are no existing Tokens available. You can create a new one by providing the name and activation code below.\n",
+        "reference" : null
+      } ],
+      "contentType" : "text",
+      "description" : "Information about creating new Token",
+      "name" : "info_newToken",
+      "properties" : {
+        "group" : null,
+        "label" : "Create new Token",
+        "visible" : true
+      },
+      "type" : "info",
+      "uuid" : "15943f63-8b06-45f6-bad6-58e0998b654b",
+      "version" : 2
+    }, {
+      "constraints" : [ {
+        "data" : "^[a-zA-Z](?:_?[a-zA-Z0-9]+)*$",
+        "description" : "The name must begin with a letter and use only alphanumeric characters and underscores. The name cannot end with an underscore or have two consecutive underscores.",
+        "errorMessage" : "Invalid name for the Token",
+        "type" : "regExp"
+      } ],
+      "contentType" : "string",
+      "description" : "Provide name for the new Token that will be created",
+      "name" : "data_newTokenName",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "New Token name",
+        "list" : false,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "21a79858-a246-4b2a-93e1-1677c8beb6a4",
+      "version" : 2
+    }, {
+      "contentType" : "secret",
+      "description" : "Activation code that will be used to activate this Token",
+      "name" : "data_tokenCode",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Token activation code",
+        "list" : false,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "181aae19-d2a3-40ca-b5c7-570c8dfbb3cb",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : "You can select from existing Tokens when available, or create a new one.\nBased on the selection, additional information will be requested.\n",
+        "reference" : null
+      } ],
+      "contentType" : "text",
+      "description" : "Init Token",
+      "name" : "info_initial",
+      "properties" : {
+        "group" : null,
+        "label" : "Create new Token or select existing one",
+        "visible" : true
+      },
+      "type" : "info",
+      "uuid" : "320c401a-9feb-402a-8f5b-0bfefcf155cc",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : "new",
+        "reference" : "Create new Token"
+      }, {
+        "data" : "existing",
+        "reference" : "Select existing Token"
+      } ],
+      "contentType" : "string",
+      "description" : "Token options",
+      "name" : "data_options",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Select the options to add Token",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "6285683f-f474-4b21-a0ff-56accf28c604",
+      "version" : 2
+    }, {
+      "attributeCallback" : {
+        "callbackContext" : "/v1/cryptographyProvider/callbacks/token/{option}/attributes",
+        "callbackMethod" : "GET",
+        "dependsOn" : null,
+        "mappings" : [ {
+          "from" : "data_options.data",
+          "targets" : [ "pathVariable" ],
+          "to" : "option"
+        } ]
+      },
+      "description" : "Token properties",
+      "name" : "group_loadToken",
+      "type" : "group",
+      "uuid" : "5dfc0040-a530-4faa-bc07-5fed6779b474",
+      "version" : 2
+    }, {
+      "content" : [ ],
+      "contentType" : "string",
+      "description" : "Select Existing Token",
+      "name" : "data_existingToken",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Select one of the existing Tokens to be loaded",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "a12bb85a-93a9-4c05-9d7d-5b253298bbaf",
+      "version" : 2
+    }, {
+      "contentType" : "string",
+      "description" : "Alias for the Key that should be unique within the Token",
+      "name" : "data_keyAlias",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Cryptographic Key Alias",
+        "list" : false,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "61a228de-c54e-461e-b0d7-ad156a547b51",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "contentType" : "boolean",
+        "data" : false,
+        "reference" : null
+      } ],
+      "contentType" : "boolean",
+      "description" : "Whether the key may later be exported. It cannot be changed after the key exists.",
+      "name" : "keyExportable",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Exportable",
+        "list" : false,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "schemaVersion" : "v3",
+      "type" : "data",
+      "uuid" : "9d3f1a26-5d4e-4b6c-8f0a-6c1f2d7e4b83",
+      "version" : 3
+    }, {
+      "content" : [ {
+        "data" : "RSA",
+        "reference" : "RSA"
+      }, {
+        "data" : "ECDSA",
+        "reference" : "ECDSA"
+      }, {
+        "data" : "FALCON",
+        "reference" : "FALCON"
+      }, {
+        "data" : "ML-DSA",
+        "reference" : "ML-DSA"
+      }, {
+        "data" : "SLH-DSA",
+        "reference" : "SLH-DSA"
+      }, {
+        "data" : "ML-KEM",
+        "reference" : "ML-KEM"
+      }, {
+        "data" : "CRYSTALS-Dilithium",
+        "reference" : "CRYSTALS-Dilithium"
+      }, {
+        "data" : "SPHINCS+",
+        "reference" : "SPHINCS+"
+      }, {
+        "data" : "AES",
+        "reference" : "AES"
+      }, {
+        "data" : "Unknown",
+        "reference" : "Unknown"
+      } ],
+      "contentType" : "string",
+      "description" : "Select one of the supported cryptographic key algorithms",
+      "name" : "data_keyAlgorithm",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Cryptographic Key Algorithm",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "72159c04-d1a9-4703-8b23-469224425d5f",
+      "version" : 2
+    }, {
+      "attributeCallback" : {
+        "callbackContext" : null,
+        "callbackMethod" : null,
+        "dependsOn" : [ "data_keyAlgorithm" ],
+        "mappings" : [ ]
+      },
+      "description" : "Cryptographic Key Specification",
+      "name" : "group_keySpecV2",
+      "schemaVersion" : "v3",
+      "type" : "group",
+      "uuid" : "05927c10-b5ca-43cb-a69f-098885b8c307",
+      "version" : 3
+    }, {
+      "content" : [ {
+        "data" : 1024,
+        "reference" : "RSA_1024"
+      }, {
+        "data" : 2048,
+        "reference" : "RSA_2048"
+      }, {
+        "data" : 4096,
+        "reference" : "RSA_4096"
+      } ],
+      "contentType" : "integer",
+      "description" : "Size of the RSA Key in bits",
+      "name" : "data_rsaKeySize",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "RSA Key Size",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "aa7df6ff-1d64-4a1a-96d6-6c7aeadfbdf3",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : "secp192r1",
+        "reference" : "secp192r1"
+      }, {
+        "data" : "secp224r1",
+        "reference" : "secp224r1"
+      }, {
+        "data" : "secp256r1",
+        "reference" : "secp256r1"
+      }, {
+        "data" : "secp384r1",
+        "reference" : "secp384r1"
+      }, {
+        "data" : "secp521r1",
+        "reference" : "secp521r1"
+      } ],
+      "contentType" : "string",
+      "description" : "Select one of the supported named curves",
+      "name" : "data_ecdsaCurve",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Named Curve",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "08730b36-90f3-4046-9f13-3cf827ad6cc7",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : 2,
+        "reference" : "MLDSA_44"
+      }, {
+        "data" : 3,
+        "reference" : "MLDSA_65"
+      }, {
+        "data" : 5,
+        "reference" : "MLDSA_87"
+      } ],
+      "contentType" : "integer",
+      "description" : "Security strength according NIST definition",
+      "name" : "data_mldsaLevel",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "NIST Security Category",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "22e317d6-dd78-4968-9a26-c1823a4fb2e6",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : "1",
+        "reference" : "CATEGORY_1"
+      }, {
+        "data" : "3",
+        "reference" : "CATEGORY_3"
+      }, {
+        "data" : "5",
+        "reference" : "CATEGORY_5"
+      } ],
+      "contentType" : "string",
+      "description" : "Strength of algorithm according to NIST",
+      "name" : "data_slhdsaSecurityCategory",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "NIST Security Category",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "b4d4cf43-d214-42e5-a402-3db66d9c1c6c",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : "FAST",
+        "reference" : "FAST"
+      }, {
+        "data" : "SMALL",
+        "reference" : "SMALL"
+      } ],
+      "contentType" : "string",
+      "description" : "Create relatively small signatures or have relatively fast signature generation",
+      "name" : "data_slhdsaSignatureMode",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Signature generation mode",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : false,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "7a33f35a-8e32-4bcc-bf3e-37654b6a8107",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "data" : 1,
+        "reference" : "CATEGORY_1"
+      }, {
+        "data" : 3,
+        "reference" : "CATEGORY_3"
+      }, {
+        "data" : 5,
+        "reference" : "CATEGORY_5"
+      } ],
+      "contentType" : "integer",
+      "description" : "Security strength according NIST definition",
+      "name" : "data_mlkemLevel",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "NIST Security Category",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "type" : "data",
+      "uuid" : "b574e0fb-9db5-4864-9652-40ccf9cff64d",
+      "version" : 2
+    }, {
+      "content" : [ {
+        "contentType" : "string",
+        "data" : "SHA256withRSA",
+        "reference" : "RSASSA-PKCS_v1.5 using SHA256"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA384withRSA",
+        "reference" : "RSASSA-PKCS_v1.5 using SHA384"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA512withRSA",
+        "reference" : "RSASSA-PKCS_v1.5 using SHA512"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA256withRSAandMGF1",
+        "reference" : "RSASSA-PSS using SHA256"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA384withRSAandMGF1",
+        "reference" : "RSASSA-PSS using SHA384"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA512withRSAandMGF1",
+        "reference" : "RSASSA-PSS using SHA512"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA256withECDSA",
+        "reference" : "ECDSA using SHA256"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA384withECDSA",
+        "reference" : "ECDSA using SHA384"
+      }, {
+        "contentType" : "string",
+        "data" : "SHA512withECDSA",
+        "reference" : "ECDSA using SHA512"
+      }, {
+        "contentType" : "string",
+        "data" : "FALCON-1024",
+        "reference" : "FALCON-1024"
+      }, {
+        "contentType" : "string",
+        "data" : "ML-DSA-44",
+        "reference" : "ML-DSA-44 (Dilithium)"
+      }, {
+        "contentType" : "string",
+        "data" : "ML-DSA-65",
+        "reference" : "ML-DSA-65 (Dilithium)"
+      }, {
+        "contentType" : "string",
+        "data" : "ML-DSA-87",
+        "reference" : "ML-DSA-87 (Dilithium)"
+      }, {
+        "contentType" : "string",
+        "data" : "SLH-DSA-SHA2-128S",
+        "reference" : "SLH-DSA-SHA2-128S (SPHINCS+)"
+      }, {
+        "contentType" : "string",
+        "data" : "SLH-DSA-SHA2-128F",
+        "reference" : "SLH-DSA-SHA2-128F (SPHINCS+)"
+      }, {
+        "contentType" : "string",
+        "data" : "SLH-DSA-SHA2-192S",
+        "reference" : "SLH-DSA-SHA2-192S (SPHINCS+)"
+      }, {
+        "contentType" : "string",
+        "data" : "SLH-DSA-SHA2-192F",
+        "reference" : "SLH-DSA-SHA2-192F (SPHINCS+)"
+      }, {
+        "contentType" : "string",
+        "data" : "SLH-DSA-SHA2-256S",
+        "reference" : "SLH-DSA-SHA2-256S (SPHINCS+)"
+      }, {
+        "contentType" : "string",
+        "data" : "SLH-DSA-SHA2-256F",
+        "reference" : "SLH-DSA-SHA2-256F (SPHINCS+)"
+      } ],
+      "contentType" : "string",
+      "description" : "Signature algorithm used to sign or verify the data",
+      "name" : "signatureAlgorithm",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Signature Algorithm",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "schemaVersion" : "v3",
+      "type" : "data",
+      "uuid" : "9180267f-c82f-4b7b-8160-d2363d813869",
+      "version" : 3
+    }, {
+      "content" : [ {
+        "contentType" : "string",
+        "data" : "RSA/ECB/PKCS1Padding",
+        "reference" : "RSAES-PKCS1-v1_5"
+      }, {
+        "contentType" : "string",
+        "data" : "RSA/ECB/OAEPWithSHA-1AndMGF1Padding",
+        "reference" : "RSAES-OAEP with SHA-1"
+      }, {
+        "contentType" : "string",
+        "data" : "RSA/ECB/OAEPWithSHA-256AndMGF1Padding",
+        "reference" : "RSAES-OAEP with SHA-256"
+      }, {
+        "contentType" : "string",
+        "data" : "RSA/ECB/OAEPWithSHA-384AndMGF1Padding",
+        "reference" : "RSAES-OAEP with SHA-384"
+      }, {
+        "contentType" : "string",
+        "data" : "RSA/ECB/OAEPWithSHA-512AndMGF1Padding",
+        "reference" : "RSAES-OAEP with SHA-512"
+      } ],
+      "contentType" : "string",
+      "description" : "Encryption algorithm used to encrypt or decrypt the data",
+      "name" : "encryptionAlgorithm",
+      "properties" : {
+        "extensibleList" : false,
+        "group" : null,
+        "label" : "Encryption Algorithm",
+        "list" : true,
+        "multiSelect" : false,
+        "protectionLevel" : "none",
+        "readOnly" : false,
+        "required" : true,
+        "resource" : null,
+        "visible" : true
+      },
+      "schemaVersion" : "v3",
+      "type" : "data",
+      "uuid" : "5e364467-fa95-4253-907b-0c73cdfb2be7",
+      "version" : 3
+    }, {
+      "contentType" : "string",
+      "description" : "Durable reference of the Key in the provider",
+      "name" : "meta_keyReference",
+      "properties" : {
+        "global" : false,
+        "group" : null,
+        "label" : "Key Reference",
+        "overwrite" : false,
+        "protectionLevel" : "none",
+        "visible" : true
+      },
+      "type" : "meta",
+      "uuid" : "2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4",
+      "version" : 2
+    }, {
+      "contentType" : "string",
+      "description" : "Alias of the Key",
+      "name" : "meta_keyAlias",
+      "properties" : {
+        "global" : false,
+        "group" : null,
+        "label" : "Key Alias",
+        "overwrite" : false,
+        "protectionLevel" : "none",
+        "visible" : true
+      },
+      "type" : "meta",
+      "uuid" : "a5575bb8-dd88-4b60-bb73-75b862da78aa",
+      "version" : 2
+    }, {
+      "contentType" : "string",
+      "description" : "Reference name of the Token instance",
+      "name" : "meta_tokenName",
+      "properties" : {
+        "global" : false,
+        "group" : null,
+        "label" : "Token instance name",
+        "overwrite" : false,
+        "protectionLevel" : "none",
+        "visible" : true
+      },
+      "type" : "meta",
+      "uuid" : "81d8c383-e499-4914-b6de-d92139bfe742",
+      "version" : 2
+    }, {
+      "contentType" : "string",
+      "description" : "Size of the RSA Key in bits",
+      "name" : "meta_rsaKeySize",
+      "properties" : {
+        "global" : false,
+        "group" : null,
+        "label" : "RSA Key Size",
+        "overwrite" : false,
+        "protectionLevel" : "none",
+        "visible" : true
+      },
+      "type" : "meta",
+      "uuid" : "6b8c8b9d-2712-4f9e-ab60-007cf19ac1d4",
+      "version" : 2
+    }, {
+      "contentType" : "string",
+      "description" : "Degree (n) of the Falcon Key",
+      "name" : "meta_falconDegree",
+      "properties" : {
+        "global" : false,
+        "group" : null,
+        "label" : "Falcon Key Degree",
+        "overwrite" : false,
+        "protectionLevel" : "none",
+        "visible" : true
+      },
+      "type" : "meta",
+      "uuid" : "bd9b2826-f7fc-4bc3-b817-66bc231f1ee2",
+      "version" : 2
+    } ]
+  }
+}

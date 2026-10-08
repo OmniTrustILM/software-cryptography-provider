@@ -1,0 +1,112 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "contentType" : "string",
+    "description" : "Alias for the Key that should be unique within the Token",
+    "name" : "data_keyAlias",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Cryptographic Key Alias",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "61a228de-c54e-461e-b0d7-ad156a547b51",
+    "version" : 2
+  }, {
+    "content" : [ {
+      "data" : "RSA",
+      "reference" : "RSA"
+    }, {
+      "data" : "ECDSA",
+      "reference" : "ECDSA"
+    }, {
+      "data" : "FALCON",
+      "reference" : "FALCON"
+    }, {
+      "data" : "ML-DSA",
+      "reference" : "ML-DSA"
+    }, {
+      "data" : "SLH-DSA",
+      "reference" : "SLH-DSA"
+    }, {
+      "data" : "ML-KEM",
+      "reference" : "ML-KEM"
+    }, {
+      "data" : "CRYSTALS-Dilithium",
+      "reference" : "CRYSTALS-Dilithium"
+    }, {
+      "data" : "SPHINCS+",
+      "reference" : "SPHINCS+"
+    }, {
+      "data" : "AES",
+      "reference" : "AES"
+    }, {
+      "data" : "Unknown",
+      "reference" : "Unknown"
+    } ],
+    "contentType" : "string",
+    "description" : "Select one of the supported cryptographic key algorithms",
+    "name" : "data_keyAlgorithm",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Cryptographic Key Algorithm",
+      "list" : true,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "72159c04-d1a9-4703-8b23-469224425d5f",
+    "version" : 2
+  }, {
+    "attributeCallback" : {
+      "callbackContext" : null,
+      "callbackMethod" : null,
+      "dependsOn" : [ "data_keyAlgorithm" ],
+      "mappings" : [ ]
+    },
+    "description" : "Cryptographic Key Specification",
+    "name" : "group_keySpecV2",
+    "schemaVersion" : "v3",
+    "type" : "group",
+    "uuid" : "05927c10-b5ca-43cb-a69f-098885b8c307",
+    "version" : 3
+  }, {
+    "content" : [ {
+      "contentType" : "boolean",
+      "data" : false,
+      "reference" : null
+    } ],
+    "contentType" : "boolean",
+    "description" : "Whether the key may later be exported. It cannot be changed after the key exists.",
+    "name" : "keyExportable",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Exportable",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "schemaVersion" : "v3",
+    "type" : "data",
+    "uuid" : "9d3f1a26-5d4e-4b6c-8f0a-6c1f2d7e4b83",
+    "version" : 3
+  } ]
+}

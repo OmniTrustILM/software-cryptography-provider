@@ -1,0 +1,15 @@
+{
+  "status" : 501,
+  "contentType" : "application/problem+json",
+  "body" : {
+    "correlationId" : "<correlation>",
+    "detail" : "This connector does not offer the requested operation.",
+    "errorCode" : "OPERATION_NOT_SUPPORTED",
+    "instance" : "/v2/attributes/callback",
+    "retryable" : false,
+    "status" : 501,
+    "timestamp" : "9999-99-99T99:99:99.9<zone>",
+    "title" : "Operation not supported",
+    "type" : "https://docs.otilm.com/problems/common/OPERATION_NOT_SUPPORTED"
+  }
+}

@@ -1,0 +1,399 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "endPoints" : [ {
+      "context" : "/v1/cryptographyProvider/callbacks/keyspec/{algorithm}/attributes",
+      "method" : "GET",
+      "name" : "getKeySpecAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/callbacks/token/{option}/attributes",
+      "method" : "GET",
+      "name" : "getCreateTokenAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens",
+      "method" : "GET",
+      "name" : "listTokenInstances",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens",
+      "method" : "POST",
+      "name" : "createTokenInstance",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}",
+      "method" : "DELETE",
+      "name" : "removeTokenInstance",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}",
+      "method" : "GET",
+      "name" : "getTokenInstance",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}",
+      "method" : "POST",
+      "name" : "updateTokenInstance",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/activate",
+      "method" : "PATCH",
+      "name" : "activateTokenInstance",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/activate/attributes",
+      "method" : "GET",
+      "name" : "listTokenInstanceActivationAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/activate/attributes/validate",
+      "method" : "POST",
+      "name" : "<bytes>",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/deactivate",
+      "method" : "PATCH",
+      "name" : "deactivateTokenInstance",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys",
+      "method" : "GET",
+      "name" : "listKeys",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/pair",
+      "method" : "POST",
+      "name" : "createKeyPair",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/pair/attributes",
+      "method" : "GET",
+      "name" : "listCreateKeyPairAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/pair/attributes/validate",
+      "method" : "POST",
+      "name" : "validateCreateKeyPairAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/random",
+      "method" : "POST",
+      "name" : "randomData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/random/attributes",
+      "method" : "GET",
+      "name" : "listRandomAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/random/attributes/validate",
+      "method" : "POST",
+      "name" : "validateRandomAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/secret",
+      "method" : "POST",
+      "name" : "createSecretKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/secret/attributes",
+      "method" : "GET",
+      "name" : "listCreateSecretKeyAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/secret/attributes/validate",
+      "method" : "POST",
+      "name" : "validateCreateSecretKeyAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}",
+      "method" : "DELETE",
+      "name" : "destroyKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}",
+      "method" : "GET",
+      "name" : "getKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}/decrypt",
+      "method" : "POST",
+      "name" : "decryptData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}/encrypt",
+      "method" : "POST",
+      "name" : "encryptData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}/sign",
+      "method" : "POST",
+      "name" : "signData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}/verify",
+      "method" : "POST",
+      "name" : "verifyData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/status",
+      "method" : "GET",
+      "name" : "getTokenInstanceStatus",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/tokenProfile/attributes",
+      "method" : "GET",
+      "name" : "listTokenProfileAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/tokens/{uuid}/tokenProfile/attributes/validate",
+      "method" : "POST",
+      "name" : "validateTokenProfileAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/{kind}/attributes",
+      "method" : "GET",
+      "name" : "listAttributeDefinitions",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v1/cryptographyProvider/{kind}/attributes/validate",
+      "method" : "POST",
+      "name" : "validateAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys",
+      "method" : "POST",
+      "name" : "createKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/create/attributes",
+      "method" : "POST",
+      "name" : "listCreateKeyAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/create/cancel",
+      "method" : "POST",
+      "name" : "cancelCreateKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/create/status",
+      "method" : "POST",
+      "name" : "getCreateKeyStatus",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/destroy",
+      "method" : "POST",
+      "name" : "destroyKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/destroy/cancel",
+      "method" : "POST",
+      "name" : "cancelDestroyKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/destroy/status",
+      "method" : "POST",
+      "name" : "getDestroyKeyStatus",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/export",
+      "method" : "POST",
+      "name" : "exportKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/export/attributes",
+      "method" : "POST",
+      "name" : "listExportKeyAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/export/keyTypes",
+      "method" : "POST",
+      "name" : "listExportableKeyTypes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/import",
+      "method" : "POST",
+      "name" : "importKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/import/attributes",
+      "method" : "POST",
+      "name" : "listImportKeyAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/import/cancel",
+      "method" : "POST",
+      "name" : "cancelImportKey",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/import/keyTypes",
+      "method" : "POST",
+      "name" : "listImportableKeyTypes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/import/result",
+      "method" : "POST",
+      "name" : "getImportKeyResult",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/keys/import/status",
+      "method" : "POST",
+      "name" : "getImportKeyStatus",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/decrypt",
+      "method" : "POST",
+      "name" : "decryptData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/decrypt/attributes",
+      "method" : "POST",
+      "name" : "listDecryptAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/encrypt",
+      "method" : "POST",
+      "name" : "encryptData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/encrypt/attributes",
+      "method" : "POST",
+      "name" : "listEncryptAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/random",
+      "method" : "POST",
+      "name" : "randomData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/random/attributes",
+      "method" : "POST",
+      "name" : "listRandomAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/sign",
+      "method" : "POST",
+      "name" : "signData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/sign/attributes",
+      "method" : "POST",
+      "name" : "listSignAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/sign/cancel",
+      "method" : "POST",
+      "name" : "cancelSign",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/sign/status",
+      "method" : "POST",
+      "name" : "getSignStatus",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/verify",
+      "method" : "POST",
+      "name" : "verifyData",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/operations/verify/attributes",
+      "method" : "POST",
+      "name" : "listVerifyAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/tokens/attributes",
+      "method" : "GET",
+      "name" : "listTokenAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/tokens/keyRequestTypes",
+      "method" : "POST",
+      "name" : "listSupportedKeyRequestTypes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/tokens/status",
+      "method" : "POST",
+      "name" : "getTokenStatus",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/tokens/tokenProfile/attributes",
+      "method" : "POST",
+      "name" : "listTokenProfileAttributes",
+      "required" : false,
+      "uuid" : null
+    }, {
+      "context" : "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages",
+      "method" : "POST",
+      "name" : "listTokenProfileKeyUsages",
+      "required" : false,
+      "uuid" : null
+    } ],
+    "functionGroupCode" : "cryptographyProvider",
+    "kinds" : [ "SOFT" ]
+  } ]
+}

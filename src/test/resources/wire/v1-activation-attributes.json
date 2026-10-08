@@ -1,0 +1,24 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "contentType" : "secret",
+    "description" : "Activation code that will be used to activate this Token",
+    "name" : "data_tokenActivationCode",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Token activation code",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "<uuid>",
+    "version" : 2
+  } ]
+}
