@@ -11,11 +11,11 @@ import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,6 +37,8 @@ class KeyCreationWireTest {
     private MockMvc mockMvc;
     private KeyDataRepository keyDataRepository;
 
+    private JsonMapper jsonMapper;
+
     @Autowired
     void setMockMvc(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
@@ -47,6 +49,11 @@ class KeyCreationWireTest {
         this.keyDataRepository = keyDataRepository;
     }
 
+    @Autowired
+    void setJsonMapper(JsonMapper jsonMapper) {
+        this.jsonMapper = jsonMapper;
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void createsTheKeyAsExportableAsTheV3IntentStates(boolean exportable) throws Exception {
@@ -54,7 +61,7 @@ class KeyCreationWireTest {
         CreateKeyRequestV2Dto request = KeyRequestFixtures
                 .rsaKeyPair(TokenContextFixtures.uniqueName("v2-wire-intent"), "key-" + System.nanoTime());
         request.getCreateKeyAttributes().add(KeyExportableAttribute.request(exportable));
-        String body = Jackson2ObjectMapperBuilder.json().build().writeValueAsString(request);
+        String body = jsonMapper.writeValueAsString(request);
         List<Object> intents = JsonPath.read(body, V3_INTENT);
         assertEquals(1, intents.size(), "the intent travels as a v3 attribute: " + body);
 

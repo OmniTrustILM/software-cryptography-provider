@@ -13,11 +13,11 @@ import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -36,6 +36,8 @@ class SignatureSelectionWireTest {
 
     private KeyV2ControllerImpl keys;
 
+    private JsonMapper jsonMapper;
+
     @Autowired
     void setMockMvc(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
@@ -44,6 +46,11 @@ class SignatureSelectionWireTest {
     @Autowired
     void setKeys(KeyV2ControllerImpl keys) {
         this.keys = keys;
+    }
+
+    @Autowired
+    void setJsonMapper(JsonMapper jsonMapper) {
+        this.jsonMapper = jsonMapper;
     }
 
     @Test
@@ -66,7 +73,7 @@ class SignatureSelectionWireTest {
                 .setSignatureAttributes(
                         List.of(SignatureAlgorithmAttribute.request(SignatureAlgorithm.SHA256_WITH_ECDSA)));
         signing.setData(List.of(item));
-        String body = Jackson2ObjectMapperBuilder.json().build().writeValueAsString(signing);
+        String body = jsonMapper.writeValueAsString(signing);
 
         // when
         // then

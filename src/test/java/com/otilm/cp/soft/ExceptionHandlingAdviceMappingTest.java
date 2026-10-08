@@ -22,6 +22,7 @@ import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -174,7 +175,8 @@ class ExceptionHandlingAdviceMappingTest {
                         Integer.class);
         cause.prependPath(new Object(), "keySize");
 
-        HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read", cause);
+        HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read", cause,
+                new MockHttpInputMessage(new byte[0]));
 
         ResponseEntity<Object> response = advice.handleHttpMessageNotReadableException(ex);
 
@@ -188,7 +190,8 @@ class ExceptionHandlingAdviceMappingTest {
     @Test
     void unreadableBodyWithoutAnInvalidFormatFallsBackToTheRootCause() {
         HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read body",
-                new BeanInstantiationException(Object.class, "root cause message"));
+                new BeanInstantiationException(Object.class, "root cause message"),
+                new MockHttpInputMessage(new byte[0]));
 
         ResponseEntity<Object> response = advice.handleHttpMessageNotReadableException(ex);
 

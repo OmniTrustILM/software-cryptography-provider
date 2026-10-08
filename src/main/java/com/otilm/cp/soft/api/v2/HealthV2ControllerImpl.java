@@ -7,12 +7,12 @@ import com.otilm.api.model.client.connector.v2.HealthStatus;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.springframework.boot.actuate.health.HealthComponent;
-import org.springframework.boot.actuate.health.HealthEndpoint;
-import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.availability.ApplicationAvailability;
 import org.springframework.boot.availability.LivenessState;
 import org.springframework.boot.availability.ReadinessState;
+import org.springframework.boot.health.actuate.endpoint.HealthDescriptor;
+import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
+import org.springframework.boot.health.contributor.Status;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -97,7 +97,7 @@ public class HealthV2ControllerImpl implements HealthController {
 
     /** Whether the application is running. A broken application cannot recover, so it is replaced rather than kept. */
     private HealthStatus liveness() {
-        HealthComponent group = healthEndpoint.healthForPath(LIVENESS);
+        HealthDescriptor group = healthEndpoint.healthForPath(LIVENESS);
         if (group != null) {
             return statusOf(group);
         }
@@ -106,7 +106,7 @@ public class HealthV2ControllerImpl implements HealthController {
 
     /** Whether requests can be served, which needs both the application and whatever it depends on to serve. */
     private HealthStatus readiness() {
-        HealthComponent group = healthEndpoint.healthForPath(READINESS);
+        HealthDescriptor group = healthEndpoint.healthForPath(READINESS);
         if (group != null) {
             return statusOf(group);
         }
@@ -138,7 +138,7 @@ public class HealthV2ControllerImpl implements HealthController {
      * The reported status of one part of the application. A part this application does not report on is unknown rather
      * than well, since answering that it is up would state something this connector has not checked.
      */
-    private static HealthStatus statusOf(HealthComponent health) {
+    private static HealthStatus statusOf(HealthDescriptor health) {
         if (health == null) {
             return HealthStatus.UNKNOWN;
         }

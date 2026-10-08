@@ -4,8 +4,8 @@ import com.otilm.api.model.common.error.ErrorCode;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -86,7 +86,7 @@ class V2ErrorShapeTest {
                 .andExpect(jsonPath("$.type").exists())
                 .andExpect(jsonPath("$.title").exists())
                 .andExpect(jsonPath("$.detail").exists())
-                .andExpect(jsonPath("$.status").value(HttpStatus.UNPROCESSABLE_ENTITY.value()))
+                .andExpect(jsonPath("$.status").value(HttpStatus.UNPROCESSABLE_CONTENT.value()))
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.retryable").exists())
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"));

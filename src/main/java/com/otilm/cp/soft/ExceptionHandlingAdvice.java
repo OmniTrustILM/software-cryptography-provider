@@ -139,7 +139,7 @@ public class ExceptionHandlingAdvice {
     }
 
     @ExceptionHandler(ValidationException.class)
-    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_CONTENT)
     public List<String> handleValidationException(ValidationException ex) {
         log.info("HTTP 422: {}", ex.getMessage());
 
