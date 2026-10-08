@@ -1,3 +1,6 @@
+# The Maven repository the build reads; empty unless one is passed as the m2 build context.
+FROM scratch AS m2
+
 # Build stage
 FROM maven:3.9.16-eclipse-temurin-21 AS build
 
@@ -6,7 +9,7 @@ COPY pom.xml /home/app
 COPY docker /home/app/docker
 
 # Tests run here, so an image is never produced from a source tree that fails them.
-RUN mvn -f /home/app/pom.xml clean package
+RUN --mount=type=bind,from=m2,target=/root/.m2/repository,rw mvn -f /home/app/pom.xml clean package
 
 # Optimize stage
 FROM eclipse-temurin:21-jdk-alpine AS optimize
