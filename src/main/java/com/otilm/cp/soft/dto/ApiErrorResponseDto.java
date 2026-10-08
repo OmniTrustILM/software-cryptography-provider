@@ -1,6 +1,8 @@
 package com.otilm.cp.soft.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -56,8 +58,15 @@ public class ApiErrorResponseDto {
         this.code = code;
     }
 
+    @JsonIgnore
     public HttpStatus getStatus() {
         return status;
+    }
+
+    /** The status by name, as v1 has always written it; Jackson 3 would write the enum's text, which adds the code. */
+    @JsonProperty("status")
+    public String getStatusName() {
+        return status == null ? null : status.name();
     }
 
     public void setStatus(HttpStatus status) {

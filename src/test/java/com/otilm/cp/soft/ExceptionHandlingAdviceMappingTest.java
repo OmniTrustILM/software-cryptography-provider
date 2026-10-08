@@ -1,6 +1,5 @@
 package com.otilm.cp.soft;
 
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotDeletableException;
 import com.otilm.api.exception.NotFoundException;
@@ -27,6 +26,8 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import tools.jackson.databind.exc.InvalidFormatException;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -171,8 +172,7 @@ class ExceptionHandlingAdviceMappingTest {
     @Test
     void unreadableBodyWithAnInvalidFormatNamesTheField() throws Exception {
         InvalidFormatException cause = InvalidFormatException
-                .from(new com.fasterxml.jackson.core.JsonFactory().createParser("{}"), "not an integer", "abc",
-                        Integer.class);
+                .from(JsonMapper.shared().createParser("{}"), "not an integer", "abc", Integer.class);
         cause.prependPath(new Object(), "keySize");
 
         HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read", cause,
