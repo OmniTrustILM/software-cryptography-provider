@@ -162,6 +162,11 @@
             <version>2.7.4</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-hsqldb</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
