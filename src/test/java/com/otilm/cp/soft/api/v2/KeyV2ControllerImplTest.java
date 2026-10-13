@@ -18,6 +18,7 @@ import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysRequestV2Dto;
 import com.otilm.cp.soft.attribute.FalconKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
@@ -356,6 +357,16 @@ class KeyV2ControllerImplTest {
         assertThrows(OperationNotTrackedException.class, () -> controller.cancelCreateKey(request));
         assertThrows(OperationNotTrackedException.class, () -> controller.getDestroyKeyStatus(request));
         assertThrows(OperationNotTrackedException.class, () -> controller.cancelDestroyKey(request));
+    }
+
+    @Test
+    void refusesToListKeys() {
+        // given
+        ListKeysRequestV2Dto request = new ListKeysRequestV2Dto();
+
+        // when
+        // then
+        assertThrows(NotSupportedException.class, () -> controller.listKeys(request));
     }
 
     private static DestroyKeyRequestV2Dto destroyRequest(List<RequestAttribute> tokenAttributes,

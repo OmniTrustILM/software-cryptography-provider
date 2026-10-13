@@ -291,6 +291,12 @@
       "required" : false,
       "uuid" : null
     }, {
+      "context" : "/v2/cryptographyProvider/keys/list",
+      "method" : "POST",
+      "name" : "listKeys",
+      "required" : false,
+      "uuid" : null
+    }, {
       "context" : "/v2/cryptographyProvider/operations/decrypt",
       "method" : "POST",
       "name" : "decryptData",

@@ -19,6 +19,9 @@ import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dt
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyDestructionStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyOperationResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysResponseV2Dto;
+import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
 import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import java.util.List;
@@ -126,6 +129,11 @@ public class KeyV2ControllerImpl implements KeyController {
     @Override
     public ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request) {
         return cryptographicKeyV2Service.exportKey(request);
+    }
+
+    @Override
+    public ListKeysResponseV2Dto listKeys(ListKeysRequestV2Dto request) {
+        throw new NotSupportedException("key listing is not supported");
     }
 
     @Autowired
