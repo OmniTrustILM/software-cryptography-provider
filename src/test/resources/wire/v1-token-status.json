@@ -1,0 +1,7 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "status" : "Activated"
+  }
+}

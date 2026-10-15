@@ -1,6 +1,5 @@
 package com.otilm.cp.soft;
 
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotDeletableException;
 import com.otilm.api.exception.NotFoundException;
@@ -22,10 +21,13 @@ import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import tools.jackson.databind.exc.InvalidFormatException;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -170,11 +172,11 @@ class ExceptionHandlingAdviceMappingTest {
     @Test
     void unreadableBodyWithAnInvalidFormatNamesTheField() throws Exception {
         InvalidFormatException cause = InvalidFormatException
-                .from(new com.fasterxml.jackson.core.JsonFactory().createParser("{}"), "not an integer", "abc",
-                        Integer.class);
+                .from(JsonMapper.shared().createParser("{}"), "not an integer", "abc", Integer.class);
         cause.prependPath(new Object(), "keySize");
 
-        HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read", cause);
+        HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read", cause,
+                new MockHttpInputMessage(new byte[0]));
 
         ResponseEntity<Object> response = advice.handleHttpMessageNotReadableException(ex);
 
@@ -188,7 +190,8 @@ class ExceptionHandlingAdviceMappingTest {
     @Test
     void unreadableBodyWithoutAnInvalidFormatFallsBackToTheRootCause() {
         HttpMessageNotReadableException ex = new HttpMessageNotReadableException("cannot read body",
-                new BeanInstantiationException(Object.class, "root cause message"));
+                new BeanInstantiationException(Object.class, "root cause message"),
+                new MockHttpInputMessage(new byte[0]));
 
         ResponseEntity<Object> response = advice.handleHttpMessageNotReadableException(ex);
 

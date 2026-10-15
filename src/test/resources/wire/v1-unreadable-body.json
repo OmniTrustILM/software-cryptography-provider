@@ -1,0 +1,15 @@
+{
+  "status" : 400,
+  "contentType" : "application/json",
+  "body" : {
+    "code" : 81,
+    "errors" : [ {
+      "detail" : "<parser message>",
+      "error" : "<parser message>",
+      "type" : "HttpMessageNotReadableException"
+    } ],
+    "message" : "Arguments not valid",
+    "status" : "BAD_REQUEST",
+    "timestamp" : "<millis>"
+  }
+}

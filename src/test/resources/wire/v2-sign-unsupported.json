@@ -1,0 +1,15 @@
+{
+  "status" : 422,
+  "contentType" : "application/problem+json",
+  "body" : {
+    "correlationId" : "<correlation>",
+    "detail" : "The supplied parameters name no operation this connector can perform.",
+    "errorCode" : "PARAMETER_UNSUPPORTED",
+    "instance" : "/v2/cryptographyProvider/operations/sign",
+    "retryable" : false,
+    "status" : 422,
+    "timestamp" : "9999-99-99T99:99:99.9<zone>",
+    "title" : "Requested parameter or signature family is not supported by this connector",
+    "type" : "https://docs.otilm.com/problems/connector/PARAMETER_UNSUPPORTED"
+  }
+}

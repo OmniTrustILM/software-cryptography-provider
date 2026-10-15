@@ -1,0 +1,50 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "content" : [ {
+      "contentType" : "string",
+      "data" : "SHA256withRSA",
+      "reference" : "RSASSA-PKCS_v1.5 using SHA256"
+    }, {
+      "contentType" : "string",
+      "data" : "SHA384withRSA",
+      "reference" : "RSASSA-PKCS_v1.5 using SHA384"
+    }, {
+      "contentType" : "string",
+      "data" : "SHA512withRSA",
+      "reference" : "RSASSA-PKCS_v1.5 using SHA512"
+    }, {
+      "contentType" : "string",
+      "data" : "SHA256withRSAandMGF1",
+      "reference" : "RSASSA-PSS using SHA256"
+    }, {
+      "contentType" : "string",
+      "data" : "SHA384withRSAandMGF1",
+      "reference" : "RSASSA-PSS using SHA384"
+    }, {
+      "contentType" : "string",
+      "data" : "SHA512withRSAandMGF1",
+      "reference" : "RSASSA-PSS using SHA512"
+    } ],
+    "contentType" : "string",
+    "description" : "Signature algorithm used to sign or verify the data",
+    "name" : "signatureAlgorithm",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Signature Algorithm",
+      "list" : true,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "schemaVersion" : "v3",
+    "type" : "data",
+    "uuid" : "9180267f-c82f-4b7b-8160-d2363d813869",
+    "version" : 3
+  } ]
+}

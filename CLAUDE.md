@@ -9,7 +9,7 @@ function group for kind `SOFT`. Key material lives in PKCS12 keystores held in P
 so this provider is intended for development and testing rather than for protecting
 production keys.
 
-Spring Boot 3 on Java 21, built with Maven.
+Spring Boot 4 on Java 21, built with Maven.
 
 ## Commands
 

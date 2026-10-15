@@ -1,0 +1,34 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "content" : [ {
+      "data" : 1024,
+      "reference" : "RSA_1024"
+    }, {
+      "data" : 2048,
+      "reference" : "RSA_2048"
+    }, {
+      "data" : 4096,
+      "reference" : "RSA_4096"
+    } ],
+    "contentType" : "integer",
+    "description" : "Size of the RSA Key in bits",
+    "name" : "data_rsaKeySize",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "RSA Key Size",
+      "list" : true,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "aa7df6ff-1d64-4a1a-96d6-6c7aeadfbdf3",
+    "version" : 2
+  } ]
+}

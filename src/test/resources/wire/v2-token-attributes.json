@@ -1,0 +1,63 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "content" : [ {
+      "data" : "You can select from existing Tokens when available, or create a new one.\nBased on the selection, additional information will be requested.\n",
+      "reference" : null
+    } ],
+    "contentType" : "text",
+    "description" : "Init Token",
+    "name" : "info_initial",
+    "properties" : {
+      "group" : null,
+      "label" : "Create new Token or select existing one",
+      "visible" : true
+    },
+    "type" : "info",
+    "uuid" : "320c401a-9feb-402a-8f5b-0bfefcf155cc",
+    "version" : 2
+  }, {
+    "content" : [ {
+      "data" : "new",
+      "reference" : "Create new Token"
+    }, {
+      "data" : "existing",
+      "reference" : "Select existing Token"
+    } ],
+    "contentType" : "string",
+    "description" : "Token options",
+    "name" : "data_options",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Select the options to add Token",
+      "list" : true,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "6285683f-f474-4b21-a0ff-56accf28c604",
+    "version" : 2
+  }, {
+    "attributeCallback" : {
+      "callbackContext" : "/v1/cryptographyProvider/callbacks/token/{option}/attributes",
+      "callbackMethod" : "GET",
+      "dependsOn" : null,
+      "mappings" : [ {
+        "from" : "data_options.data",
+        "targets" : [ "pathVariable" ],
+        "to" : "option"
+      } ]
+    },
+    "description" : "Token properties",
+    "name" : "group_loadToken",
+    "type" : "group",
+    "uuid" : "5dfc0040-a530-4faa-bc07-5fed6779b474",
+    "version" : 2
+  } ]
+}

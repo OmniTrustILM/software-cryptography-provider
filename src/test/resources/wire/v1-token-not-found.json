@@ -1,0 +1,14 @@
+{
+  "status" : 404,
+  "contentType" : "application/json",
+  "body" : {
+    "code" : 404,
+    "errors" : [ {
+      "error" : "Object of type 'TokenInstance' identified by 00000000-0000-4000-8000-000000000000 is not found.",
+      "type" : "NotFoundException"
+    } ],
+    "message" : "Object not found",
+    "status" : "NOT_FOUND",
+    "timestamp" : "<millis>"
+  }
+}

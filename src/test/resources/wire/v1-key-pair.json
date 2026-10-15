@@ -1,0 +1,114 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "privateKeyData" : {
+      "association" : "<association>",
+      "keyData" : {
+        "algorithm" : "RSA",
+        "format" : "Custom",
+        "length" : 2048,
+        "metadata" : [ {
+          "content" : [ {
+            "data" : "wire-v1-key",
+            "reference" : "alias"
+          } ],
+          "contentType" : "string",
+          "description" : "Alias of the Key",
+          "name" : "meta_keyAlias",
+          "properties" : {
+            "global" : false,
+            "group" : null,
+            "label" : "Key Alias",
+            "overwrite" : false,
+            "protectionLevel" : "none",
+            "visible" : true
+          },
+          "type" : "meta",
+          "uuid" : "a5575bb8-dd88-4b60-bb73-75b862da78aa",
+          "version" : 2
+        }, {
+          "content" : [ {
+            "data" : "<uuid>",
+            "reference" : "keyReference"
+          } ],
+          "contentType" : "string",
+          "description" : "Durable reference of the Key in the provider",
+          "name" : "meta_keyReference",
+          "properties" : {
+            "global" : false,
+            "group" : null,
+            "label" : "Key Reference",
+            "overwrite" : false,
+            "protectionLevel" : "none",
+            "visible" : true
+          },
+          "type" : "meta",
+          "uuid" : "2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4",
+          "version" : 2
+        } ],
+        "type" : "Private",
+        "value" : {
+          "values" : {
+            "location" : "managed by external token"
+          }
+        }
+      },
+      "name" : "wire-v1-key",
+      "uuid" : "<uuid>"
+    },
+    "publicKeyData" : {
+      "association" : "<association>",
+      "keyData" : {
+        "algorithm" : "RSA",
+        "format" : "SubjectPublicKeyInfo",
+        "length" : 2048,
+        "metadata" : [ {
+          "content" : [ {
+            "data" : "wire-v1-key",
+            "reference" : "alias"
+          } ],
+          "contentType" : "string",
+          "description" : "Alias of the Key",
+          "name" : "meta_keyAlias",
+          "properties" : {
+            "global" : false,
+            "group" : null,
+            "label" : "Key Alias",
+            "overwrite" : false,
+            "protectionLevel" : "none",
+            "visible" : true
+          },
+          "type" : "meta",
+          "uuid" : "a5575bb8-dd88-4b60-bb73-75b862da78aa",
+          "version" : 2
+        }, {
+          "content" : [ {
+            "data" : "<uuid>",
+            "reference" : "keyReference"
+          } ],
+          "contentType" : "string",
+          "description" : "Durable reference of the Key in the provider",
+          "name" : "meta_keyReference",
+          "properties" : {
+            "global" : false,
+            "group" : null,
+            "label" : "Key Reference",
+            "overwrite" : false,
+            "protectionLevel" : "none",
+            "visible" : true
+          },
+          "type" : "meta",
+          "uuid" : "2f0d1d3a-7c65-4f6f-9d3c-8c19b2f1f9a4",
+          "version" : 2
+        } ],
+        "type" : "Public",
+        "value" : {
+          "value" : "<bytes>"
+        }
+      },
+      "name" : "wire-v1-key",
+      "uuid" : "<uuid>"
+    }
+  }
+}

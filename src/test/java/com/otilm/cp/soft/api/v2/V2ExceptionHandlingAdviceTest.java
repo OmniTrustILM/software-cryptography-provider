@@ -66,7 +66,7 @@ class V2ExceptionHandlingAdviceTest {
                 .handleValidationFailure(new ConstraintViolationException("keyMeta is required", Set.of()));
 
         // then
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
         assertEquals(ErrorCode.VALIDATION_FAILED, body(response).getErrorCode());
     }
 
@@ -82,7 +82,7 @@ class V2ExceptionHandlingAdviceTest {
                 .handleAttributeValidationFailure(new ValidationException("the token code is required"));
 
         // then
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
         assertEquals(ErrorCode.VALIDATION_FAILED, body(response).getErrorCode());
     }
 
@@ -237,7 +237,7 @@ class V2ExceptionHandlingAdviceTest {
                 .handleKeyDecryptionFailed(new KeyDecryptionFailedException("the material does not open"));
 
         // then
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
         assertEquals(ErrorCode.KEY_DECRYPTION_FAILED, body(response).getErrorCode());
     }
 
@@ -249,7 +249,7 @@ class V2ExceptionHandlingAdviceTest {
                 .handleParameterUnsupported(new ParameterUnsupportedException("md5 does not go with pss"));
 
         // then
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
         assertEquals(ErrorCode.PARAMETER_UNSUPPORTED, body(response).getErrorCode());
     }
 

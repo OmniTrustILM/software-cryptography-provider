@@ -1,0 +1,21 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "components" : {
+      "database" : {
+        "details" : null,
+        "status" : "UP"
+      },
+      "liveness" : {
+        "details" : null,
+        "status" : "UP"
+      },
+      "readiness" : {
+        "details" : null,
+        "status" : "UP"
+      }
+    },
+    "status" : "UP"
+  }
+}

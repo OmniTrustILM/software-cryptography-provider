@@ -1,0 +1,15 @@
+{
+  "status" : 404,
+  "contentType" : "application/problem+json",
+  "body" : {
+    "correlationId" : "<correlation>",
+    "detail" : "This connector publishes no such attribute.",
+    "errorCode" : "ATTRIBUTE_DEFINITION_NOT_FOUND",
+    "instance" : "/v2/attributes/00000000-0000-4000-8000-000000000000",
+    "retryable" : false,
+    "status" : 404,
+    "timestamp" : "9999-99-99T99:99:99.9<zone>",
+    "title" : "Attribute definition not found",
+    "type" : "https://docs.otilm.com/problems/connector/ATTRIBUTE_DEFINITION_NOT_FOUND"
+  }
+}

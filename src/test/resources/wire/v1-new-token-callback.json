@@ -1,0 +1,72 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "content" : [ {
+      "data" : "new",
+      "reference" : "new"
+    } ],
+    "contentType" : "string",
+    "description" : "Select action to be performed on the Token",
+    "name" : "data_createTokenAction",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Token Action",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : false
+    },
+    "type" : "data",
+    "uuid" : "cc781ba3-d90b-4fe9-915a-e8d44e1cff86",
+    "version" : 2
+  }, {
+    "constraints" : [ {
+      "data" : "^[a-zA-Z](?:_?[a-zA-Z0-9]+)*$",
+      "description" : "The name must begin with a letter and use only alphanumeric characters and underscores. The name cannot end with an underscore or have two consecutive underscores.",
+      "errorMessage" : "Invalid name for the Token",
+      "type" : "regExp"
+    } ],
+    "contentType" : "string",
+    "description" : "Provide name for the new Token that will be created",
+    "name" : "data_newTokenName",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "New Token name",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "21a79858-a246-4b2a-93e1-1677c8beb6a4",
+    "version" : 2
+  }, {
+    "contentType" : "secret",
+    "description" : "Activation code that will be used to activate this Token",
+    "name" : "data_tokenCode",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Token activation code",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "181aae19-d2a3-40ca-b5c7-570c8dfbb3cb",
+    "version" : 2
+  } ]
+}

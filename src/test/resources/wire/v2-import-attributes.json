@@ -1,0 +1,24 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : [ {
+    "contentType" : "string",
+    "description" : "Alias for the Key that should be unique within the Token",
+    "name" : "data_keyAlias",
+    "properties" : {
+      "extensibleList" : false,
+      "group" : null,
+      "label" : "Cryptographic Key Alias",
+      "list" : false,
+      "multiSelect" : false,
+      "protectionLevel" : "none",
+      "readOnly" : false,
+      "required" : true,
+      "resource" : null,
+      "visible" : true
+    },
+    "type" : "data",
+    "uuid" : "61a228de-c54e-461e-b0d7-ad156a547b51",
+    "version" : 2
+  } ]
+}

@@ -1,0 +1,9 @@
+{
+  "status" : 200,
+  "contentType" : "application/json",
+  "body" : {
+    "verifications" : [ {
+      "result" : true
+    } ]
+  }
+}
