@@ -70,7 +70,7 @@ class V2ErrorShapeTest {
         // then
         mockMvc
                 .perform(post(OPERATIONS + "/encrypt/attributes").contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.name()));
     }
 

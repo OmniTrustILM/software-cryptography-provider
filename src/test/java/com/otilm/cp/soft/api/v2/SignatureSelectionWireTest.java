@@ -81,7 +81,7 @@ class SignatureSelectionWireTest {
                 .perform(post("/v2/cryptographyProvider/operations/sign")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.errorCode").value(ErrorCode.PARAMETER_UNSUPPORTED.name()));
     }
 }
