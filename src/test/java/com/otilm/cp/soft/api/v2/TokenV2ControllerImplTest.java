@@ -6,7 +6,6 @@ import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2
 import com.otilm.api.model.connector.cryptography.v2.token.TokenScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.token.TokenStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.token.TokenStatusV2;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.util.List;
@@ -109,18 +108,6 @@ class TokenV2ControllerImplTest {
 
         // then
         assertTrue(attributes.isEmpty(), "this provider needs nothing configured on a token profile");
-    }
-
-    @Test
-    void publishesTheKeyUsagesItsKeysCanServe() {
-        // given
-        String name = TokenContextFixtures.uniqueName("v2-usages");
-
-        // when
-        List<KeyUsage> usages = controller.listTokenProfileKeyUsages(tokenRequest(TokenContextFixtures.newToken(name)));
-
-        // then
-        assertEquals(List.of(KeyUsage.SIGN, KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.DECRYPT), usages);
     }
 
     /** Secret keys are not implemented, so the provider must not offer to hold one. */

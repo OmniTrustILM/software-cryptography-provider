@@ -7,7 +7,6 @@ import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2
 import com.otilm.api.model.connector.cryptography.v2.token.TokenScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.token.TokenStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.token.TokenStatusV2;
-import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.cp.soft.model.TokenState;
 import com.otilm.cp.soft.service.AttributeService;
 import com.otilm.cp.soft.service.TokenContextService;
@@ -33,13 +32,6 @@ public class TokenV2ControllerImpl implements TokenController {
 
     /** Kind of token this connector provides, and the only one its attribute schema describes. */
     private static final String KIND = "SOFT";
-
-    /**
-     * Usages a key of this provider can serve. It signs, verifies, encrypts and decrypts; it does not wrap keys, so
-     * offering those usages would have the platform create keys for operations this provider cannot perform.
-     */
-    private static final List<KeyUsage> KEY_USAGES = List
-            .of(KeyUsage.SIGN, KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.DECRYPT);
 
     /** Secret keys are not implemented, so only key pairs are offered. */
     private static final List<KeyRequestType> KEY_REQUEST_TYPES = List.of(KeyRequestType.KEY_PAIR);
@@ -70,11 +62,6 @@ public class TokenV2ControllerImpl implements TokenController {
     @Override
     public List<BaseAttribute> listTokenProfileAttributes(TokenScopedRequestV2Dto request) {
         return List.of();
-    }
-
-    @Override
-    public List<KeyUsage> listTokenProfileKeyUsages(TokenScopedRequestV2Dto request) {
-        return KEY_USAGES;
     }
 
     @Override

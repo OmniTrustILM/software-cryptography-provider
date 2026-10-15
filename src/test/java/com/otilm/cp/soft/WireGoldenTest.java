@@ -176,8 +176,6 @@ class WireGoldenTest {
         assertGolden("v2-token-status", post("/v2/cryptographyProvider/tokens/status", "{" + token + "}"));
         assertGolden("v2-token-profile-attributes",
                 post("/v2/cryptographyProvider/tokens/tokenProfile/attributes", "{" + token + "}"));
-        assertGolden("v2-token-profile-key-usages",
-                post("/v2/cryptographyProvider/tokens/tokenProfile/keyUsages", "{" + token + "}"));
         assertGolden("v2-key-request-types", post("/v2/cryptographyProvider/tokens/keyRequestTypes", """
                 {%s,"tokenProfileAttributes":[]}""".formatted(token)));
         assertGolden("v2-create-key-attributes", post("/v2/cryptographyProvider/keys/create/attributes", """
