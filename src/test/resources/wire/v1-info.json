@@ -59,7 +59,7 @@
     }, {
       "context" : "/v1/cryptographyProvider/tokens/{uuid}/activate/attributes/validate",
       "method" : "POST",
-      "name" : "<bytes>",
+      "name" : "validateTokenInstanceActivationAttributes",
       "required" : false,
       "uuid" : null
     }, {

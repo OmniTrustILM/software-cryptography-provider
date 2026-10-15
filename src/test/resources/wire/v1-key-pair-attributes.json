@@ -84,7 +84,7 @@
     "description" : "Cryptographic Key Specification",
     "name" : "group_keySpec",
     "type" : "group",
-    "uuid" : "<uuid>",
+    "uuid" : "dfcfb71f-a161-4aa7-8b1f-726b477b3492",
     "version" : 2
   } ]
 }
