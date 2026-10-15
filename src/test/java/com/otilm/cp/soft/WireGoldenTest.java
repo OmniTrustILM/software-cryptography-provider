@@ -40,7 +40,7 @@ class WireGoldenTest {
             .compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     private static final Pattern TIMESTAMP = Pattern
             .compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?(\\.\\d+)?(Z|[+-]\\d{2}:?\\d{2})?");
-    private static final Pattern EPOCH_MILLIS = Pattern.compile("\"timestamp\":\\d+");
+    private static final Pattern EPOCH_MILLIS = Pattern.compile("\"timestamp\":[1-9]\\d*");
     /** Key material and what is made with it, in the fields that carry it, so a fixed API string is never masked. */
     private static final Pattern GENERATED_BYTES = Pattern
             .compile("\"(value|data|publicKeySpki)\":\"[A-Za-z0-9+/]{40,}={0,2}\"");

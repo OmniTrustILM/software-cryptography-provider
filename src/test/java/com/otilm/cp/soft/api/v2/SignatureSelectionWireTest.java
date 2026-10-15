@@ -1,5 +1,8 @@
 package com.otilm.cp.soft.api.v2;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
@@ -17,7 +20,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -32,11 +34,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class SignatureSelectionWireTest {
 
+    /** Jackson 2 as core writes these requests, whatever the connector's own mapper is. */
+    private static final JsonMapper CORE_MAPPER = JsonMapper
+            .builder()
+            .disable(MapperFeature.DEFAULT_VIEW_INCLUSION)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
+
     private MockMvc mockMvc;
 
     private KeyV2ControllerImpl keys;
-
-    private JsonMapper jsonMapper;
 
     @Autowired
     void setMockMvc(MockMvc mockMvc) {
@@ -46,11 +53,6 @@ class SignatureSelectionWireTest {
     @Autowired
     void setKeys(KeyV2ControllerImpl keys) {
         this.keys = keys;
-    }
-
-    @Autowired
-    void setJsonMapper(JsonMapper jsonMapper) {
-        this.jsonMapper = jsonMapper;
     }
 
     @Test
@@ -73,7 +75,7 @@ class SignatureSelectionWireTest {
                 .setSignatureAttributes(
                         List.of(SignatureAlgorithmAttribute.request(SignatureAlgorithm.SHA256_WITH_ECDSA)));
         signing.setData(List.of(item));
-        String body = jsonMapper.writeValueAsString(signing);
+        String body = CORE_MAPPER.writeValueAsString(signing);
 
         // when
         // then

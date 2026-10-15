@@ -1,5 +1,8 @@
 package com.otilm.cp.soft.api.v2;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
@@ -15,7 +18,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,12 +25,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Key creation over the wire, with the exportable intent stated through the writer the platform uses and written by the
- * JSON mapper its connector client uses, next to this provider's own attributes as v2 attributes.
+ * Key creation over the wire, with the exportable intent stated through the writer the platform uses and written by
+ * Jackson 2 as core writes it, next to this provider's own attributes as v2 attributes.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 class KeyCreationWireTest {
+
+    /** Jackson 2 as core writes these requests, whatever the connector's own mapper is. */
+    private static final JsonMapper CORE_MAPPER = JsonMapper
+            .builder()
+            .disable(MapperFeature.DEFAULT_VIEW_INCLUSION)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
 
     /** A v3 attribute names its version, and each of its content items names its content type. */
     private static final String V3_INTENT = "$.createKeyAttributes[?(@.name == '" + KeyExportableAttribute.NAME
@@ -36,8 +45,6 @@ class KeyCreationWireTest {
 
     private MockMvc mockMvc;
     private KeyDataRepository keyDataRepository;
-
-    private JsonMapper jsonMapper;
 
     @Autowired
     void setMockMvc(MockMvc mockMvc) {
@@ -49,11 +56,6 @@ class KeyCreationWireTest {
         this.keyDataRepository = keyDataRepository;
     }
 
-    @Autowired
-    void setJsonMapper(JsonMapper jsonMapper) {
-        this.jsonMapper = jsonMapper;
-    }
-
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void createsTheKeyAsExportableAsTheV3IntentStates(boolean exportable) throws Exception {
@@ -61,7 +63,7 @@ class KeyCreationWireTest {
         CreateKeyRequestV2Dto request = KeyRequestFixtures
                 .rsaKeyPair(TokenContextFixtures.uniqueName("v2-wire-intent"), "key-" + System.nanoTime());
         request.getCreateKeyAttributes().add(KeyExportableAttribute.request(exportable));
-        String body = jsonMapper.writeValueAsString(request);
+        String body = CORE_MAPPER.writeValueAsString(request);
         List<Object> intents = JsonPath.read(body, V3_INTENT);
         assertEquals(1, intents.size(), "the intent travels as a v3 attribute: " + body);
 
