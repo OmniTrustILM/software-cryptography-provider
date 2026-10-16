@@ -509,54 +509,6 @@
           ]
         },
         {
-          "name": "POST tokens/tokenProfile/keyUsages",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{connectorUrl}}/v2/cryptographyProvider/tokens/tokenProfile/keyUsages",
-              "host": [
-                "{{connectorUrl}}"
-              ],
-              "path": [
-                "v2",
-                "cryptographyProvider",
-                "tokens",
-                "tokenProfile",
-                "keyUsages"
-              ]
-            },
-            "description": "The usages a key of this provider can serve. It signs, verifies, encrypts and decrypts; it does not wrap keys.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"tokenAttributes\": [\n    {\n      \"uuid\": \"cc781ba3-d90b-4fe9-915a-e8d44e1cff86\",\n      \"name\": \"data_createTokenAction\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"reference\": \"new\",\n          \"data\": \"new\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"21a79858-a246-4b2a-93e1-1677c8beb6a4\",\n      \"name\": \"data_newTokenName\",\n      \"contentType\": \"string\",\n      \"content\": [\n        {\n          \"data\": \"{{tokenName}}\"\n        }\n      ],\n      \"version\": \"v2\"\n    },\n    {\n      \"uuid\": \"181aae19-d2a3-40ca-b5c7-570c8dfbb3cb\",\n      \"name\": \"data_tokenCode\",\n      \"contentType\": \"secret\",\n      \"content\": [\n        {\n          \"data\": {\n            \"secret\": \"{{tokenCode}}\"\n          }\n        }\n      ],\n      \"version\": \"v2\"\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
-                  "pm.test(\"usages are sign, verify, encrypt, decrypt\", function () { pm.expect(pm.response.json()).to.eql([\"sign\", \"verify\", \"encrypt\", \"decrypt\"]); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "POST tokens/keyRequestTypes",
           "request": {
             "method": "POST",

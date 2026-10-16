@@ -386,12 +386,6 @@
       "name" : "listTokenProfileAttributes",
       "required" : false,
       "uuid" : null
-    }, {
-      "context" : "/v2/cryptographyProvider/tokens/tokenProfile/keyUsages",
-      "method" : "POST",
-      "name" : "listTokenProfileKeyUsages",
-      "required" : false,
-      "uuid" : null
     } ],
     "functionGroupCode" : "cryptographyProvider",
     "kinds" : [ "SOFT" ]
