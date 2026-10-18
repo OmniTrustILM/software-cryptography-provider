@@ -221,7 +221,7 @@ jobs:
           SONAR_PR_BRANCH: ${{ steps.pr.outputs.head_ref }}
           SONAR_PR_BASE: ${{ steps.pr.outputs.base_ref }}
         run: |
-          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
             -Dsonar.scm.revision="$HEAD_SHA" \
             -Dsonar.pullrequest.key="$SONAR_PR_KEY" \
             -Dsonar.pullrequest.branch="$SONAR_PR_BRANCH" \

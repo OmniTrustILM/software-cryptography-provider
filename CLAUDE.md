@@ -40,7 +40,7 @@ open target/site/jacoco/index.html
 Local SonarQube scan:
 
 ```bash
-mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar -Dsonar.token=$SONAR_TOKEN
+mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar -Dsonar.token=$SONAR_TOKEN
 ```
 
 ## Quality gates

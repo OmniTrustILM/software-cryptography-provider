@@ -79,7 +79,7 @@ mvn -B -U verify -Dmaven.compiler.proc=full
 # Fully-qualified coordinates rather than the "sonar" prefix: prefix resolution walks the
 # remote plugin groups, which fails when the private package registry answers 401.
 echo "Running sonar:sonar..."
-mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
+mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
     -Dmaven.compiler.proc=full \
     -Dsonar.projectKey="${PROJECT_KEY}" \
     -Dsonar.host.url="${SONAR_URL}" \
