@@ -19,6 +19,11 @@ import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationResponseV2Dt
 import com.otilm.api.model.connector.cryptography.v2.key.KeyCreationStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyDestructionStatusResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyOperationResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysResponseV2Dto;
+import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
 import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import java.util.List;
@@ -39,6 +44,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class KeyV2ControllerImpl implements KeyController {
 
     private static final String NOT_TRACKED = "This connector completes every operation inline and tracks none.";
+    private static final String NOT_LISTED = "This connector does not list and does not resolve any keys. "
+            + "Every key was created or imported through the platform.";
 
     private CryptographicKeyV2Service cryptographicKeyV2Service;
 
@@ -126,6 +133,16 @@ public class KeyV2ControllerImpl implements KeyController {
     @Override
     public ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request) {
         return cryptographicKeyV2Service.exportKey(request);
+    }
+
+    @Override
+    public ListKeysResponseV2Dto listKeys(ListKeysRequestV2Dto request) {
+        throw new NotSupportedException(NOT_LISTED);
+    }
+
+    @Override
+    public ResolveKeysResponseV2Dto resolveKeys(ResolveKeysRequestV2Dto request) {
+        throw new NotSupportedException(NOT_LISTED);
     }
 
     @Autowired
