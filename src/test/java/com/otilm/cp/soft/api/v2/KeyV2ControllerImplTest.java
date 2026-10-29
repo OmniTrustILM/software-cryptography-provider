@@ -361,7 +361,7 @@ class KeyV2ControllerImplTest {
     }
 
     @Test
-    void listsAndResolvesNoKeys() {
+    void refusesKeyListingAndResolution() {
         // given
         ListKeysRequestV2Dto listRequest = new ListKeysRequestV2Dto();
         ResolveKeysRequestV2Dto resolveRequest = new ResolveKeysRequestV2Dto();

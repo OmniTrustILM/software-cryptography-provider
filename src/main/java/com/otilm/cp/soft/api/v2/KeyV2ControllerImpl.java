@@ -44,8 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class KeyV2ControllerImpl implements KeyController {
 
     private static final String NOT_TRACKED = "This connector completes every operation inline and tracks none.";
-    private static final String NOT_LISTED = "This connector does not list and does not resolve any keys. "
-            + "Every key was created or imported through the platform.";
+    private static final String NOT_LISTED = "This connector does not list and does not resolve any keys.";
 
     private CryptographicKeyV2Service cryptographicKeyV2Service;
 

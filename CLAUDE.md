@@ -177,10 +177,8 @@ cancellation operations answer `OPERATION_NOT_TRACKED`, and a request for asynch
 `OPERATION_NOT_SUPPORTED`. Declaring the flag would mean a job store and polling for work that finishes in
 milliseconds.
 
-**Key listing is declined.** `keyList` is an enforced feature flag. Leaving it undeclared means the platform never
-asks this connector to list or resolve keys. Every key a keystore here holds was created or imported through the
-platform. The token instance that created or imported a key already holds its handle. Both operations answer
-`OPERATION_NOT_SUPPORTED`.
+**Key listing is not implemented.** `keyList` is an enforced feature flag, so leaving it undeclared means the platform
+never asks this connector to list or resolve keys. Both operations answer `OPERATION_NOT_SUPPORTED`.
 
 **Health reports the state the application already computes.** `HealthV2ControllerImpl` answers `/v2/health` and the
 two probes under it by reading the health groups of the same name, so what an operator configures a group to cover is
