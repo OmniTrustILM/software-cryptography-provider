@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class V2ErrorShapeTest {
 
     private static final String OPERATIONS = "/v2/cryptographyProvider/operations";
+    private static final String KEYS = "/v2/cryptographyProvider/keys";
 
     private MockMvc mockMvc;
 
@@ -132,6 +133,33 @@ class V2ErrorShapeTest {
                 .perform(get("/v2/attributes/{uuid}", UUID.randomUUID()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.errorCode").value(ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND.name()));
+    }
+
+    /** The contract names a code of its own for an operation the connector declines. */
+    @Test
+    void aDeclinedOperationIsNamedAsSuch() throws Exception {
+        // given
+        String keyPairsInToken = "\"tokenAttributes\":[],\"tokenProfileAttributes\":[],"
+                + "\"keyRequestType\":\"keyPair\"";
+        String alias = "{\"uuid\":\"a5575bb8-dd88-4b60-bb73-75b862da78aa\",\"name\":\"meta_keyAlias\",\"version\":2,"
+                + "\"type\":\"meta\",\"contentType\":\"string\","
+                + "\"properties\":{\"label\":\"Key Alias\",\"visible\":true},\"content\":[{\"data\":\"key\"}]}";
+
+        // when
+        // then
+        mockMvc
+                .perform(post(KEYS + "/list")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" + keyPairsInToken + ",\"offset\":0,\"limit\":10}"))
+                .andExpect(status().isNotImplemented())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.OPERATION_NOT_SUPPORTED.name()));
+        mockMvc
+                .perform(post(KEYS + "/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{" + keyPairsInToken + ",\"keys\":[{\"identifier\":\"0\",\"keyMeta\":[" + alias
+                                + "]}]}"))
+                .andExpect(status().isNotImplemented())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.OPERATION_NOT_SUPPORTED.name()));
     }
 
     /**
