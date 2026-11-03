@@ -192,7 +192,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
                 .signData(key.token().instance().getUuid(), key.key().getUuid(), signing));
 
         SignDataResponseV2Dto response = new SignDataResponseV2Dto();
-        response.setSignatures(OperationDataMapper.toSignatureData(signed.getSignatures()));
+        response.setSignatures(OperationDataMapper.toSignatures(signed.getSignatures()));
         return response;
     }
 

@@ -53,6 +53,7 @@ import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
+import com.otilm.cp.soft.testsupport.SignatureFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -153,7 +154,7 @@ class OperationsV2ControllerImplTest {
         apply(verification, pair.tokenAttributes(), pair.publicKeyMeta());
         verification.setSignatureAttributes(rsaSignatureAttributes());
         verification.setData(List.of(item("one", MESSAGE)));
-        verification.setSignatures(signed.getSignatures());
+        verification.setSignatures(SignatureFixtures.forVerification(signed.getSignatures()));
 
         VerifyDataResponseV2Dto verified = controller.verifyData(verification);
         assertTrue(verified.getVerifications().get(0).getResult(), "the signature this provider made must verify");
@@ -182,7 +183,9 @@ class OperationsV2ControllerImplTest {
         apply(verification, pair.tokenAttributes(), pair.publicKeyMeta());
         verification.setSignatureAttributes(rsaSignatureAttributes());
         verification.setData(List.of(item("one", MESSAGE), item("two", second)));
-        verification.setSignatures(List.of(signed.getSignatures().get(1), signed.getSignatures().get(0)));
+        verification
+                .setSignatures(SignatureFixtures
+                        .forVerification(List.of(signed.getSignatures().get(1), signed.getSignatures().get(0))));
 
         VerifyDataResponseV2Dto verified = controller.verifyData(verification);
 
@@ -335,7 +338,7 @@ class OperationsV2ControllerImplTest {
         apply(verification, pair.tokenAttributes(), pair.publicKeyMeta());
         verification.setSignatureAttributes(choice);
         verification.setData(List.of(item("one", MESSAGE)));
-        verification.setSignatures(signed.getSignatures());
+        verification.setSignatures(SignatureFixtures.forVerification(signed.getSignatures()));
 
         assertTrue(controller.verifyData(verification).getVerifications().get(0).getResult());
     }
@@ -891,7 +894,7 @@ class OperationsV2ControllerImplTest {
         apply(verification, pair.tokenAttributes(), pair.publicKeyMeta());
         verification.setSignatureAttributes(choice);
         verification.setData(List.of(item("one", MESSAGE)));
-        verification.setSignatures(signed.getSignatures());
+        verification.setSignatures(SignatureFixtures.forVerification(signed.getSignatures()));
         assertTrue(controller.verifyData(verification).getVerifications().get(0).getResult());
     }
 
