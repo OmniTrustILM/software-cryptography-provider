@@ -23,6 +23,7 @@ import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataReques
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
+import com.otilm.cp.soft.testsupport.SignatureFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -121,7 +122,7 @@ class PublishedOperationCombinationsTest {
         apply(verification, pair, pair.publicKeyMeta());
         verification.setSignatureAttributes(signatureAttributes);
         verification.setData(List.of(signed("one", MESSAGE)));
-        verification.setSignatures(made.getSignatures());
+        verification.setSignatures(SignatureFixtures.forVerification(made.getSignatures()));
 
         assertTrue(operations.verifyData(verification).getVerifications().get(0).getResult(),
                 () -> "a signature made with " + describe(signatureAttributes) + " did not verify");

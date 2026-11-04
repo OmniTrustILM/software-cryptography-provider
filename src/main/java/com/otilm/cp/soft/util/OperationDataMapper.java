@@ -7,6 +7,7 @@ import com.otilm.api.model.connector.cryptography.operations.data.SignatureRespo
 import com.otilm.api.model.connector.cryptography.operations.data.VerificationResponseData;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureResponseItemV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.VerificationResponseItemV2Dto;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import java.util.HashMap;
@@ -53,7 +54,7 @@ public final class OperationDataMapper {
      * could not be signed fails the whole request instead of being answered with an item that has none. Why the key
      * technology could not sign it stays in this connector's log.
      */
-    public static List<SignatureDataV2Dto> toSignatureData(List<SignatureResponseData> signatures) {
+    public static List<SignatureResponseItemV2Dto> toSignatures(List<SignatureResponseData> signatures) {
         return signatures.stream().map(item -> {
             if (item.getData() == null || item.getData().length == 0) {
                 logger
@@ -61,10 +62,7 @@ public final class OperationDataMapper {
                                 item.getDetails());
                 throw new CryptographicOperationException("The data could not be signed");
             }
-            SignatureDataV2Dto data = new SignatureDataV2Dto();
-            data.setIdentifier(item.getIdentifier());
-            data.setData(item.getData());
-            return data;
+            return new SignatureResponseItemV2Dto(item.getData(), item.getIdentifier());
         }).toList();
     }
 

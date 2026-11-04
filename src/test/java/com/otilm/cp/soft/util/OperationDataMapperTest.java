@@ -6,6 +6,7 @@ import com.otilm.api.model.connector.cryptography.operations.data.SignatureRespo
 import com.otilm.api.model.connector.cryptography.operations.data.VerificationResponseData;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureResponseItemV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.VerificationResponseItemV2Dto;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import java.nio.charset.StandardCharsets;
@@ -36,10 +37,11 @@ class OperationDataMapperTest {
         List<SignatureResponseData> signatures = List.of(signature("first", DATA), signature("second", DATA));
 
         // when
-        List<SignatureDataV2Dto> mapped = OperationDataMapper.toSignatureData(signatures);
+        List<SignatureResponseItemV2Dto> mapped = OperationDataMapper.toSignatures(signatures);
 
         // then
-        assertEquals(List.of("first", "second"), mapped.stream().map(SignatureDataV2Dto::getIdentifier).toList());
+        assertEquals(List.of("first", "second"),
+                mapped.stream().map(SignatureResponseItemV2Dto::getIdentifier).toList());
         assertArrayEquals(DATA, mapped.get(0).getData());
     }
 
@@ -70,7 +72,7 @@ class OperationDataMapperTest {
 
         // when
         // then
-        assertThrows(CryptographicOperationException.class, () -> OperationDataMapper.toSignatureData(signatures));
+        assertThrows(CryptographicOperationException.class, () -> OperationDataMapper.toSignatures(signatures));
     }
 
     @Test
@@ -80,7 +82,7 @@ class OperationDataMapperTest {
 
         // when
         // then
-        assertThrows(CryptographicOperationException.class, () -> OperationDataMapper.toSignatureData(signatures));
+        assertThrows(CryptographicOperationException.class, () -> OperationDataMapper.toSignatures(signatures));
     }
 
     /**

@@ -106,7 +106,7 @@ public final class KeyImportFixtures {
         verification.setKeyMeta(publicKeyMeta);
         verification.setSignatureAttributes(rsaSignatureAttributes());
         verification.setData(List.of(item("one", MESSAGE)));
-        verification.setSignatures(signed.getSignatures());
+        verification.setSignatures(SignatureFixtures.forVerification(signed.getSignatures()));
 
         return operations.verifyData(verification).getVerifications().get(0).getResult();
     }
