@@ -32,6 +32,7 @@ import com.otilm.api.model.connector.cryptography.v2.operations.RandomDataReques
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignatureAlgorithmAttribute;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignatureInputMode;
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
@@ -680,6 +681,33 @@ class OperationsV2ControllerImplTest {
         // when
         // then
         assertTrue(controller.listRandomAttributes(request).isEmpty());
+    }
+
+    @Test
+    void refusesToSignAPrehashedDigest() {
+        // given
+        KeyPair pair = rsaKeyPair("v2-sign-prehashed");
+        SignDataRequestV2Dto signing = signing(pair, rsaSignatureAttributes());
+        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
+
+        // when
+        // then
+        assertThrows(ParameterUnsupportedException.class, () -> controller.signData(signing));
+    }
+
+    @Test
+    void signsWhenTheRequestNamesDataMode() {
+        // given
+        KeyPair pair = rsaKeyPair("v2-sign-data-mode");
+        SignDataRequestV2Dto signing = signing(pair, rsaSignatureAttributes());
+        signing.setSignatureInputMode(SignatureInputMode.DATA);
+
+        // when
+        SignDataResponseV2Dto signed = controller.signData(signing).getBody();
+
+        // then
+        assertNotNull(signed);
+        assertEquals(1, signed.getSignatures().size());
     }
 
     @Test

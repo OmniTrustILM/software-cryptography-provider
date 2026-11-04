@@ -18,6 +18,7 @@ import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataReques
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataResponseV2Dto;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
+import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.service.CryptographicOperationsV2Service;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +68,7 @@ public class OperationsV2ControllerImpl implements CryptographicOperationsContro
     @Override
     public ResponseEntity<SignDataResponseV2Dto> signData(SignDataRequestV2Dto request) {
         requireSynchronous(request);
+        requireDataInput(request);
         return ResponseEntity.ok(cryptographicOperationsV2Service.signData(request));
     }
 
@@ -103,6 +105,16 @@ public class OperationsV2ControllerImpl implements CryptographicOperationsContro
     private static void requireSynchronous(SignDataRequestV2Dto request) {
         if (request.getExecutionMode() != OperationExecutionMode.SYNCHRONOUS) {
             throw new NotSupportedException("Asynchronous execution is not supported.");
+        }
+    }
+
+    /**
+     * Signing a digest as data would hash it a second time, and the contract forbids ignoring the mode. The request
+     * turns data mode into an absent one, so any mode present asks for something this connector does not do.
+     */
+    private static void requireDataInput(SignDataRequestV2Dto request) {
+        if (request.getSignatureInputMode() != null) {
+            throw new ParameterUnsupportedException("Prehashed signing is not supported.");
         }
     }
 
