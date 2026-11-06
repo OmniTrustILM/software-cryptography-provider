@@ -180,6 +180,11 @@ milliseconds.
 **Key listing is not implemented.** `keyList` is an enforced feature flag, so leaving it undeclared means the platform
 never asks this connector to list or resolve keys. Both operations answer `OPERATION_NOT_SUPPORTED`.
 
+**Prehashed signing is not implemented yet.** `prehashedSigning` is an enforced feature flag, so leaving it undeclared
+means the platform never sends this connector a digest to sign. A sign request naming a `signatureInputMode` is
+still refused with `PARAMETER_UNSUPPORTED`: signing the digest as data would hash it a second time, and the contract
+forbids ignoring the field.
+
 **Health reports the state the application already computes.** `HealthV2ControllerImpl` answers `/v2/health` and the
 two probes under it by reading the health groups of the same name, so what an operator configures a group to cover is
 what the platform is told, and readiness covers the database because the keystores live there. A deployment that

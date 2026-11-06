@@ -16,6 +16,7 @@ import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.enums.cryptography.EncryptionAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureInputMode;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
@@ -680,6 +681,33 @@ class OperationsV2ControllerImplTest {
         // when
         // then
         assertTrue(controller.listRandomAttributes(request).isEmpty());
+    }
+
+    @Test
+    void refusesToSignAPrehashedDigest() {
+        // given
+        KeyPair pair = rsaKeyPair("v2-sign-prehashed");
+        SignDataRequestV2Dto signing = signing(pair, rsaSignatureAttributes());
+        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
+
+        // when
+        // then
+        assertThrows(ParameterUnsupportedException.class, () -> controller.signData(signing));
+    }
+
+    @Test
+    void signsWhenTheRequestNamesDataMode() {
+        // given
+        KeyPair pair = rsaKeyPair("v2-sign-data-mode");
+        SignDataRequestV2Dto signing = signing(pair, rsaSignatureAttributes());
+        signing.setSignatureInputMode(SignatureInputMode.DATA);
+
+        // when
+        SignDataResponseV2Dto signed = controller.signData(signing).getBody();
+
+        // then
+        assertNotNull(signed);
+        assertEquals(1, signed.getSignatures().size());
     }
 
     @Test
