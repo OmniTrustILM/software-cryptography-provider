@@ -1,12 +1,15 @@
 package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureInputMode;
 import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import com.otilm.api.model.connector.cryptography.operations.CipherDataRequestDto;
@@ -17,6 +20,7 @@ import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.CipherDataRequestV2Dto;
@@ -44,6 +48,7 @@ import com.otilm.cp.soft.service.CryptographicOperationsV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.OperationDataMapper;
+import com.otilm.cp.soft.util.PrehashedSignatures;
 import com.otilm.cp.soft.util.RequestAttributes;
 import com.otilm.cp.soft.util.RsaEncodingConstants;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
@@ -170,6 +175,9 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
     @Override
     public SignDataResponseV2Dto signData(SignDataRequestV2Dto request) {
+        if (request.getSignatureInputMode() == SignatureInputMode.PREHASHED_DIGEST) {
+            return signDigests(request);
+        }
         KeyContext key = key(request);
 
         SignDataRequestDto signing = new SignDataRequestDto();
@@ -178,6 +186,34 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
         SignDataResponseDto signed = perform(() -> cryptographicOperationsService
                 .signData(key.token().instance().getUuid(), key.key().getUuid(), signing));
+
+        SignDataResponseV2Dto response = new SignDataResponseV2Dto();
+        response.setSignatures(OperationDataMapper.toSignatures(signed.getSignatures()));
+        return response;
+    }
+
+    /**
+     * Every item is length-checked before any is signed, so a batch with one wrong digest signs nothing.
+     */
+    private SignDataResponseV2Dto signDigests(SignDataRequestV2Dto request) {
+        KeyContext key = key(request);
+        SignatureAlgorithm selected = SignatureAlgorithmAttribute.selectedAlgorithm(request.getSignatureAttributes());
+        if (!PrehashedSignatures.admits(selected)) {
+            throw new ParameterUnsupportedException(
+                    "Prehashed signing is not defined for the selected signature algorithm");
+        }
+        if (!supportedAlgorithms(key.key()).contains(selected)) {
+            throw new ParameterUnsupportedException("The selected signature algorithm is unavailable for this key");
+        }
+        int size = SignatureAlgorithms.digestOf(selected).getDigestSizeBytes();
+        List<SignatureRequestData> digests = OperationDataMapper.toSignatureRequests(request.getData());
+        if (digests.stream().anyMatch(digest -> digest.getData() == null || digest.getData().length != size)) {
+            throw new ValidationException(
+                    ValidationError.create("Data entries must be {}-byte digests for {}", size, selected.getCode()));
+        }
+
+        SignDataResponseDto signed = perform(() -> cryptographicOperationsService
+                .signDigests(key.token().instance().getUuid(), key.key().getUuid(), selected, digests));
 
         SignDataResponseV2Dto response = new SignDataResponseV2Dto();
         response.setSignatures(OperationDataMapper.toSignatures(signed.getSignatures()));

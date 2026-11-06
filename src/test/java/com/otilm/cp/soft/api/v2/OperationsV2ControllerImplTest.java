@@ -56,12 +56,16 @@ import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.SignatureFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.MGF1ParameterSpec;
+import java.security.spec.PSSParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,6 +88,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -108,6 +113,8 @@ class OperationsV2ControllerImplTest {
 
     private KeyDataRepository keyDataRepository;
 
+    private PrometheusMeterRegistry registry;
+
     @Autowired
     void setController(OperationsV2ControllerImpl controller) {
         this.controller = controller;
@@ -131,6 +138,11 @@ class OperationsV2ControllerImplTest {
     @Autowired
     void setKeyDataRepository(KeyDataRepository keyDataRepository) {
         this.keyDataRepository = keyDataRepository;
+    }
+
+    @Autowired
+    void setRegistry(PrometheusMeterRegistry registry) {
+        this.registry = registry;
     }
 
     @Test
@@ -683,16 +695,89 @@ class OperationsV2ControllerImplTest {
         assertTrue(controller.listRandomAttributes(request).isEmpty());
     }
 
-    @Test
-    void refusesToSignAPrehashedDigest() {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("prehashedSelections")
+    void signsAPrehashedDigestThatVerifiesOverItsMessage(SignatureAlgorithm algorithm, String keyAlgorithm,
+            String jdkName, String hash) throws GeneralSecurityException {
         // given
-        KeyPair pair = rsaKeyPair("v2-sign-prehashed");
-        SignDataRequestV2Dto signing = signing(pair, rsaSignatureAttributes());
-        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
+        KeyPair pair = "RSA".equals(keyAlgorithm)
+                ? rsaKeyPair("v2-prehashed-" + algorithm.getCode())
+                : ecdsaKeyPair("v2-prehashed-" + algorithm.getCode());
+        SignDataRequestV2Dto signing = prehashed(pair, algorithm, digestOf(hash, MESSAGE));
+
+        // when
+        SignDataResponseV2Dto signed = controller.signData(signing).getBody();
+
+        // then
+        assertNotNull(signed);
+        assertTrue(verifiesWithJdk(pair.publicKeySpki(), keyAlgorithm, jdkName, hash, MESSAGE,
+                signed.getSignatures().get(0).getData()));
+    }
+
+    static Stream<Arguments> prehashedSelections() {
+        return Stream
+                .of(Arguments.of(SignatureAlgorithm.SHA256_WITH_RSA, "RSA", "SHA256withRSA", "SHA-256"),
+                        Arguments.of(SignatureAlgorithm.SHA384_WITH_RSA_PSS, "RSA", "RSASSA-PSS", "SHA-384"),
+                        Arguments.of(SignatureAlgorithm.SHA256_WITH_ECDSA, "EC", "SHA256withECDSA", "SHA-256"));
+    }
+
+    @Test
+    void signsEveryItemOfAPrehashedBatch() {
+        // given
+        KeyPair pair = rsaKeyPair("v2-prehashed-batch");
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, new byte[32]);
+        signing
+                .setData(List
+                        .of(item("one", digestOf("SHA-256", new byte[]{1})),
+                                item("two", digestOf("SHA-256", new byte[]{2})),
+                                item("three", digestOf("SHA-256", new byte[]{3}))));
+
+        // when
+        SignDataResponseV2Dto signed = controller.signData(signing).getBody();
+
+        // then
+        assertNotNull(signed);
+        assertEquals(List.of("one", "two", "three"),
+                signed.getSignatures().stream().map(signature -> signature.getIdentifier()).toList());
+        assertTrue(signed.getSignatures().stream().allMatch(signature -> signature.getData().length > 0));
+    }
+
+    @Test
+    void refusesAPostQuantumCodeBeforeCheckingLength() {
+        // given
+        KeyPair pair = mldsaKeyPair("v2-prehashed-pq");
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.ML_DSA_65, new byte[7]);
 
         // when
         // then
         assertThrows(ParameterUnsupportedException.class, () -> controller.signData(signing));
+    }
+
+    @Test
+    void refusesAPrehashedCodeTheKeyCannotMake() {
+        // given
+        KeyPair pair = ecdsaKeyPair("v2-prehashed-mismatch");
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, new byte[32]);
+
+        // when
+        // then
+        assertThrows(ParameterUnsupportedException.class, () -> controller.signData(signing));
+    }
+
+    @Test
+    void refusesABatchWithOneWrongLengthDigest() {
+        // given
+        KeyPair pair = rsaKeyPair("v2-prehashed-wrong-length");
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, new byte[32]);
+        signing.setData(List.of(item("one", new byte[32]), item("two", new byte[31]), item("three", new byte[32])));
+        double succeeded = signedCount("success");
+        double failed = signedCount("error");
+
+        // when
+        // then
+        assertThrows(ValidationException.class, () -> controller.signData(signing));
+        assertEquals(succeeded, signedCount("success"));
+        assertEquals(failed, signedCount("error"));
     }
 
     @Test
@@ -967,6 +1052,45 @@ class OperationsV2ControllerImplTest {
         Signature verifier = Signature.getInstance(signatureAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
         verifier.initVerify(publicKey);
         verifier.update(data);
+        return verifier.verify(signature);
+    }
+
+    private static SignDataRequestV2Dto prehashed(KeyPair pair, SignatureAlgorithm algorithm, byte[] digest) {
+        SignDataRequestV2Dto signing = signing(pair, List.of(SignatureAlgorithmAttribute.request(algorithm)));
+        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
+        signing.setData(List.of(item("one", digest)));
+        return signing;
+    }
+
+    private static byte[] digestOf(String hash, byte[] data) {
+        try {
+            return MessageDigest.getInstance(hash).digest(data);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private double signedCount(String outcome) {
+        return registry
+                .find("connector_events_total")
+                .tags("event", "data_signed", "outcome", outcome)
+                .counter()
+                .count();
+    }
+
+    /** Verifies over the message with the JDK's own providers, which sort ahead of BouncyCastle. */
+    private static boolean verifiesWithJdk(byte[] spki, String keyAlgorithm, String signatureAlgorithm, String hash,
+            byte[] message, byte[] signature) throws GeneralSecurityException {
+        var publicKey = KeyFactory.getInstance(keyAlgorithm).generatePublic(new X509EncodedKeySpec(spki));
+        Signature verifier = Signature.getInstance(signatureAlgorithm);
+        assertNotEquals(BouncyCastleProvider.PROVIDER_NAME, verifier.getProvider().getName());
+        if ("RSASSA-PSS".equals(signatureAlgorithm)) {
+            MGF1ParameterSpec mgf = MGF1ParameterSpec.SHA384;
+            int saltLength = MessageDigest.getInstance(hash).getDigestLength();
+            verifier.setParameter(new PSSParameterSpec(hash, "MGF1", mgf, saltLength, 1));
+        }
+        verifier.initVerify(publicKey);
+        verifier.update(message);
         return verifier.verify(signature);
     }
 
