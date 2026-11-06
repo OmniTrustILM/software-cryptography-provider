@@ -112,8 +112,8 @@ class InfoV2ControllerImplTest {
     }
 
     /**
-     * The platform sends a digest to sign only to a connector that declares the flag, and the flag is enforced against
-     * it afterwards, so it is declared only now that a digest is signed as given.
+     * The platform sends a digest to sign only to a connector that declares the flag, and a declared flag is enforced
+     * against it, so the flag is declared only because the connector honours it.
      */
     @Test
     void declaresPrehashedSigning() {
