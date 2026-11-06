@@ -3,7 +3,6 @@ package com.otilm.cp.soft.service.impl;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
@@ -50,7 +49,6 @@ import com.otilm.cp.soft.util.RsaEncodingConstants;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
 import jakarta.transaction.Transactional;
 import java.util.Base64;
-import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -72,16 +70,6 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     private static final Set<SignatureAlgorithm> RSA_PSS_ALGORITHMS = EnumSet
             .of(SignatureAlgorithm.SHA256_WITH_RSA_PSS, SignatureAlgorithm.SHA384_WITH_RSA_PSS,
                     SignatureAlgorithm.SHA512_WITH_RSA_PSS);
-
-    /** The digest each RSA and ECDSA algorithm signs, which the shared signer is told as a parameter of its own. */
-    private static final Map<SignatureAlgorithm, DigestAlgorithm> DIGESTS = new EnumMap<>(Map
-            .of(SignatureAlgorithm.SHA256_WITH_RSA, DigestAlgorithm.SHA_256, SignatureAlgorithm.SHA384_WITH_RSA,
-                    DigestAlgorithm.SHA_384, SignatureAlgorithm.SHA512_WITH_RSA, DigestAlgorithm.SHA_512,
-                    SignatureAlgorithm.SHA256_WITH_RSA_PSS, DigestAlgorithm.SHA_256,
-                    SignatureAlgorithm.SHA384_WITH_RSA_PSS, DigestAlgorithm.SHA_384,
-                    SignatureAlgorithm.SHA512_WITH_RSA_PSS, DigestAlgorithm.SHA_512,
-                    SignatureAlgorithm.SHA256_WITH_ECDSA, DigestAlgorithm.SHA_256, SignatureAlgorithm.SHA384_WITH_ECDSA,
-                    DigestAlgorithm.SHA_384, SignatureAlgorithm.SHA512_WITH_ECDSA, DigestAlgorithm.SHA_512));
 
     private CryptographicOperationsService cryptographicOperationsService;
 
@@ -116,7 +104,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
      * Checks whether the signature's digest and padding fit the RSA modulus.
      */
     private static boolean fitsRsaKey(SignatureAlgorithm algorithm, int modulusBits) {
-        int digestBytes = DIGESTS.get(algorithm).getDigestSizeBytes();
+        int digestBytes = SignatureAlgorithms.digestOf(algorithm).getDigestSizeBytes();
         if (RSA_PSS_ALGORITHMS.contains(algorithm)) {
             int encodedBytes = (modulusBits + 6) / 8;
             return encodedBytes >= 2 * digestBytes + RsaEncodingConstants.PSS_PADDING_BYTES;
@@ -292,11 +280,12 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
                         .of(RequestAttributes.string(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, scheme.getCode()),
                                 RequestAttributes
                                         .string(RsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
-                                                DIGESTS.get(selected).getCode()));
+                                                SignatureAlgorithms.digestOf(selected).getCode()));
             }
             case ECDSA -> List
                     .of(RequestAttributes
-                            .string(EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, DIGESTS.get(selected).getCode()));
+                            .string(EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
+                                    SignatureAlgorithms.digestOf(selected).getCode()));
             default -> List.of();
         };
     }
