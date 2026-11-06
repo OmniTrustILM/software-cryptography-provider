@@ -183,9 +183,9 @@ never asks this connector to list or resolve keys. Both operations answer `OPERA
 **A digest is signed as the caller computed it, never hashed again.** `prehashedSigning` is an enforced feature flag,
 and declaring it is what lets the platform send this connector a digest instead of data; under `PREHASHED_DIGEST` each
 data item is that digest, while the data mode is unchanged. It covers RSA PKCS#1 v1.5, RSA-PSS and ECDSA with SHA-256,
-SHA-384 or SHA-512. PKCS#1 v1.5 wraps the digest in a `DigestInfo`
-whose algorithm identifier carries explicit NULL parameters, since that is the encoding verifiers expect and the data
-path produces; PSS uses MGF1 over the same hash with a salt as long as the digest, and ECDSA signs the digest directly.
+SHA-384 or SHA-512. PKCS#1 v1.5 wraps the digest in a `DigestInfo` whose algorithm identifier carries explicit NULL
+parameters, since that is the encoding verifiers expect and the data path produces; PSS uses MGF1 over the same hash
+with a salt as long as the digest, and ECDSA signs the digest directly.
 An algorithm the mode does not cover, such as a post-quantum one, is refused with `PARAMETER_UNSUPPORTED` before the
 key's capabilities or any item length are looked at, since no digest length can be right for it. A key that cannot make
 the selected algorithm is refused with `PARAMETER_UNSUPPORTED` next. Item lengths are checked last, answering
