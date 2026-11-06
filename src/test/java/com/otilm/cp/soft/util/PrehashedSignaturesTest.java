@@ -21,11 +21,16 @@ import javax.crypto.Cipher;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PrehashedSignaturesTest {
 
@@ -79,20 +84,25 @@ class PrehashedSignaturesTest {
         byte[] signature = PrehashedSignatures.sign(algorithm, pair.getPrivate(), digest);
 
         // then
-        assertThat(verifies(algorithm, pair.getPublic(), signature, 0)).isTrue();
+        assertTrue(verifies(algorithm, pair.getPublic(), signature, 0));
     }
 
     @Test
     void verifiesWithAProviderOtherThanBouncyCastle() throws Exception {
+        // given
+        String bouncyCastle = BouncyCastleProvider.PROVIDER_NAME;
+
+        // when
+        String rsaProvider = Signature.getInstance("SHA256withRSA").getProvider().getName();
+        String pssProvider = Signature.getInstance("RSASSA-PSS").getProvider().getName();
+        String ecdsaProvider = Signature.getInstance("SHA256withECDSA").getProvider().getName();
+        String cipherProvider = Cipher.getInstance("RSA/ECB/PKCS1Padding").getProvider().getName();
+
         // then
-        assertThat(Signature.getInstance("SHA256withRSA").getProvider().getName())
-                .isNotEqualTo(BouncyCastleProvider.PROVIDER_NAME);
-        assertThat(Signature.getInstance("RSASSA-PSS").getProvider().getName())
-                .isNotEqualTo(BouncyCastleProvider.PROVIDER_NAME);
-        assertThat(Signature.getInstance("SHA256withECDSA").getProvider().getName())
-                .isNotEqualTo(BouncyCastleProvider.PROVIDER_NAME);
-        assertThat(Cipher.getInstance("RSA/ECB/PKCS1Padding").getProvider().getName())
-                .isNotEqualTo(BouncyCastleProvider.PROVIDER_NAME);
+        assertNotEquals(bouncyCastle, rsaProvider);
+        assertNotEquals(bouncyCastle, pssProvider);
+        assertNotEquals(bouncyCastle, ecdsaProvider);
+        assertNotEquals(bouncyCastle, cipherProvider);
     }
 
     @Test
@@ -109,7 +119,7 @@ class PrehashedSignaturesTest {
         byte[] prefix = HexFormat.of().parseHex("3031300d060960864801650304020105000420");
         byte[] expected = Arrays.copyOf(prefix, prefix.length + digest.length);
         System.arraycopy(digest, 0, expected, prefix.length, digest.length);
-        assertThat(cipher.doFinal(signature)).isEqualTo(expected);
+        assertArrayEquals(expected, cipher.doFinal(signature));
     }
 
     @ParameterizedTest
@@ -122,7 +132,7 @@ class PrehashedSignaturesTest {
         byte[] signature = PrehashedSignatures.sign(algorithm, p256.getPrivate(), digest);
 
         // then
-        assertThat(verifies(algorithm, p256.getPublic(), signature, 0)).isTrue();
+        assertTrue(verifies(algorithm, p256.getPublic(), signature, 0));
     }
 
     @Test
@@ -135,7 +145,7 @@ class PrehashedSignaturesTest {
         boolean underSaltTwenty = verifies(SignatureAlgorithm.SHA256_WITH_RSA_PSS, rsa.getPublic(), signature, 20);
 
         // then
-        assertThat(underSaltTwenty).isFalse();
+        assertFalse(underSaltTwenty);
     }
 
     @Test
@@ -143,23 +153,48 @@ class PrehashedSignaturesTest {
         // given
         byte[] digest = new byte[32];
 
+        // when
+        boolean admitted = PrehashedSignatures.admits(SignatureAlgorithm.ML_DSA_65);
+
         // then
-        assertThat(PrehashedSignatures.admits(SignatureAlgorithm.ML_DSA_65)).isFalse();
-        assertThatThrownBy(() -> PrehashedSignatures.sign(SignatureAlgorithm.ML_DSA_65, rsa.getPrivate(), digest))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertFalse(admitted);
+        assertThrows(IllegalArgumentException.class,
+                () -> PrehashedSignatures.sign(SignatureAlgorithm.ML_DSA_65, rsa.getPrivate(), digest));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SignatureAlgorithm.class,
+            names = {"SHA256_WITH_RSA", "SHA256_WITH_RSA_PSS", "SHA256_WITH_ECDSA", "SHA512_WITH_RSA_PSS"})
+    void refusesADigestOfTheWrongLength(SignatureAlgorithm algorithm) {
+        // given
+        int expected = SignatureAlgorithms.digestOf(algorithm).getDigestSizeBytes();
+        KeyPair pair = algorithm.name().endsWith("ECDSA") ? p256 : rsa;
+
+        // when
+        Executable tooShort = () -> PrehashedSignatures.sign(algorithm, pair.getPrivate(), new byte[expected - 1]);
+        Executable tooLong = () -> PrehashedSignatures.sign(algorithm, pair.getPrivate(), new byte[expected + 1]);
+        Executable muchLonger = () -> PrehashedSignatures.sign(algorithm, pair.getPrivate(), new byte[96]);
+
+        // then
+        assertThrows(IllegalArgumentException.class, tooShort);
+        assertThrows(IllegalArgumentException.class, tooLong);
+        assertThrows(IllegalArgumentException.class, muchLonger);
     }
 
     @Test
     void digestOfCoversExactlyTheNineCodes() {
-        // when
+        // given
         Set<SignatureAlgorithm> covered = Arrays
                 .stream(SignatureAlgorithm.values())
                 .filter(algorithm -> SignatureAlgorithms.digestOf(algorithm) != null)
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(SignatureAlgorithm.class)));
 
+        // when
+        boolean allAdmitted = BOUND.stream().allMatch(PrehashedSignatures::admits);
+
         // then
-        assertThat(covered).isEqualTo(BOUND);
-        assertThat(BOUND).allMatch(PrehashedSignatures::admits);
+        assertEquals(BOUND, covered);
+        assertTrue(allAdmitted);
     }
 
     private static boolean verifies(SignatureAlgorithm algorithm, PublicKey key, byte[] signature, int saltOverride)

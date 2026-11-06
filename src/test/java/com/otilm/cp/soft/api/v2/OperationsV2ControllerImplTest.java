@@ -69,6 +69,7 @@ import java.security.spec.PSSParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -722,24 +723,34 @@ class OperationsV2ControllerImplTest {
     }
 
     @Test
-    void signsEveryItemOfAPrehashedBatch() {
+    void signsEveryItemOfAPrehashedBatch() throws GeneralSecurityException {
         // given
         KeyPair pair = rsaKeyPair("v2-prehashed-batch");
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, new byte[32]);
+        Map<String, byte[]> messages = new LinkedHashMap<>();
+        messages.put("one", new byte[]{1});
+        messages.put("two", new byte[]{2});
+        messages.put("three", new byte[]{3});
+        SignDataRequestV2Dto signing = signing(pair,
+                List.of(SignatureAlgorithmAttribute.request(SignatureAlgorithm.SHA256_WITH_RSA)));
+        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
         signing
-                .setData(List
-                        .of(item("one", digestOf("SHA-256", new byte[]{1})),
-                                item("two", digestOf("SHA-256", new byte[]{2})),
-                                item("three", digestOf("SHA-256", new byte[]{3}))));
+                .setData(messages
+                        .entrySet()
+                        .stream()
+                        .map(entry -> item(entry.getKey(), digestOf("SHA-256", entry.getValue())))
+                        .toList());
 
         // when
         SignDataResponseV2Dto signed = controller.signData(signing).getBody();
 
         // then
         assertNotNull(signed);
-        assertEquals(List.of("one", "two", "three"),
+        assertEquals(List.copyOf(messages.keySet()),
                 signed.getSignatures().stream().map(signature -> signature.getIdentifier()).toList());
-        assertTrue(signed.getSignatures().stream().allMatch(signature -> signature.getData().length > 0));
+        for (var signature : signed.getSignatures()) {
+            assertTrue(verifiesWithJdk(pair.publicKeySpki(), "RSA", "SHA256withRSA", "SHA-256",
+                    messages.get(signature.getIdentifier()), signature.getData()));
+        }
     }
 
     @Test
@@ -1085,7 +1096,7 @@ class OperationsV2ControllerImplTest {
         Signature verifier = Signature.getInstance(signatureAlgorithm);
         assertNotEquals(BouncyCastleProvider.PROVIDER_NAME, verifier.getProvider().getName());
         if ("RSASSA-PSS".equals(signatureAlgorithm)) {
-            MGF1ParameterSpec mgf = MGF1ParameterSpec.SHA384;
+            MGF1ParameterSpec mgf = new MGF1ParameterSpec(hash);
             int saltLength = MessageDigest.getInstance(hash).getDigestLength();
             verifier.setParameter(new PSSParameterSpec(hash, "MGF1", mgf, saltLength, 1));
         }

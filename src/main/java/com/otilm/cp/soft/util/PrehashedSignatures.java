@@ -54,13 +54,18 @@ public final class PrehashedSignatures {
      * @param digest the digest to sign
      * @return the signature
      * @throws SignatureException when the signer rejects the digest
-     * @throws IllegalArgumentException when the algorithm is outside what can be signed as a digest
+     * @throws IllegalArgumentException when the algorithm is outside what can be signed as a digest, or the digest is
+     * not exactly the length of the algorithm's hash
      * @throws IllegalStateException when the signer cannot be set up for this key
      */
     public static byte[] sign(SignatureAlgorithm algorithm, PrivateKey key, byte[] digest) throws SignatureException {
         DigestAlgorithm hash = SignatureAlgorithms.digestOf(algorithm);
         if (hash == null) {
             throw new IllegalArgumentException("A digest cannot be signed under " + algorithm.getCode());
+        }
+        if (digest.length != hash.getDigestSizeBytes()) {
+            throw new IllegalArgumentException(
+                    "A " + hash.getCode() + " digest is " + hash.getDigestSizeBytes() + " bytes, not " + digest.length);
         }
         try {
             if (RSA_PSS.contains(algorithm)) {
