@@ -180,10 +180,16 @@ milliseconds.
 **Key listing is not implemented.** `keyList` is an enforced feature flag, so leaving it undeclared means the platform
 never asks this connector to list or resolve keys. Both operations answer `OPERATION_NOT_SUPPORTED`.
 
-**Prehashed signing is not implemented yet.** `prehashedSigning` is an enforced feature flag, so leaving it undeclared
-means the platform never sends this connector a digest to sign. A sign request naming a `signatureInputMode` is
-still refused with `PARAMETER_UNSUPPORTED`: signing the digest as data would hash it a second time, and the contract
-forbids ignoring the field.
+**A digest is signed as the caller computed it, never hashed again.** `prehashedSigning` is an enforced feature flag,
+and declaring it is what lets the platform send this connector a digest instead of data; under `PREHASHED_DIGEST` each
+data item is that digest, while the data mode is unchanged. It covers RSA PKCS#1 v1.5, RSA-PSS and ECDSA with SHA-256,
+SHA-384 or SHA-512, because those are the signatures defined over a hash. PKCS#1 v1.5 wraps the digest in a `DigestInfo`
+whose algorithm identifier carries explicit NULL parameters, since that is the encoding verifiers expect and the data
+path produces; PSS uses MGF1 over the same hash with a salt as long as the digest, and ECDSA signs the digest directly.
+An algorithm the mode does not cover, such as a post-quantum one, is refused with `PARAMETER_UNSUPPORTED` before
+anything else is looked at, since no digest length can be right for it; then a key that cannot make the selected
+algorithm. Item lengths are checked last, with `VALIDATION_FAILED`, and for the whole batch before any item is signed,
+so a batch is signed whole or not at all rather than returning some signatures beside a refusal.
 
 **Health reports the state the application already computes.** `HealthV2ControllerImpl` answers `/v2/health` and the
 two probes under it by reading the health groups of the same name, so what an operator configures a group to cover is
