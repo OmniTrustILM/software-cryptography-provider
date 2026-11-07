@@ -72,9 +72,9 @@ public final class PrehashedSignatures {
                 return signPss(hash, key, digest);
             }
             if (ECDSA.contains(algorithm)) {
-                return signRaw("NONEwithECDSA", key, digest);
+                return signUnhashed("NONEwithECDSA", key, digest);
             }
-            return signRaw("NONEwithRSA", key, derDigestInfo(hash, digest));
+            return signUnhashed("NONEwithRSA", key, derDigestInfo(hash, digest));
         } catch (SignatureException e) {
             throw e;
         } catch (GeneralSecurityException | IOException e) {
@@ -91,7 +91,7 @@ public final class PrehashedSignatures {
         return signWith(signer, key, digest);
     }
 
-    private static byte[] signRaw(String name, PrivateKey key, byte[] input) throws GeneralSecurityException {
+    private static byte[] signUnhashed(String name, PrivateKey key, byte[] input) throws GeneralSecurityException {
         return signWith(Signature.getInstance(name, PROVIDER), key, input);
     }
 
