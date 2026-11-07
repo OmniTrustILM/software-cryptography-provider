@@ -1,6 +1,7 @@
 package com.otilm.cp.soft.service;
 
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.DecryptDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.EncryptDataResponseDto;
@@ -10,11 +11,19 @@ import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.data.SignatureRequestData;
+import java.util.List;
 import java.util.UUID;
 
 public interface CryptographicOperationsService {
 
     SignDataResponseDto signData(UUID uuid, UUID keyUuid, SignDataRequestDto request) throws NotFoundException;
+
+    /**
+     * Signs digests the caller already computed, without hashing them again.
+     */
+    SignDataResponseDto signDigests(UUID tokenInstanceUuid, UUID keyUuid, SignatureAlgorithm algorithm,
+            List<SignatureRequestData> digests) throws NotFoundException;
 
     VerifyDataResponseDto verifyData(UUID uuid, UUID keyUuid, VerifyDataRequestDto request) throws NotFoundException;
 

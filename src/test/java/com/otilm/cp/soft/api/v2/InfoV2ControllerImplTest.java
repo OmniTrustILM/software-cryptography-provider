@@ -111,6 +111,20 @@ class InfoV2ControllerImplTest {
         assertFalse(features.contains(FeatureFlag.ASYNCHRONOUS));
     }
 
+    /**
+     * The platform sends a digest to sign only to a connector that declares the flag, and a declared flag is enforced
+     * against it, so the flag is declared only because the connector honours it.
+     */
+    @Test
+    void declaresPrehashedSigning() {
+        // given
+        // when
+        List<FeatureFlag> features = interfaceInfo(ConnectorInterface.CRYPTOGRAPHY).getFeatures();
+
+        // then
+        assertTrue(features.contains(FeatureFlag.PREHASHED_SIGNING));
+    }
+
     private ConnectorInterfaceInfo interfaceInfo(ConnectorInterface code) {
         return controller
                 .getConnectorInfo()

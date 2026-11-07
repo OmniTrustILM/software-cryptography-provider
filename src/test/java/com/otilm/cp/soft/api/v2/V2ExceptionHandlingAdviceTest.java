@@ -79,7 +79,7 @@ class V2ExceptionHandlingAdviceTest {
         // given
         // when
         ResponseEntity<ProblemDetailExtended> response = advice
-                .handleAttributeValidationFailure(new ValidationException("the token code is required"));
+                .handleValueRuleFailure(new ValidationException("the token code is required"));
 
         // then
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
