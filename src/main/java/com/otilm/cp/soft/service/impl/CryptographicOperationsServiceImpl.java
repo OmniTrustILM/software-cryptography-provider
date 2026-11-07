@@ -49,21 +49,26 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
 
     @Override
     public SignDataResponseDto signData(UUID uuid, UUID keyUuid, SignDataRequestDto request) throws NotFoundException {
-        // An item the key technology could not sign is answered without a signature rather than by failing, and a
-        // request answered that way did not do what it was asked.
         return connectorMetrics
                 .counting(ConnectorEvent.DATA_SIGNED, () -> sign(uuid, keyUuid, request),
-                        signed -> signed.getSignatures().stream().allMatch(item -> item.getData() != null));
+                        CryptographicOperationsServiceImpl::everyItemSigned);
     }
 
     @Override
     public SignDataResponseDto signDigests(UUID tokenInstanceUuid, UUID keyUuid, SignatureAlgorithm algorithm,
             List<SignatureRequestData> digests) throws NotFoundException {
-        // Same worked-predicate as signData, so the count means the same in both input modes.
         return connectorMetrics
                 .counting(ConnectorEvent.DATA_SIGNED,
                         () -> signDigestsWithKey(tokenInstanceUuid, keyUuid, algorithm, digests),
-                        signed -> signed.getSignatures().stream().allMatch(item -> item.getData() != null));
+                        CryptographicOperationsServiceImpl::everyItemSigned);
+    }
+
+    /**
+     * An item the key technology could not sign is answered without a signature rather than by failing, and a request
+     * answered that way did not do what it was asked.
+     */
+    private static boolean everyItemSigned(SignDataResponseDto signed) {
+        return signed.getSignatures().stream().allMatch(item -> item.getData() != null);
     }
 
     private SignDataResponseDto signDigestsWithKey(UUID tokenInstanceUuid, UUID keyUuid, SignatureAlgorithm algorithm,

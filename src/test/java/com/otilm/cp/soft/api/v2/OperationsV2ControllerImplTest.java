@@ -704,7 +704,7 @@ class OperationsV2ControllerImplTest {
         KeyPair pair = "RSA".equals(keyAlgorithm)
                 ? rsaKeyPair("v2-prehashed-" + algorithm.getCode())
                 : ecdsaKeyPair("v2-prehashed-" + algorithm.getCode());
-        SignDataRequestV2Dto signing = prehashed(pair, algorithm, digestOf(hash, MESSAGE));
+        SignDataRequestV2Dto signing = prehashed(pair, algorithm, item("one", digestOf(hash, MESSAGE)));
 
         // when
         SignDataResponseV2Dto signed = controller.signData(signing).getBody();
@@ -730,15 +730,13 @@ class OperationsV2ControllerImplTest {
         messages.put("one", new byte[]{1});
         messages.put("two", new byte[]{2});
         messages.put("three", new byte[]{3});
-        SignDataRequestV2Dto signing = signing(pair,
-                List.of(SignatureAlgorithmAttribute.request(SignatureAlgorithm.SHA256_WITH_RSA)));
-        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
-        signing
-                .setData(messages
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA,
+                messages
                         .entrySet()
                         .stream()
                         .map(entry -> item(entry.getKey(), digestOf("SHA-256", entry.getValue())))
-                        .toList());
+                        .toArray(SignatureDataV2Dto[]::new));
+        double succeeded = signedCount("success");
 
         // when
         SignDataResponseV2Dto signed = controller.signData(signing).getBody();
@@ -751,13 +749,14 @@ class OperationsV2ControllerImplTest {
             assertTrue(verifiesWithJdk(pair.publicKeySpki(), "RSA", "SHA256withRSA", "SHA-256",
                     messages.get(signature.getIdentifier()), signature.getData()));
         }
+        assertEquals(succeeded + 1, signedCount("success"));
     }
 
     @Test
     void refusesAPostQuantumCodeBeforeCheckingLength() {
         // given
         KeyPair pair = mldsaKeyPair("v2-prehashed-pq");
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.ML_DSA_65, new byte[7]);
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.ML_DSA_65, item("one", new byte[7]));
 
         // when
         // then
@@ -768,7 +767,8 @@ class OperationsV2ControllerImplTest {
     void refusesAPrehashedCodeTheKeyCannotMake() {
         // given
         KeyPair pair = ecdsaKeyPair("v2-prehashed-mismatch");
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, new byte[32]);
+        // The item is the wrong length too, so the key's refusal has to come before the length check.
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, item("one", new byte[31]));
 
         // when
         // then
@@ -779,8 +779,8 @@ class OperationsV2ControllerImplTest {
     void refusesABatchWithOneWrongLengthDigest() {
         // given
         KeyPair pair = rsaKeyPair("v2-prehashed-wrong-length");
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, new byte[32]);
-        signing.setData(List.of(item("one", new byte[32]), item("two", new byte[31]), item("three", new byte[32])));
+        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, item("one", new byte[32]),
+                item("two", new byte[31]), item("three", new byte[32]));
         double succeeded = signedCount("success");
         double failed = signedCount("error");
 
@@ -1066,10 +1066,11 @@ class OperationsV2ControllerImplTest {
         return verifier.verify(signature);
     }
 
-    private static SignDataRequestV2Dto prehashed(KeyPair pair, SignatureAlgorithm algorithm, byte[] digest) {
+    private static SignDataRequestV2Dto prehashed(KeyPair pair, SignatureAlgorithm algorithm,
+            SignatureDataV2Dto... items) {
         SignDataRequestV2Dto signing = signing(pair, List.of(SignatureAlgorithmAttribute.request(algorithm)));
         signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
-        signing.setData(List.of(item("one", digest)));
+        signing.setData(List.of(items));
         return signing;
     }
 

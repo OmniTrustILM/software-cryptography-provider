@@ -36,7 +36,7 @@ class PrehashedSignaturesTest {
 
     private static final byte[] MESSAGE = "A message whose digest is signed".getBytes(StandardCharsets.UTF_8);
 
-    private static final Set<SignatureAlgorithm> BOUND = EnumSet
+    private static final Set<SignatureAlgorithm> ADMITTED = EnumSet
             .of(SignatureAlgorithm.SHA256_WITH_RSA, SignatureAlgorithm.SHA384_WITH_RSA,
                     SignatureAlgorithm.SHA512_WITH_RSA, SignatureAlgorithm.SHA256_WITH_RSA_PSS,
                     SignatureAlgorithm.SHA384_WITH_RSA_PSS, SignatureAlgorithm.SHA512_WITH_RSA_PSS,
@@ -149,7 +149,7 @@ class PrehashedSignaturesTest {
     }
 
     @Test
-    void refusesACodeOutsideTheBound() {
+    void refusesACodeItDoesNotAdmit() {
         // given
         byte[] digest = new byte[32];
 
@@ -190,10 +190,10 @@ class PrehashedSignaturesTest {
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(SignatureAlgorithm.class)));
 
         // when
-        boolean allAdmitted = BOUND.stream().allMatch(PrehashedSignatures::admits);
+        boolean allAdmitted = ADMITTED.stream().allMatch(PrehashedSignatures::admits);
 
         // then
-        assertEquals(BOUND, covered);
+        assertEquals(ADMITTED, covered);
         assertTrue(allAdmitted);
     }
 

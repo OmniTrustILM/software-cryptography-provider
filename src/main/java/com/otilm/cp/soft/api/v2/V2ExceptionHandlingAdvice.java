@@ -82,8 +82,8 @@ public class V2ExceptionHandlingAdvice {
     }
 
     @ExceptionHandler(ValidationException.class)
-    public ResponseEntity<ProblemDetailExtended> handleAttributeValidationFailure(ValidationException e) {
-        return problem(ErrorCode.VALIDATION_FAILED, "The supplied attributes break a value rule.", e);
+    public ResponseEntity<ProblemDetailExtended> handleValueRuleFailure(ValidationException e) {
+        return problem(ErrorCode.VALIDATION_FAILED, "The supplied attributes or data break a value rule.", e);
     }
 
     @ExceptionHandler(AttributeDefinitionMissingException.class)

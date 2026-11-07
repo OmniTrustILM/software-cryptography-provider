@@ -189,7 +189,7 @@ with a salt as long as the digest, and ECDSA signs the digest directly.
 An algorithm the mode does not cover, such as a post-quantum one, is refused with `PARAMETER_UNSUPPORTED` before the
 key's capabilities or any item length are looked at, since no digest length can be right for it. A key that cannot make
 the selected algorithm is refused with `PARAMETER_UNSUPPORTED` next. Item lengths are checked last, answering
-`VALIDATION_FAILED`, and for the whole batch before any item is signed, so a batch is signed whole or not at all.
+`VALIDATION_FAILED`, and for the whole batch, so one wrong-length digest refuses the batch before anything is signed.
 
 **Health reports the state the application already computes.** `HealthV2ControllerImpl` answers `/v2/health` and the
 two probes under it by reading the health groups of the same name, so what an operator configures a group to cover is

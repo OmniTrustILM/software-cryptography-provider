@@ -115,7 +115,8 @@ class SignatureSelectionWireTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.name()));
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.name()))
+                .andExpect(jsonPath("$.detail").value("The supplied attributes or data break a value rule."));
     }
 
     private String prehashedBody(SignatureAlgorithm algorithm, byte[] digest) throws Exception {
