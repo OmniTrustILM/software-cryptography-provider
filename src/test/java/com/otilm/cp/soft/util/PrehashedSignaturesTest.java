@@ -17,7 +17,6 @@ import java.util.EnumSet;
 import java.util.HexFormat;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.crypto.Cipher;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -25,7 +24,6 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -96,13 +94,13 @@ class PrehashedSignaturesTest {
         String rsaProvider = Signature.getInstance("SHA256withRSA").getProvider().getName();
         String pssProvider = Signature.getInstance("RSASSA-PSS").getProvider().getName();
         String ecdsaProvider = Signature.getInstance("SHA256withECDSA").getProvider().getName();
-        String cipherProvider = Cipher.getInstance("RSA/ECB/PKCS1Padding").getProvider().getName();
+        String unhashedRsaProvider = Signature.getInstance("NONEwithRSA").getProvider().getName();
 
         // then
         assertNotEquals(bouncyCastle, rsaProvider);
         assertNotEquals(bouncyCastle, pssProvider);
         assertNotEquals(bouncyCastle, ecdsaProvider);
-        assertNotEquals(bouncyCastle, cipherProvider);
+        assertNotEquals(bouncyCastle, unhashedRsaProvider);
     }
 
     @Test
@@ -114,12 +112,14 @@ class PrehashedSignaturesTest {
         byte[] signature = PrehashedSignatures.sign(SignatureAlgorithm.SHA256_WITH_RSA, rsa.getPrivate(), digest);
 
         // then
-        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        cipher.init(Cipher.DECRYPT_MODE, rsa.getPublic());
         byte[] prefix = HexFormat.of().parseHex("3031300d060960864801650304020105000420");
         byte[] expected = Arrays.copyOf(prefix, prefix.length + digest.length);
         System.arraycopy(digest, 0, expected, prefix.length, digest.length);
-        assertArrayEquals(expected, cipher.doFinal(signature));
+        // The unhashed JDK verifier accepts the signature only over exactly these bytes, so it pins the encoding.
+        Signature verifier = Signature.getInstance("NONEwithRSA");
+        verifier.initVerify(rsa.getPublic());
+        verifier.update(expected);
+        assertTrue(verifier.verify(signature));
     }
 
     @ParameterizedTest
