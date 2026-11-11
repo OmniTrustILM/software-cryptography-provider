@@ -32,7 +32,7 @@ public class KeyStoreCacheServiceImpl implements KeyStoreCacheService {
     @Override
     @Transactional(readOnly = true)
     public CachedKeyMaterial loadKeyMaterial(UUID tokenInstanceUuid) throws NotFoundException {
-        return loadKeyMaterial(tokenInstanceRepository
+        return keyMaterialFor(tokenInstanceRepository
                 .findVersionByUuid(tokenInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, tokenInstanceUuid)));
     }
@@ -40,6 +40,10 @@ public class KeyStoreCacheServiceImpl implements KeyStoreCacheService {
     @Override
     @Transactional(readOnly = true)
     public CachedKeyMaterial loadKeyMaterial(TokenVersion observed) throws NotFoundException {
+        return keyMaterialFor(observed);
+    }
+
+    private CachedKeyMaterial keyMaterialFor(TokenVersion observed) throws NotFoundException {
         UUID tokenInstanceUuid = observed.uuid();
         CachedKeyMaterial kept = keyMaterialCache.kept(tokenInstanceUuid);
         if (kept != null && isStillWhatTheTokenHolds(kept, observed.timestamp())) {
