@@ -69,6 +69,6 @@ public class InfoV2ControllerImpl implements InfoController {
 
     private static ConnectorInterfaceInfo cryptography() {
         return new ConnectorInterfaceInfo(ConnectorInterface.CRYPTOGRAPHY, CRYPTOGRAPHY_INTERFACE_VERSION,
-                List.of(FeatureFlag.KEY_IMPORT, FeatureFlag.KEY_EXPORT));
+                List.of(FeatureFlag.KEY_IMPORT, FeatureFlag.KEY_EXPORT, FeatureFlag.PREHASHED_SIGNING));
     }
 }

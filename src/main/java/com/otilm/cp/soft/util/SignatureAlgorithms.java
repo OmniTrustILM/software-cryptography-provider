@@ -1,15 +1,18 @@
 package com.otilm.cp.soft.util;
 
+import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.cp.soft.collection.MLDSASecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
 import com.otilm.cp.soft.collection.SLHDSASignatureMode;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -36,7 +39,30 @@ public final class SignatureAlgorithms {
                                     SignatureAlgorithm.SLH_DSA_SHA2_192S, SignatureAlgorithm.SLH_DSA_SHA2_192F,
                                     SignatureAlgorithm.SLH_DSA_SHA2_256S, SignatureAlgorithm.SLH_DSA_SHA2_256F)));
 
+    private static final Map<SignatureAlgorithm, DigestAlgorithm> DIGESTS = new EnumMap<>(Map
+            .of(SignatureAlgorithm.SHA256_WITH_RSA, DigestAlgorithm.SHA_256, SignatureAlgorithm.SHA384_WITH_RSA,
+                    DigestAlgorithm.SHA_384, SignatureAlgorithm.SHA512_WITH_RSA, DigestAlgorithm.SHA_512,
+                    SignatureAlgorithm.SHA256_WITH_RSA_PSS, DigestAlgorithm.SHA_256,
+                    SignatureAlgorithm.SHA384_WITH_RSA_PSS, DigestAlgorithm.SHA_384,
+                    SignatureAlgorithm.SHA512_WITH_RSA_PSS, DigestAlgorithm.SHA_512,
+                    SignatureAlgorithm.SHA256_WITH_ECDSA, DigestAlgorithm.SHA_256, SignatureAlgorithm.SHA384_WITH_ECDSA,
+                    DigestAlgorithm.SHA_384, SignatureAlgorithm.SHA512_WITH_ECDSA, DigestAlgorithm.SHA_512));
+
+    private static final Set<SignatureAlgorithm> RSA_PSS = EnumSet
+            .of(SignatureAlgorithm.SHA256_WITH_RSA_PSS, SignatureAlgorithm.SHA384_WITH_RSA_PSS,
+                    SignatureAlgorithm.SHA512_WITH_RSA_PSS);
+
     private SignatureAlgorithms() {
+    }
+
+    /**
+     * Whether an RSA algorithm pads with PSS rather than PKCS#1 v1.5.
+     *
+     * @param algorithm the signature algorithm
+     * @return true for the RSA-PSS algorithms
+     */
+    public static boolean isRsaPss(SignatureAlgorithm algorithm) {
+        return RSA_PSS.contains(algorithm);
     }
 
     /**
@@ -47,6 +73,16 @@ public final class SignatureAlgorithms {
      */
     public static List<SignatureAlgorithm> offeredFor(KeyAlgorithm algorithm) {
         return OFFERED.getOrDefault(algorithm, List.of());
+    }
+
+    /**
+     * The digest an RSA or ECDSA algorithm signs.
+     *
+     * @param algorithm the signature algorithm
+     * @return the digest, null for an algorithm that names none
+     */
+    public static DigestAlgorithm digestOf(SignatureAlgorithm algorithm) {
+        return DIGESTS.get(algorithm);
     }
 
     /** Every algorithm a key of this connector can be offered. */

@@ -2,6 +2,7 @@ package com.otilm.cp.soft.service.impl;
 
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.DecryptDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.EncryptDataResponseDto;
@@ -25,8 +26,11 @@ import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.util.CipherUtil;
+import com.otilm.cp.soft.util.KeyStoreUtil;
+import com.otilm.cp.soft.util.PrehashedSignatures;
 import com.otilm.cp.soft.util.SecureRandomUtil;
 import com.otilm.cp.soft.util.SignatureUtil;
+import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.SignatureException;
@@ -184,6 +188,39 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
         return connectorMetrics
                 .counting(ConnectorEvent.DATA_SIGNED, () -> sign(key, request),
                         CryptographicOperationsServiceImpl::everyItemSigned);
+    }
+
+    @Override
+    public SignDataResponseDto signDigests(OperationKey key, SignatureAlgorithm algorithm,
+            List<SignatureRequestData> digests) {
+        return connectorMetrics
+                .counting(ConnectorEvent.DATA_SIGNED, () -> signEachDigest(key, algorithm, digests),
+                        CryptographicOperationsServiceImpl::everyItemSigned);
+    }
+
+    private static SignDataResponseDto signEachDigest(OperationKey operationKey, SignatureAlgorithm algorithm,
+            List<SignatureRequestData> digests) {
+        CachedKeyData key = operationKey.key();
+        if (key.type() != KeyType.PRIVATE_KEY) {
+            throw new CryptographicOperationException("Only private keys can be used for signing.");
+        }
+        PrivateKey privateKey = KeyStoreUtil.getPrivateKey(key, operationKey.material());
+
+        List<SignatureResponseData> signatures = new ArrayList<>();
+        for (SignatureRequestData digest : digests) {
+            SignatureResponseData signed = new SignatureResponseData();
+            signed.setIdentifier(digest.getIdentifier());
+            try {
+                signed.setData(PrehashedSignatures.sign(algorithm, privateKey, digest.getData()));
+            } catch (SignatureException e) {
+                signed.setDetails("Signature failed: " + e.getMessage());
+            }
+            signatures.add(signed);
+        }
+
+        SignDataResponseDto response = new SignDataResponseDto();
+        response.setSignatures(signatures);
+        return response;
     }
 
     @Override

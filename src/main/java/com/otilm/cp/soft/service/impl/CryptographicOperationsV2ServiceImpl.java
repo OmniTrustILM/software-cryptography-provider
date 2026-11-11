@@ -1,12 +1,14 @@
 package com.otilm.cp.soft.service.impl;
 
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureInputMode;
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import com.otilm.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.DecryptDataResponseDto;
@@ -16,6 +18,7 @@ import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.CipherDataRequestV2Dto;
@@ -42,16 +45,13 @@ import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.OperationDataMapper;
+import com.otilm.cp.soft.util.PrehashedSignatures;
 import com.otilm.cp.soft.util.RequestAttributes;
 import com.otilm.cp.soft.util.RsaEncodingConstants;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
 import java.util.Base64;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,20 +63,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CryptographicOperationsV2ServiceImpl implements CryptographicOperationsV2Service {
-
-    private static final Set<SignatureAlgorithm> RSA_PSS_ALGORITHMS = EnumSet
-            .of(SignatureAlgorithm.SHA256_WITH_RSA_PSS, SignatureAlgorithm.SHA384_WITH_RSA_PSS,
-                    SignatureAlgorithm.SHA512_WITH_RSA_PSS);
-
-    /** The digest each RSA and ECDSA algorithm signs, which the shared signer is told as a parameter of its own. */
-    private static final Map<SignatureAlgorithm, DigestAlgorithm> DIGESTS = new EnumMap<>(Map
-            .of(SignatureAlgorithm.SHA256_WITH_RSA, DigestAlgorithm.SHA_256, SignatureAlgorithm.SHA384_WITH_RSA,
-                    DigestAlgorithm.SHA_384, SignatureAlgorithm.SHA512_WITH_RSA, DigestAlgorithm.SHA_512,
-                    SignatureAlgorithm.SHA256_WITH_RSA_PSS, DigestAlgorithm.SHA_256,
-                    SignatureAlgorithm.SHA384_WITH_RSA_PSS, DigestAlgorithm.SHA_384,
-                    SignatureAlgorithm.SHA512_WITH_RSA_PSS, DigestAlgorithm.SHA_512,
-                    SignatureAlgorithm.SHA256_WITH_ECDSA, DigestAlgorithm.SHA_256, SignatureAlgorithm.SHA384_WITH_ECDSA,
-                    DigestAlgorithm.SHA_384, SignatureAlgorithm.SHA512_WITH_ECDSA, DigestAlgorithm.SHA_512));
 
     private CryptographicOperationsService cryptographicOperationsService;
 
@@ -110,8 +96,8 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
      * Checks whether the signature's digest and padding fit the RSA modulus.
      */
     private static boolean fitsRsaKey(SignatureAlgorithm algorithm, int modulusBits) {
-        int digestBytes = DIGESTS.get(algorithm).getDigestSizeBytes();
-        if (RSA_PSS_ALGORITHMS.contains(algorithm)) {
+        int digestBytes = SignatureAlgorithms.digestOf(algorithm).getDigestSizeBytes();
+        if (SignatureAlgorithms.isRsaPss(algorithm)) {
             int encodedBytes = (modulusBits + 6) / 8;
             return encodedBytes >= 2 * digestBytes + RsaEncodingConstants.PSS_PADDING_BYTES;
         }
@@ -159,6 +145,15 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
     @Override
     public SignDataResponseV2Dto signData(SignDataRequestV2Dto request) {
+        // The request stores data mode as no mode at all. Naming every mode makes one added to the interfaces fail
+        // the build here, instead of being signed as data.
+        return switch (Objects.requireNonNullElse(request.getSignatureInputMode(), SignatureInputMode.DATA)) {
+            case DATA -> signAsData(request);
+            case PREHASHED_DIGEST -> signDigests(request);
+        };
+    }
+
+    private SignDataResponseV2Dto signAsData(SignDataRequestV2Dto request) {
         OperationKey operationKey = resolveForOperation(request);
 
         SignDataRequestDto signing = new SignDataRequestDto();
@@ -166,6 +161,33 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         signing.setData(OperationDataMapper.toSignatureRequests(request.getData()));
 
         SignDataResponseDto signed = cryptographicOperationsService.signData(operationKey, signing);
+
+        SignDataResponseV2Dto response = new SignDataResponseV2Dto();
+        response.setSignatures(OperationDataMapper.toSignatures(signed.getSignatures()));
+        return response;
+    }
+
+    /**
+     * Every item is length-checked before any is signed, so a batch with one wrong digest signs nothing.
+     */
+    private SignDataResponseV2Dto signDigests(SignDataRequestV2Dto request) {
+        OperationKey operationKey = resolveForOperation(request);
+        SignatureAlgorithm selected = SignatureAlgorithmAttribute.selectedAlgorithm(request.getSignatureAttributes());
+        if (!PrehashedSignatures.admits(selected)) {
+            throw new ParameterUnsupportedException(
+                    "Prehashed signing is not defined for the selected signature algorithm");
+        }
+        if (!supportedAlgorithms(operationKey).contains(selected)) {
+            throw new ParameterUnsupportedException("The selected signature algorithm is unavailable for this key");
+        }
+        int size = SignatureAlgorithms.digestOf(selected).getDigestSizeBytes();
+        List<SignatureRequestData> digests = OperationDataMapper.toSignatureRequests(request.getData());
+        if (digests.stream().anyMatch(digest -> digest.getData() == null || digest.getData().length != size)) {
+            throw new ValidationException(
+                    ValidationError.create("Data entries must be {}-byte digests for {}", size, selected.getCode()));
+        }
+
+        SignDataResponseDto signed = cryptographicOperationsService.signDigests(operationKey, selected, digests);
 
         SignDataResponseV2Dto response = new SignDataResponseV2Dto();
         response.setSignatures(OperationDataMapper.toSignatures(signed.getSignatures()));
@@ -261,18 +283,19 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         }
         return switch (operationKey.key().algorithm()) {
             case RSA -> {
-                RsaSignatureScheme scheme = RSA_PSS_ALGORITHMS.contains(selected)
+                RsaSignatureScheme scheme = SignatureAlgorithms.isRsaPss(selected)
                         ? RsaSignatureScheme.PSS
                         : RsaSignatureScheme.PKCS1_v1_5;
                 yield List
                         .of(RequestAttributes.string(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, scheme.getCode()),
                                 RequestAttributes
                                         .string(RsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
-                                                DIGESTS.get(selected).getCode()));
+                                                SignatureAlgorithms.digestOf(selected).getCode()));
             }
             case ECDSA -> List
                     .of(RequestAttributes
-                            .string(EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST, DIGESTS.get(selected).getCode()));
+                            .string(EcdsaKeyAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
+                                    SignatureAlgorithms.digestOf(selected).getCode()));
             default -> List.of();
         };
     }

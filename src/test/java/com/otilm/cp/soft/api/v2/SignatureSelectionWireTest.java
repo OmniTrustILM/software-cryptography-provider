@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureInputMode;
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
@@ -85,5 +86,56 @@ class SignatureSelectionWireTest {
                         .content(body))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.errorCode").value(ErrorCode.PARAMETER_UNSUPPORTED.name()));
+    }
+
+    @Test
+    void answersParameterUnsupportedForAPrehashedPostQuantumRequest() throws Exception {
+        // given
+        String body = prehashedBody(SignatureAlgorithm.ML_DSA_65, new byte[7]);
+
+        // when
+        // then
+        mockMvc
+                .perform(post("/v2/cryptographyProvider/operations/sign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.PARAMETER_UNSUPPORTED.name()));
+    }
+
+    @Test
+    void answersValidationFailedForAWrongLengthDigest() throws Exception {
+        // given
+        String body = prehashedBody(SignatureAlgorithm.SHA256_WITH_RSA, new byte[31]);
+
+        // when
+        // then
+        mockMvc
+                .perform(post("/v2/cryptographyProvider/operations/sign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.VALIDATION_FAILED.name()))
+                .andExpect(jsonPath("$.detail").value("The supplied attributes or data break a value rule."));
+    }
+
+    private String prehashedBody(SignatureAlgorithm algorithm, byte[] digest) throws Exception {
+        CreateKeyRequestV2Dto creation = KeyRequestFixtures
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-wire-prehashed"), "key-" + System.nanoTime());
+        KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) keys.createKey(creation).getBody();
+        assertNotNull(created);
+
+        SignatureDataV2Dto item = new SignatureDataV2Dto();
+        item.setIdentifier("one");
+        item.setData(digest);
+        SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
+        signing.setTokenAttributes(creation.getTokenAttributes());
+        signing.setTokenProfileAttributes(List.of());
+        signing.setKeyMeta(created.getPrivateKeyData().getKeyMeta());
+        signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
+        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
+        signing.setSignatureAttributes(List.of(SignatureAlgorithmAttribute.request(algorithm)));
+        signing.setData(List.of(item));
+        return CORE_MAPPER.writeValueAsString(signing);
     }
 }
