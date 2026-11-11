@@ -175,9 +175,15 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
     @Override
     public SignDataResponseV2Dto signData(SignDataRequestV2Dto request) {
-        if (request.getSignatureInputMode() == SignatureInputMode.PREHASHED_DIGEST) {
-            return signDigests(request);
-        }
+        // The request stores data mode as no mode at all. Naming every mode makes one added to the interfaces fail
+        // the build here, instead of being signed as data.
+        return switch (Objects.requireNonNullElse(request.getSignatureInputMode(), SignatureInputMode.DATA)) {
+            case DATA -> signAsData(request);
+            case PREHASHED_DIGEST -> signDigests(request);
+        };
+    }
+
+    private SignDataResponseV2Dto signAsData(SignDataRequestV2Dto request) {
         KeyContext key = key(request);
 
         SignDataRequestDto signing = new SignDataRequestDto();
