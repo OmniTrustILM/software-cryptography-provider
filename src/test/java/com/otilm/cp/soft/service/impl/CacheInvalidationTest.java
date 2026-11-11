@@ -7,20 +7,33 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
+import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
+import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.config.CacheConfig;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
+import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
+import com.otilm.cp.soft.service.CryptographicKeyV2Service;
+import com.otilm.cp.soft.service.CryptographicOperationsService;
+import com.otilm.cp.soft.service.CryptographicOperationsV2Service;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyManagementService;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenInstanceService;
+import com.otilm.cp.soft.testsupport.SignatureFixtures;
+import com.otilm.cp.soft.testsupport.TokenContextFixtures;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,6 +80,12 @@ class CacheInvalidationTest {
     private KeyDataRepository keyDataRepository;
     @Autowired
     private CacheManager cacheManager;
+    @Autowired
+    private CryptographicOperationsService cryptographicOperationsService;
+    @Autowired
+    private CryptographicOperationsV2Service cryptographicOperationsV2Service;
+    @Autowired
+    private CryptographicKeyV2Service cryptographicKeyV2Service;
 
     private TokenInstance tokenInstance;
 
@@ -152,7 +171,7 @@ class CacheInvalidationTest {
         UUID privateKeyUuid = UUID.fromString(created.getPrivateKeyData().getUuid());
 
         // Warm the keydata cache for the private key
-        keyDataCacheService.getCachedKeyData(privateKeyUuid);
+        keyDataCacheService.getCachedKeyData(privateKeyUuid, keyStoreCacheService.loadKeyMaterial(tokenUuid));
         assertCacheHit(CacheConfig.KEYDATA_CACHE, privateKeyUuid);
 
         // Destroy the private key — commits; keyDataCacheService.evictAfterCommit fires
@@ -213,7 +232,7 @@ class CacheInvalidationTest {
         UUID privateKeyUuid = UUID.fromString(created.getPrivateKeyData().getUuid());
 
         // Warm the keydata cache
-        keyDataCacheService.getCachedKeyData(privateKeyUuid);
+        keyDataCacheService.getCachedKeyData(privateKeyUuid, keyStoreCacheService.loadKeyMaterial(tokenUuid));
         assertCacheHit(CacheConfig.KEYDATA_CACHE, privateKeyUuid);
 
         // Called directly from a non-transactional test method — takes the else (immediate) branch
@@ -267,8 +286,8 @@ class CacheInvalidationTest {
 
     /**
      * A connector serving requests from more than one process shares only the database. What one of them discards, the
-     * others never hear about, so a copy of a token's material can outlive the token it came out of: a key the token
-     * has since been given would be missing from it, and a key the token has since lost would still be in it.
+     * others never hear about, so a copy of a token's material can outlive the token it was extracted from: a key the
+     * token has since been given would be missing from it, and a key the token has since lost would still be in it.
      *
      * <p>
      * Each of these puts a copy back after the change to stand for the process that never heard about it, which is what
@@ -313,6 +332,169 @@ class CacheInvalidationTest {
 
         assertSame(first, keyStoreCacheService.loadKeyMaterial(tokenUuid),
                 "an unchanged token must not have its keystore opened again");
+    }
+
+    @Test
+    void materialOlderThanTheToken_isNotSignedWithThroughV2() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("first"));
+        CachedKeyMaterial asAnotherProcessHoldsIt = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+
+        KeyPairDataResponseDto given = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("second"));
+        putBack(tokenUuid, asAnotherProcessHoldsIt);
+
+        SignDataResponseV2Dto signed = cryptographicOperationsV2Service
+                .signData(v2Signing(tokenUuid, UUID.fromString(given.getPrivateKeyData().getUuid())));
+        assertNotNull(signed.getSignatures().get(0).getData(), "a key the token has since been given has to sign");
+    }
+
+    /**
+     * Destroying a public key leaves the keystore unchanged, so only the token's version tells other processes about
+     * it.
+     */
+    @Test
+    void destroyedPublicKey_isNotVerifiedWithThroughV2() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("halved"));
+        UUID publicKey = UUID.fromString(created.getPublicKeyData().getUuid());
+        SignDataRequestV2Dto signing = v2Signing(tokenUuid, UUID.fromString(created.getPrivateKeyData().getUuid()));
+        VerifyDataRequestV2Dto verifying = SignatureFixtures
+                .v2Verifying(signing, cryptographicOperationsV2Service.signData(signing),
+                        List.of(KeyAttributes.buildKeyReferenceMetadata(publicKey.toString())));
+        cryptographicOperationsV2Service.verifyData(verifying);
+        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+        Object row = keydata().get(publicKey).get();
+
+        keyManagementService.destroyKey(tokenUuid, publicKey);
+        putBack(tokenUuid, material);
+        keydata().put(publicKey, row);
+
+        assertThrows(ResourceMissingException.class, () -> cryptographicOperationsV2Service.verifyData(verifying));
+    }
+
+    @Test
+    void publicKeyDestroyedThroughV2_isNotVerifiedWithThroughV2() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("halved"));
+        UUID publicKey = UUID.fromString(created.getPublicKeyData().getUuid());
+        SignDataRequestV2Dto signing = v2Signing(tokenUuid, UUID.fromString(created.getPrivateKeyData().getUuid()));
+        VerifyDataRequestV2Dto verifying = SignatureFixtures
+                .v2Verifying(signing, cryptographicOperationsV2Service.signData(signing),
+                        List.of(KeyAttributes.buildKeyReferenceMetadata(publicKey.toString())));
+        cryptographicOperationsV2Service.verifyData(verifying);
+        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+        Object row = keydata().get(publicKey).get();
+
+        cryptographicKeyV2Service.destroyKey(v2Destruction(tokenUuid, publicKey));
+        putBack(tokenUuid, material);
+        keydata().put(publicKey, row);
+
+        assertThrows(ResourceMissingException.class, () -> cryptographicOperationsV2Service.verifyData(verifying));
+    }
+
+    // -----------------------------------------------------------------------
+    // Keydata cache — a key whose alias now names another key
+    // -----------------------------------------------------------------------
+
+    @Test
+    void keyWhoseAliasNowNamesAnotherKey_isNotSignedWithThroughV1() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        UUID replaced = replacedUnderItsAlias(tokenUuid);
+        SignDataRequestDto signing = SignatureFixtures.v1RsaSigning();
+
+        assertThrows(NotFoundException.class,
+                () -> cryptographicOperationsService.signData(tokenUuid, replaced, signing));
+    }
+
+    @Test
+    void keyWhoseAliasNowNamesAnotherKey_isNotSignedWithThroughV2() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        SignDataRequestV2Dto signing = v2Signing(tokenUuid, replacedUnderItsAlias(tokenUuid));
+
+        assertThrows(ResourceMissingException.class, () -> cryptographicOperationsV2Service.signData(signing));
+    }
+
+    @Test
+    void keyReadBeforeItsAliasWasGivenAway_isNotSignedWithThroughV1() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        UUID replaced = replacedWhileItWasRead(tokenUuid);
+        SignDataRequestDto signing = SignatureFixtures.v1RsaSigning();
+
+        assertThrows(NotFoundException.class,
+                () -> cryptographicOperationsService.signData(tokenUuid, replaced, signing));
+    }
+
+    @Test
+    void keyReadBeforeItsAliasWasGivenAway_isNotSignedWithThroughV2() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        SignDataRequestV2Dto signing = v2Signing(tokenUuid, replacedWhileItWasRead(tokenUuid));
+
+        assertThrows(ResourceMissingException.class, () -> cryptographicOperationsV2Service.signData(signing));
+    }
+
+    /**
+     * Destroys a key pair and gives its alias to a new one. Then puts back what a process unaware of both changes still
+     * holds: the token's material and the destroyed private key.
+     *
+     * @return the destroyed private key
+     */
+    private UUID replacedUnderItsAlias(UUID tokenUuid) throws NotFoundException {
+        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("reused"));
+        UUID privateKey = UUID.fromString(created.getPrivateKeyData().getUuid());
+        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+        keyDataCacheService.getCachedKeyData(privateKey, material);
+        Object key = keydata().get(privateKey).get();
+
+        giveItsAliasToANewPair(tokenUuid, created);
+
+        putBack(tokenUuid, material);
+        keydata().put(privateKey, key);
+        return privateKey;
+    }
+
+    /**
+     * Destroys a key pair and gives its alias to a new one while a request reads the destroyed private key. That
+     * request puts back the row it read once the new material was extracted.
+     *
+     * @return the destroyed private key
+     */
+    private UUID replacedWhileItWasRead(UUID tokenUuid) throws NotFoundException {
+        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("reused"));
+        UUID privateKey = UUID.fromString(created.getPrivateKeyData().getUuid());
+        keyDataCacheService.getCachedKeyData(privateKey, keyStoreCacheService.loadKeyMaterial(tokenUuid));
+        Object key = keydata().get(privateKey).get();
+
+        giveItsAliasToANewPair(tokenUuid, created);
+        keyStoreCacheService.loadKeyMaterial(tokenUuid);
+
+        keydata().put(privateKey, key);
+        return privateKey;
+    }
+
+    private void giveItsAliasToANewPair(UUID tokenUuid, KeyPairDataResponseDto pair) throws NotFoundException {
+        keyManagementService.destroyKey(tokenUuid, UUID.fromString(pair.getPrivateKeyData().getUuid()));
+        keyManagementService.destroyKey(tokenUuid, UUID.fromString(pair.getPublicKeyData().getUuid()));
+        keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("reused"));
+    }
+
+    private SignDataRequestV2Dto v2Signing(UUID tokenUuid, UUID privateKey) {
+        return SignatureFixtures
+                .v2Signing(TokenContextFixtures.existingToken(tokenUuid, null, PASSWORD),
+                        List.of(KeyAttributes.buildKeyReferenceMetadata(privateKey.toString())),
+                        SignatureAlgorithm.SHA256_WITH_RSA);
+    }
+
+    private DestroyKeyRequestV2Dto v2Destruction(UUID tokenUuid, UUID key) {
+        DestroyKeyRequestV2Dto request = new DestroyKeyRequestV2Dto();
+        request.setTokenAttributes(TokenContextFixtures.existingToken(tokenUuid, null, PASSWORD));
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyMeta(List.of(KeyAttributes.buildKeyReferenceMetadata(key.toString())));
+        request.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
+        return request;
+    }
+
+    private Cache keydata() {
+        return Objects.requireNonNull(cacheManager.getCache(CacheConfig.KEYDATA_CACHE));
     }
 
     /** Stands in for the copy a process that never heard about the change is still holding. */

@@ -36,15 +36,15 @@ import java.util.Map;
  * </p>
  *
  * <p>
- * The version of the row this came out of is kept with it because nothing else can say whether it is still what the row
- * holds. A connector serving requests from more than one process shares only the database: what one of them discards,
- * the others never hear about, so a copy that is behind the row has to be recognised rather than waited out.
+ * The version of the row this was extracted from is kept with it because nothing else can say whether it is still what
+ * the row holds. A connector serving requests from more than one process shares only the database: what one of them
+ * discards, the others never hear about, so a copy that is behind the row has to be recognised rather than waited out.
  * </p>
  *
  * @param privateKeys the private keys, indexed by alias
  * @param publicKeys the public keys, indexed by alias
- * @param openedWith the code that opens the token this material came out of
- * @param builtFrom the version of the token's row this was taken out of
+ * @param openedWith the code that opens the token this material was extracted from
+ * @param builtFrom the version of the token's row this was extracted from
  */
 public record CachedKeyMaterial(Map<String, PrivateKey> privateKeys, Map<String, PublicKey> publicKeys,
         String openedWith, Timestamp builtFrom) {

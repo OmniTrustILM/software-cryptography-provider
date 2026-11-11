@@ -4,7 +4,9 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
+import com.otilm.cp.soft.model.TokenVersion;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
+import java.sql.Timestamp;
 import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -30,36 +32,49 @@ public class KeyStoreCacheServiceImpl implements KeyStoreCacheService {
     @Override
     @Transactional(readOnly = true)
     public CachedKeyMaterial loadKeyMaterial(UUID tokenInstanceUuid) throws NotFoundException {
+        return keyMaterialFor(tokenInstanceRepository
+                .findVersionByUuid(tokenInstanceUuid)
+                .orElseThrow(() -> new NotFoundException(TokenInstance.class, tokenInstanceUuid)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CachedKeyMaterial loadKeyMaterial(TokenVersion observed) throws NotFoundException {
+        return keyMaterialFor(observed);
+    }
+
+    private CachedKeyMaterial keyMaterialFor(TokenVersion observed) throws NotFoundException {
+        UUID tokenInstanceUuid = observed.uuid();
+        CachedKeyMaterial kept = keyMaterialCache.kept(tokenInstanceUuid);
+        if (kept != null && isStillWhatTheTokenHolds(kept, observed.timestamp())) {
+            return kept;
+        }
+
         TokenInstance tokenInstance = tokenInstanceRepository
                 .findByUuid(tokenInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, tokenInstanceUuid));
-
         CachedKeyMaterial material = keyMaterialCache.of(tokenInstanceUuid, tokenInstance);
-        if (isStillWhatTheTokenHolds(material, tokenInstance)) {
+        if (isStillWhatTheTokenHolds(material, tokenInstance.getTimestamp())) {
             return material;
         }
 
-        // Another process changed the token and discarded only its own copy. Nothing reaches this one, so what it
-        // holds is recognised as behind the row and taken out again.
         logger
-                .debug("Cached key material for token instance {} is older than the token; loading it again",
-                        tokenInstanceUuid);
-        keyMaterialCache.forget(tokenInstanceUuid);
+                .debug("Cached key material for token instance {} was extracted from another version; loading"
+                        + " it again", tokenInstanceUuid);
+        keyMaterialCache.evictIfStillCached(tokenInstanceUuid, material);
         return keyMaterialCache.of(tokenInstanceUuid, tokenInstance);
     }
 
     /**
-     * Whether the material was taken out of the token as it now stands.
+     * Whether the material was extracted from the token as it now stands.
      *
      * <p>
-     * Every change to a token's keys rewrites its keystore and advances the version of its row, so material taken out
-     * of an older version is material the token no longer holds — a key it has since been given is missing from it, and
-     * a key it has since lost is still in it. The version is read from the database on every request, which is the one
-     * thing every process serving this connector shares.
+     * Every change to a token's keys advances the version of its row, so material extracted from an older version is
+     * material the token no longer holds. All connector instances read the version from the database on every request.
      * </p>
      */
-    private static boolean isStillWhatTheTokenHolds(CachedKeyMaterial material, TokenInstance tokenInstance) {
-        return Objects.equals(material.builtFrom(), tokenInstance.getTimestamp());
+    private static boolean isStillWhatTheTokenHolds(CachedKeyMaterial material, Timestamp version) {
+        return Objects.equals(material.builtFrom(), version);
     }
 
     /**

@@ -20,7 +20,6 @@ import com.otilm.api.model.common.enums.cryptography.SignatureInputMode;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
-import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
 import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.OperationTrackingRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
@@ -47,7 +46,6 @@ import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import com.otilm.cp.soft.attribute.SLHDSAKeyAttributes;
 import com.otilm.cp.soft.dao.entity.KeyData;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
-import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
 import com.otilm.cp.soft.exception.ParameterUnsupportedException;
@@ -64,7 +62,6 @@ import java.security.Signature;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -510,7 +507,7 @@ class OperationsV2ControllerImplTest {
         assertThrows(ParameterUnsupportedException.class, () -> controller.listSignAttributes(request));
     }
 
-    /** Without the public row the parameter set is read from the private row instead, which is a path of its own. */
+    /** The keystore keeps the certificate of a private key whose public row is gone. The answer therefore stays. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("v1KeysNoPlatformAlgorithmNames")
     void refusesToOfferASignatureForSuchAKeyOnceItsPublicHalfIsGone(String variant, List<RequestAttribute> parameters)
@@ -523,26 +520,6 @@ class OperationsV2ControllerImplTest {
         // when
         // then
         assertThrows(ParameterUnsupportedException.class, () -> controller.listSignAttributes(request));
-    }
-
-    /** A row that lost its pre-hash selection describes no parameter set, which is a fault in what is stored. */
-    @Test
-    void refusesToReadASignatureOffAPrivateRowStatingNoPreHashSelection() {
-        // given
-        KeyPair pair = mldsaKeyPair("v2-mldsa-no-prehash");
-        destroy(pair.tokenAttributes(), pair.publicKeyMeta());
-        KeyData row = row(pair.privateKeyMeta());
-        HashMap<String, String> parameters = new HashMap<>(((CustomKeyValue) row.getValue()).getValues());
-        parameters.remove("prehash");
-        CustomKeyValue value = new CustomKeyValue();
-        value.setValues(parameters);
-        row.setValue(value);
-        keyDataRepository.saveAndFlush(row);
-        KeyScopedRequestV2Dto request = scoped(pair.tokenAttributes(), pair.privateKeyMeta());
-
-        // when
-        // then
-        assertThrows(CryptographicOperationException.class, () -> controller.listSignAttributes(request));
     }
 
     /**
