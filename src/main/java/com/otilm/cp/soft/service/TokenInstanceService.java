@@ -33,4 +33,10 @@ public interface TokenInstanceService {
 
     void saveTokenInstance(TokenInstance tokenInstance);
 
+    /**
+     * Moves the token's version when the transaction commits. A process holding material of the older version then
+     * takes it out again.
+     */
+    void advanceVersion(UUID uuid) throws NotFoundException;
+
 }

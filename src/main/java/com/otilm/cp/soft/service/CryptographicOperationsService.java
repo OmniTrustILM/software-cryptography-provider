@@ -10,6 +10,7 @@ import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseDto;
+import com.otilm.cp.soft.model.OperationKey;
 import java.util.UUID;
 
 public interface CryptographicOperationsService {
@@ -23,4 +24,16 @@ public interface CryptographicOperationsService {
     DecryptDataResponseDto decryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request) throws NotFoundException;
 
     EncryptDataResponseDto encryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request) throws NotFoundException;
+
+    /** Signs with a key whose material the caller already holds. */
+    SignDataResponseDto signData(OperationKey key, SignDataRequestDto request);
+
+    /** Verifies with a key whose material the caller already holds. */
+    VerifyDataResponseDto verifyData(OperationKey key, VerifyDataRequestDto request);
+
+    /** Decrypts with a key whose material the caller already holds. */
+    DecryptDataResponseDto decryptData(OperationKey key, CipherDataRequestDto request);
+
+    /** Encrypts with a key whose material the caller already holds. */
+    EncryptDataResponseDto encryptData(OperationKey key, CipherDataRequestDto request);
 }

@@ -1,9 +1,11 @@
 package com.otilm.cp.soft.api.v2;
 
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
+import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequestV2Dto;
+import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
@@ -123,6 +125,22 @@ class V2ReadOnlyCallsTest {
 
         // when
         operations.listRandomAttributes(request);
+
+        // then
+        assertNoTokenNamed(name);
+    }
+
+    @Test
+    void bringsNoTokenIntoExistenceForAMissingKey() {
+        // given
+        String name = TokenContextFixtures.uniqueName("v2-read-sign-attrs");
+        KeyScopedRequestV2Dto request = new KeyScopedRequestV2Dto();
+        request.setTokenAttributes(TokenContextFixtures.newToken(name));
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyMeta(List.of(KeyAttributes.buildKeyReferenceMetadata(UUID.randomUUID().toString())));
+
+        // when
+        assertThrows(ResourceMissingException.class, () -> operations.listSignAttributes(request));
 
         // then
         assertNoTokenNamed(name);

@@ -9,15 +9,17 @@ import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.exception.TokenInstanceException;
+import com.otilm.cp.soft.model.CachedKeyMaterial;
+import com.otilm.cp.soft.model.OpenedToken;
 import com.otilm.cp.soft.model.TokenAvailability;
 import com.otilm.cp.soft.model.TokenContext;
 import com.otilm.cp.soft.model.TokenState;
+import com.otilm.cp.soft.model.TokenVersion;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.TokenMetadataUtil;
-import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
@@ -28,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Resolves the token a V2 request addressed through its attributes.
@@ -75,6 +78,23 @@ public class TokenContextServiceImpl implements TokenContextService {
         TokenInstance instance = found.get();
         rememberCode(instance, code, requireCodeOpensToken(instance, code));
         return new TokenContext(instance, code);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<OpenedToken> open(List<RequestAttribute> tokenAttributes) {
+        String action = addressing(tokenAttributes);
+        String code = requiredCode(tokenAttributes);
+
+        Optional<TokenVersion> found = locateVersion(action, tokenAttributes);
+        if (found.isEmpty() || !found.get().hasCode()) {
+            return Optional.empty();
+        }
+
+        TokenVersion version = found.get();
+        CachedKeyMaterial material = materialOf(version);
+        requireSameCode(material.openedWith(), code, version.name());
+        return Optional.of(new OpenedToken(version.uuid(), material));
     }
 
     @Override
@@ -152,6 +172,14 @@ public class TokenContextServiceImpl implements TokenContextService {
         };
     }
 
+    private Optional<TokenVersion> locateVersion(String action, List<RequestAttribute> tokenAttributes) {
+        return switch (action) {
+            case ACTION_NEW -> tokenInstanceRepository.findVersionByName(tokenName(tokenAttributes));
+            case ACTION_EXISTING -> tokenInstanceRepository.findVersionByUuid(selectedToken(tokenAttributes));
+            default -> throw new TokenInstanceException("Unknown way to address a token: " + action);
+        };
+    }
+
     /**
      * Creates the token a context asked for by name, which is how a token comes into existence under interfaces that
      * have no operation for it. A context that selected an existing token is asking for one that is gone, which is a
@@ -205,10 +233,7 @@ public class TokenContextServiceImpl implements TokenContextService {
     private String requireCodeOpensToken(TokenInstance instance, String code) {
         if (instance.hasCode()) {
             String stored = storedCodeOf(instance);
-            if (!isTheSameCode(stored, code)) {
-                logger.debug("The supplied code is not the one stored for token {}", instance.getName());
-                throw new TokenInstanceException("The supplied code does not open token " + instance.getName());
-            }
+            requireSameCode(stored, code, instance.getName());
             return stored;
         }
         try {
@@ -220,16 +245,26 @@ public class TokenContextServiceImpl implements TokenContextService {
         return null;
     }
 
-    /**
-     * The code the token has stored, taken from what was cached for it. A token whose material cannot be read is a
-     * token nothing can be done with, which is the same answer a code that does not open it gets.
-     */
+    /** The code the token has stored, taken from what was cached for it. */
     private String storedCodeOf(TokenInstance instance) {
+        return materialOf(
+                new TokenVersion(instance.getUuid(), instance.getName(), instance.getTimestamp(), instance.hasCode()))
+                .openedWith();
+    }
+
+    private CachedKeyMaterial materialOf(TokenVersion version) {
         try {
-            return keyStoreCacheService.loadKeyMaterial(instance.getUuid()).openedWith();
+            return keyStoreCacheService.loadKeyMaterial(version);
         } catch (NotFoundException | IllegalStateException e) {
-            logger.debug("The code stored for token {} could not be read back", instance.getName(), e);
-            throw new TokenInstanceException("Token " + instance.getName() + " cannot be opened");
+            logger.debug("The code stored for token {} could not be read back", version.name(), e);
+            throw new TokenInstanceException("Token " + version.name() + " cannot be opened");
+        }
+    }
+
+    private static void requireSameCode(String stored, String supplied, String tokenName) {
+        if (!isTheSameCode(stored, supplied)) {
+            logger.debug("The supplied code differs from the one stored for token {}", tokenName);
+            throw new TokenInstanceException("The supplied code does not open token " + tokenName);
         }
     }
 

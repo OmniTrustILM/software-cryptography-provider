@@ -370,12 +370,12 @@ material per token instance (60s TTL, 500 entries); `keydata` holds key rows per
 `provider.cache.*`. `KeyStoreCacheService.evictAfterCommit` defers eviction until the
 surrounding transaction commits, so a rolled-back write cannot leave a stale entry visible.
 
-**Cached key material states the version of the token's row it came out of.** Eviction reaches only the process that
+**Cached key material states the version of the token's row it was extracted from.** Eviction reaches only the process that
 did the evicting, and the chart lets an operator run more than one; those processes share nothing but the database, so
-a copy of a token's material can outlive the token it came out of — a key the token has since been given missing from
-it, a key it has since lost still in it and still usable. Every change to a token's keys rewrites its keystore and so
-advances the version of its row, and that version is read on every request, so material older than the row is
-recognised and taken out again. `KeyMaterialCache` keeps what was taken out; `KeyStoreCacheServiceImpl` decides
+a copy of a token's material can outlive the token it was extracted from — a key the token has since been given missing from
+it, a key it has since lost still in it and still usable. Every change to a token's keys advances the version
+of its row, and that version is read on every request, so material older than the row is
+recognised and extracted again. `KeyMaterialCache` keeps what was extracted; `KeyStoreCacheServiceImpl` decides
 whether it is still what the token holds. That read is what a cache hit now costs, against opening a keystore, which
 is what it saves.
 

@@ -1,6 +1,5 @@
 package com.otilm.cp.soft.service.impl;
 
-import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
@@ -8,7 +7,6 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
-import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import com.otilm.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.DecryptDataResponseDto;
@@ -33,22 +31,20 @@ import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRespon
 import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.OperationAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
-import com.otilm.cp.soft.dao.entity.KeyData;
-import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.ParameterUnsupportedException;
-import com.otilm.cp.soft.exception.ResourceMissingException;
-import com.otilm.cp.soft.model.KeyContext;
+import com.otilm.cp.soft.model.CachedKeyData;
+import com.otilm.cp.soft.model.OperationKey;
 import com.otilm.cp.soft.model.TokenContext;
 import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.CryptographicOperationsV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.TokenContextService;
+import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.OperationDataMapper;
 import com.otilm.cp.soft.util.RequestAttributes;
 import com.otilm.cp.soft.util.RsaEncodingConstants;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
-import jakarta.transaction.Transactional;
 import java.util.Base64;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -66,7 +62,6 @@ import org.springframework.stereotype.Service;
  * and execution delegates to the shared cryptographic service.
  */
 @Service
-@Transactional
 public class CryptographicOperationsV2ServiceImpl implements CryptographicOperationsV2Service {
 
     private static final Set<SignatureAlgorithm> RSA_PSS_ALGORITHMS = EnumSet
@@ -89,22 +84,21 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
     private TokenContextService tokenContextService;
 
-    private KeyDataRepository keyDataRepository;
-
     @Override
     public List<BaseAttribute> signatureAttributes(KeyScopedRequestV2Dto request) {
-        return List.of(SignatureAlgorithmAttribute.definition(supportedAlgorithms(key(request).key())));
+        return List.of(SignatureAlgorithmAttribute.definition(supportedAlgorithms(resolveForOperation(request))));
     }
 
-    private List<SignatureAlgorithm> supportedAlgorithms(KeyData key) {
-        List<SignatureAlgorithm> supported = switch (key.getAlgorithm()) {
+    private static List<SignatureAlgorithm> supportedAlgorithms(OperationKey operationKey) {
+        CachedKeyData key = operationKey.key();
+        List<SignatureAlgorithm> supported = switch (key.algorithm()) {
             case RSA -> SignatureAlgorithms
                     .offeredFor(KeyAlgorithm.RSA)
                     .stream()
-                    .filter(algorithm -> fitsRsaKey(algorithm, key.getLength()))
+                    .filter(algorithm -> fitsRsaKey(algorithm, key.length()))
                     .toList();
-            case FALCON, MLDSA, SLHDSA -> supportedPostQuantumAlgorithm(key);
-            default -> SignatureAlgorithms.offeredFor(key.getAlgorithm());
+            case FALCON, MLDSA, SLHDSA -> supportedPostQuantumAlgorithm(operationKey);
+            default -> SignatureAlgorithms.offeredFor(key.algorithm());
         };
         if (supported.isEmpty()) {
             throw new ParameterUnsupportedException("This key has no supported signature algorithm");
@@ -126,41 +120,24 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
                 + RsaEncodingConstants.PKCS1_V1_5_PADDING_BYTES;
     }
 
-    private List<SignatureAlgorithm> supportedPostQuantumAlgorithm(KeyData key) {
-        KeyData publicKey = key.getType() == KeyType.PUBLIC_KEY
-                ? key
-                : keyDataRepository
-                        .findByNameAndTokenInstanceUuid(key.getName(), key.getTokenInstanceUuid())
-                        .stream()
-                        .filter(half -> half.getType() == KeyType.PUBLIC_KEY
-                                && Objects.equals(half.getAssociation(), key.getAssociation()))
-                        .findFirst()
-                        .orElse(null);
-        if (publicKey == null) {
-            return supportedPostQuantumAlgorithmFromPrivateKey(key);
-        }
+    /**
+     * A public row states its own public key. A private key's public key is in the certificate the keystore keeps under
+     * the same alias.
+     */
+    private static List<SignatureAlgorithm> supportedPostQuantumAlgorithm(OperationKey operationKey) {
+        CachedKeyData key = operationKey.key();
         try {
-            SpkiKeyValue value = (SpkiKeyValue) publicKey.getValue();
-            ASN1ObjectIdentifier oid = SubjectPublicKeyInfo
-                    .getInstance(Base64.getDecoder().decode(value.getValue()))
-                    .getAlgorithm()
-                    .getAlgorithm();
+            byte[] publicKey = key.type() == KeyType.PUBLIC_KEY
+                    ? Base64.getDecoder().decode(((SpkiKeyValue) key.value()).getValue())
+                    : KeyStoreUtil.getPublicKey(key, operationKey.material()).getEncoded();
+            ASN1ObjectIdentifier oid = SubjectPublicKeyInfo.getInstance(publicKey).getAlgorithm().getAlgorithm();
             return SignatureAlgorithms
-                    .offeredFor(key.getAlgorithm())
+                    .offeredFor(key.algorithm())
                     .stream()
                     .filter(algorithm -> oid.equals(algorithm.getAlgorithmIdentifier().getAlgorithm()))
                     .toList();
         } catch (IllegalArgumentException | ClassCastException e) {
             throw new CryptographicOperationException("The stored public key has invalid signature parameters");
-        }
-    }
-
-    private static List<SignatureAlgorithm> supportedPostQuantumAlgorithmFromPrivateKey(KeyData key) {
-        try {
-            Map<String, String> parameters = ((CustomKeyValue) key.getValue()).getValues();
-            return SignatureAlgorithms.ofPostQuantumKey(key.getAlgorithm(), parameters).stream().toList();
-        } catch (IllegalArgumentException | ClassCastException e) {
-            throw new CryptographicOperationException("The stored private key has invalid signature parameters");
         }
     }
 
@@ -170,8 +147,8 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     @Override
     public List<BaseAttribute> cipherAttributes(KeyScopedRequestV2Dto request) {
         Objects.requireNonNull(request, "request must not be null");
-        KeyData key = key(request).key();
-        return OperationAttributes.cipherAttributes(key.getAlgorithm(), key.getLength());
+        CachedKeyData key = resolveForOperation(request).key();
+        return OperationAttributes.cipherAttributes(key.algorithm(), key.length());
     }
 
     @Override
@@ -182,14 +159,13 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
     @Override
     public SignDataResponseV2Dto signData(SignDataRequestV2Dto request) {
-        KeyContext key = key(request);
+        OperationKey operationKey = resolveForOperation(request);
 
         SignDataRequestDto signing = new SignDataRequestDto();
-        signing.setSignatureAttributes(signingParameters(key.key(), request.getSignatureAttributes()));
+        signing.setSignatureAttributes(signingParameters(operationKey, request.getSignatureAttributes()));
         signing.setData(OperationDataMapper.toSignatureRequests(request.getData()));
 
-        SignDataResponseDto signed = perform(() -> cryptographicOperationsService
-                .signData(key.token().instance().getUuid(), key.key().getUuid(), signing));
+        SignDataResponseDto signed = cryptographicOperationsService.signData(operationKey, signing);
 
         SignDataResponseV2Dto response = new SignDataResponseV2Dto();
         response.setSignatures(OperationDataMapper.toSignatures(signed.getSignatures()));
@@ -198,17 +174,16 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
 
     @Override
     public VerifyDataResponseV2Dto verifyData(VerifyDataRequestV2Dto request) {
-        KeyContext key = key(request);
+        OperationKey operationKey = resolveForOperation(request);
 
         VerifyDataRequestDto verification = new VerifyDataRequestDto();
-        verification.setSignatureAttributes(signingParameters(key.key(), request.getSignatureAttributes()));
+        verification.setSignatureAttributes(signingParameters(operationKey, request.getSignatureAttributes()));
         verification.setData(OperationDataMapper.toSignatureRequests(request.getData()));
         verification
                 .setSignatures(
                         OperationDataMapper.toSignatureRequestsPairedWith(request.getData(), request.getSignatures()));
 
-        VerifyDataResponseDto verified = perform(() -> cryptographicOperationsService
-                .verifyData(key.token().instance().getUuid(), key.key().getUuid(), verification));
+        VerifyDataResponseDto verified = cryptographicOperationsService.verifyData(operationKey, verification);
 
         VerifyDataResponseV2Dto response = new VerifyDataResponseV2Dto();
         response.setVerifications(OperationDataMapper.toVerifications(verified.getVerifications()));
@@ -221,10 +196,10 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     @Override
     public EncryptDataResponseV2Dto encryptData(CipherDataRequestV2Dto request) {
         Objects.requireNonNull(request, "request must not be null");
-        KeyContext key = key(request);
+        OperationKey operationKey = resolveForOperation(request);
 
-        EncryptDataResponseDto encrypted = perform(() -> cryptographicOperationsService
-                .encryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(key.key(), request)));
+        EncryptDataResponseDto encrypted = cryptographicOperationsService
+                .encryptData(operationKey, cipher(operationKey.key(), request));
 
         EncryptDataResponseV2Dto response = new EncryptDataResponseV2Dto();
         response.setEncryptedData(OperationDataMapper.toCipherData(encrypted.getEncryptedData()));
@@ -237,10 +212,10 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     @Override
     public DecryptDataResponseV2Dto decryptData(CipherDataRequestV2Dto request) {
         Objects.requireNonNull(request, "request must not be null");
-        KeyContext key = key(request);
+        OperationKey operationKey = resolveForOperation(request);
 
-        DecryptDataResponseDto decrypted = perform(() -> cryptographicOperationsService
-                .decryptData(key.token().instance().getUuid(), key.key().getUuid(), cipher(key.key(), request)));
+        DecryptDataResponseDto decrypted = cryptographicOperationsService
+                .decryptData(operationKey, cipher(operationKey.key(), request));
 
         DecryptDataResponseV2Dto response = new DecryptDataResponseV2Dto();
         response.setDecryptedData(OperationDataMapper.toCipherData(decrypted.getDecryptedData()));
@@ -266,11 +241,11 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     /**
      * Adapts the reserved algorithm selection and batch data to the shared cipher request.
      */
-    private static CipherDataRequestDto cipher(KeyData key, CipherDataRequestV2Dto request) {
+    private static CipherDataRequestDto cipher(CachedKeyData key, CipherDataRequestV2Dto request) {
         CipherDataRequestDto cipher = new CipherDataRequestDto();
         cipher
                 .setCipherAttributes(OperationAttributes
-                        .cipherParameters(key.getAlgorithm(), key.getLength(), request.getCipherAttributes()));
+                        .cipherParameters(key.algorithm(), key.length(), request.getCipherAttributes()));
         cipher.setCipherData(OperationDataMapper.toCipherRequests(request.getCipherData()));
         return cipher;
     }
@@ -278,12 +253,13 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     /**
      * Translates a supported reserved signature selection into the shared signer's parameters.
      */
-    private List<RequestAttribute> signingParameters(KeyData key, List<RequestAttribute> attributes) {
+    private static List<RequestAttribute> signingParameters(OperationKey operationKey,
+            List<RequestAttribute> attributes) {
         SignatureAlgorithm selected = SignatureAlgorithmAttribute.selectedAlgorithm(attributes);
-        if (!supportedAlgorithms(key).contains(selected)) {
+        if (!supportedAlgorithms(operationKey).contains(selected)) {
             throw new ParameterUnsupportedException("The selected signature algorithm is unavailable for this key");
         }
-        return switch (key.getAlgorithm()) {
+        return switch (operationKey.key().algorithm()) {
             case RSA -> {
                 RsaSignatureScheme scheme = RSA_PSS_ALGORITHMS.contains(selected)
                         ? RsaSignatureScheme.PSS
@@ -301,23 +277,8 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         };
     }
 
-    private KeyContext key(KeyScopedRequestV2Dto request) {
-        return keyContextService.resolve(request.getTokenAttributes(), request.getKeyMeta());
-    }
-
-    /** The operations report a missing key as a checked absence; the V2 interfaces answer it as the contract states. */
-    private static <T> T perform(Operation<T> operation) {
-        try {
-            return operation.run();
-        } catch (NotFoundException e) {
-            throw new ResourceMissingException("The addressed key does not exist", e);
-        }
-    }
-
-    @FunctionalInterface
-    private interface Operation<T> {
-
-        T run() throws NotFoundException;
+    private OperationKey resolveForOperation(KeyScopedRequestV2Dto request) {
+        return keyContextService.resolveForOperation(request.getTokenAttributes(), request.getKeyMeta());
     }
 
     @Autowired
@@ -333,10 +294,5 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     @Autowired
     public void setTokenContextService(TokenContextService tokenContextService) {
         this.tokenContextService = tokenContextService;
-    }
-
-    @Autowired
-    public void setKeyDataRepository(KeyDataRepository keyDataRepository) {
-        this.keyDataRepository = keyDataRepository;
     }
 }

@@ -68,6 +68,13 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    public void advanceVersion(UUID uuid) throws NotFoundException {
+        tokenInstanceRepository
+                .findAdvancingItsVersion(uuid)
+                .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid));
+    }
+
+    @Override
     public TokenInstanceDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException {
         final String action = AttributeDefinitionUtils
                 .getSingleItemAttributeContentValue(TokenInstanceAttributes.ATTRIBUTE_DATA_CREATE_TOKEN_ACTION,
