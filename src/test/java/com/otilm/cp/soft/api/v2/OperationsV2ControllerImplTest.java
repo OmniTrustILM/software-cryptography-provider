@@ -37,6 +37,7 @@ import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataReques
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.CipherDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureResponseItemV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.data.VerificationResponseItemV2Dto;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
@@ -744,7 +745,7 @@ class OperationsV2ControllerImplTest {
         // then
         assertNotNull(signed);
         assertEquals(List.copyOf(messages.keySet()),
-                signed.getSignatures().stream().map(signature -> signature.getIdentifier()).toList());
+                signed.getSignatures().stream().map(SignatureResponseItemV2Dto::getIdentifier).toList());
         for (var signature : signed.getSignatures()) {
             assertTrue(verifiesWithJdk(pair.publicKeySpki(), "RSA", "SHA256withRSA", "SHA-256",
                     messages.get(signature.getIdentifier()), signature.getData()));

@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Security;
 import java.security.Signature;
@@ -152,6 +153,7 @@ class PrehashedSignaturesTest {
     void refusesACodeItDoesNotAdmit() {
         // given
         byte[] digest = new byte[32];
+        PrivateKey key = rsa.getPrivate();
 
         // when
         boolean admitted = PrehashedSignatures.admits(SignatureAlgorithm.ML_DSA_65);
@@ -159,7 +161,7 @@ class PrehashedSignaturesTest {
         // then
         assertFalse(admitted);
         assertThrows(IllegalArgumentException.class,
-                () -> PrehashedSignatures.sign(SignatureAlgorithm.ML_DSA_65, rsa.getPrivate(), digest));
+                () -> PrehashedSignatures.sign(SignatureAlgorithm.ML_DSA_65, key, digest));
     }
 
     @ParameterizedTest
