@@ -365,6 +365,8 @@ public class KeyManagementServiceImpl implements KeyManagementService {
         // public key is removed automatically when private key is removed, however, we can keep it in the database
         if (key.getType() == KeyType.PRIVATE_KEY) {
             removeKeyFromKeyStore(uuid, key.getName());
+        } else {
+            tokenInstanceService.advanceVersion(uuid);
         }
 
         // delete key from the database

@@ -21,6 +21,7 @@ import com.otilm.cp.soft.metrics.ConnectorEvent;
 import com.otilm.cp.soft.metrics.ConnectorMetrics;
 import com.otilm.cp.soft.model.CachedKeyData;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
+import com.otilm.cp.soft.model.OperationKey;
 import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
@@ -50,71 +51,22 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     @Override
     public SignDataResponseDto signData(UUID uuid, UUID keyUuid, SignDataRequestDto request) throws NotFoundException {
         return connectorMetrics
-                .counting(ConnectorEvent.DATA_SIGNED, () -> sign(uuid, keyUuid, request),
+                .counting(ConnectorEvent.DATA_SIGNED, () -> sign(resolveForOperation(uuid, keyUuid), request),
                         CryptographicOperationsServiceImpl::everyItemSigned);
     }
 
-    @Override
-    public SignDataResponseDto signDigests(UUID tokenInstanceUuid, UUID keyUuid, SignatureAlgorithm algorithm,
-            List<SignatureRequestData> digests) throws NotFoundException {
-        return connectorMetrics
-                .counting(ConnectorEvent.DATA_SIGNED,
-                        () -> signDigestsWithKey(tokenInstanceUuid, keyUuid, algorithm, digests),
-                        CryptographicOperationsServiceImpl::everyItemSigned);
-    }
+    private static SignDataResponseDto sign(OperationKey operationKey, SignDataRequestDto request) {
+        CachedKeyData key = operationKey.key();
 
-    /**
-     * An item the key technology could not sign is answered without a signature rather than by failing, and a request
-     * answered that way did not do what it was asked.
-     */
-    private static boolean everyItemSigned(SignDataResponseDto signed) {
-        return signed.getSignatures().stream().allMatch(item -> item.getData() != null);
-    }
-
-    private SignDataResponseDto signDigestsWithKey(UUID tokenInstanceUuid, UUID keyUuid, SignatureAlgorithm algorithm,
-            List<SignatureRequestData> digests) throws NotFoundException {
-        CachedKeyData key = signingKey(tokenInstanceUuid, keyUuid);
-        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(key.tokenInstanceUuid());
-        PrivateKey privateKey = KeyStoreUtil.getPrivateKey(key, material);
-
-        List<SignatureResponseData> signatures = new ArrayList<>();
-        for (SignatureRequestData digest : digests) {
-            SignatureResponseData signed = new SignatureResponseData();
-            signed.setIdentifier(digest.getIdentifier());
-            try {
-                signed.setData(PrehashedSignatures.sign(algorithm, privateKey, digest.getData()));
-            } catch (SignatureException e) {
-                signed.setDetails("Signature failed: " + e.getMessage());
-            }
-            signatures.add(signed);
-        }
-
-        SignDataResponseDto response = new SignDataResponseDto();
-        response.setSignatures(signatures);
-        return response;
-    }
-
-    private CachedKeyData signingKey(UUID uuid, UUID keyUuid) throws NotFoundException {
-        CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
-
-        if (!uuid.equals(key.tokenInstanceUuid())) {
-            throw new NotFoundException(TokenInstance.class, uuid);
-        }
-
+        // check if we are going to sign with private key
         if (key.type() != KeyType.PRIVATE_KEY) {
             throw new CryptographicOperationException("Only private keys can be used for signing.");
         }
-        return key;
-    }
 
-    private SignDataResponseDto sign(UUID uuid, UUID keyUuid, SignDataRequestDto request) throws NotFoundException {
-        CachedKeyData key = signingKey(uuid, keyUuid);
-
-        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(key.tokenInstanceUuid());
         // initialize signature with the algorithm
         Signature signature = SignatureUtil.prepareSignature(key, request.getSignatureAttributes());
         // initialize the signature with the private key
-        SignatureUtil.initSigning(signature, key, material);
+        SignatureUtil.initSigning(signature, key, operationKey.material());
 
         // sign the data, it can be a list, so we need to iterate over it
         SignDataResponseDto response = new SignDataResponseDto();
@@ -138,31 +90,22 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     @Override
     public VerifyDataResponseDto verifyData(UUID uuid, UUID keyUuid, VerifyDataRequestDto request)
             throws NotFoundException {
-        // A signature the key technology found invalid was still verified; one it could not check at all is answered
-        // with why instead of a result, and that request did not do what it was asked.
         return connectorMetrics
-                .counting(ConnectorEvent.SIGNATURE_VERIFIED, () -> verify(uuid, keyUuid, request),
-                        verified -> verified.getVerifications().stream().allMatch(item -> item.getDetails() == null));
+                .counting(ConnectorEvent.SIGNATURE_VERIFIED, () -> verify(resolveForOperation(uuid, keyUuid), request),
+                        CryptographicOperationsServiceImpl::everyItemChecked);
     }
 
-    private VerifyDataResponseDto verify(UUID uuid, UUID keyUuid, VerifyDataRequestDto request)
-            throws NotFoundException {
-        CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
-
-        if (!uuid.equals(key.tokenInstanceUuid())) {
-            throw new NotFoundException(TokenInstance.class, uuid);
-        }
+    private static VerifyDataResponseDto verify(OperationKey operationKey, VerifyDataRequestDto request) {
+        CachedKeyData key = operationKey.key();
 
         // check if we are going to verify with public key
         if (key.type() != KeyType.PUBLIC_KEY) {
             throw new CryptographicOperationException("Only public keys can be used for verification.");
         }
 
-        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(key.tokenInstanceUuid());
         // initialize signature with the algorithm
         Signature signature = SignatureUtil.prepareSignature(key, request.getSignatureAttributes());
-        // initialize the signature with the private key
-        SignatureUtil.initVerification(signature, key, material);
+        SignatureUtil.initVerification(signature, key, operationKey.material());
 
         // verify the data, it can be a list, so we need to iterate over it
         VerifyDataResponseDto response = new VerifyDataResponseDto();
@@ -207,47 +150,111 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
     @Override
     public DecryptDataResponseDto decryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
             throws NotFoundException {
-        return connectorMetrics.counting(ConnectorEvent.DATA_DECRYPTED, () -> decrypt(uuid, keyUuid, request));
+        return connectorMetrics
+                .counting(ConnectorEvent.DATA_DECRYPTED, () -> decrypt(resolveForOperation(uuid, keyUuid), request));
     }
 
-    private DecryptDataResponseDto decrypt(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
-            throws NotFoundException {
-        CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
-
-        if (!uuid.equals(key.tokenInstanceUuid())) {
-            throw new NotFoundException(TokenInstance.class, uuid);
-        }
+    private static DecryptDataResponseDto decrypt(OperationKey operationKey, CipherDataRequestDto request) {
+        CachedKeyData key = operationKey.key();
 
         // check if we are going to decrypt with private key
         if (key.type() != KeyType.PRIVATE_KEY) {
             throw new CryptographicOperationException("Only private keys can be used for decryption.");
         }
 
-        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(key.tokenInstanceUuid());
-        return CipherUtil.decrypt(request, key, material);
+        return CipherUtil.decrypt(request, key, operationKey.material());
     }
 
     @Override
     public EncryptDataResponseDto encryptData(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
             throws NotFoundException {
-        return connectorMetrics.counting(ConnectorEvent.DATA_ENCRYPTED, () -> encrypt(uuid, keyUuid, request));
+        return connectorMetrics
+                .counting(ConnectorEvent.DATA_ENCRYPTED, () -> encrypt(resolveForOperation(uuid, keyUuid), request));
     }
 
-    private EncryptDataResponseDto encrypt(UUID uuid, UUID keyUuid, CipherDataRequestDto request)
-            throws NotFoundException {
-        CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid);
-
-        if (!uuid.equals(key.tokenInstanceUuid())) {
-            throw new NotFoundException(TokenInstance.class, uuid);
-        }
+    private static EncryptDataResponseDto encrypt(OperationKey operationKey, CipherDataRequestDto request) {
+        CachedKeyData key = operationKey.key();
 
         // check if we are going to encrypt with public key
         if (key.type() != KeyType.PUBLIC_KEY) {
             throw new CryptographicOperationException("Only public keys can be used for encryption.");
         }
 
-        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(key.tokenInstanceUuid());
-        return CipherUtil.encrypt(request, key, material);
+        return CipherUtil.encrypt(request, key, operationKey.material());
+    }
+
+    @Override
+    public SignDataResponseDto signData(OperationKey key, SignDataRequestDto request) {
+        return connectorMetrics
+                .counting(ConnectorEvent.DATA_SIGNED, () -> sign(key, request),
+                        CryptographicOperationsServiceImpl::everyItemSigned);
+    }
+
+    @Override
+    public SignDataResponseDto signDigests(OperationKey key, SignatureAlgorithm algorithm,
+            List<SignatureRequestData> digests) {
+        return connectorMetrics
+                .counting(ConnectorEvent.DATA_SIGNED, () -> signEachDigest(key, algorithm, digests),
+                        CryptographicOperationsServiceImpl::everyItemSigned);
+    }
+
+    private static SignDataResponseDto signEachDigest(OperationKey operationKey, SignatureAlgorithm algorithm,
+            List<SignatureRequestData> digests) {
+        CachedKeyData key = operationKey.key();
+        if (key.type() != KeyType.PRIVATE_KEY) {
+            throw new CryptographicOperationException("Only private keys can be used for signing.");
+        }
+        PrivateKey privateKey = KeyStoreUtil.getPrivateKey(key, operationKey.material());
+
+        List<SignatureResponseData> signatures = new ArrayList<>();
+        for (SignatureRequestData digest : digests) {
+            SignatureResponseData signed = new SignatureResponseData();
+            signed.setIdentifier(digest.getIdentifier());
+            try {
+                signed.setData(PrehashedSignatures.sign(algorithm, privateKey, digest.getData()));
+            } catch (SignatureException e) {
+                signed.setDetails("Signature failed: " + e.getMessage());
+            }
+            signatures.add(signed);
+        }
+
+        SignDataResponseDto response = new SignDataResponseDto();
+        response.setSignatures(signatures);
+        return response;
+    }
+
+    @Override
+    public VerifyDataResponseDto verifyData(OperationKey key, VerifyDataRequestDto request) {
+        return connectorMetrics
+                .counting(ConnectorEvent.SIGNATURE_VERIFIED, () -> verify(key, request),
+                        CryptographicOperationsServiceImpl::everyItemChecked);
+    }
+
+    @Override
+    public DecryptDataResponseDto decryptData(OperationKey key, CipherDataRequestDto request) {
+        return connectorMetrics.counting(ConnectorEvent.DATA_DECRYPTED, () -> decrypt(key, request));
+    }
+
+    @Override
+    public EncryptDataResponseDto encryptData(OperationKey key, CipherDataRequestDto request) {
+        return connectorMetrics.counting(ConnectorEvent.DATA_ENCRYPTED, () -> encrypt(key, request));
+    }
+
+    private OperationKey resolveForOperation(UUID tokenInstanceUuid, UUID keyUuid) throws NotFoundException {
+        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(tokenInstanceUuid);
+        CachedKeyData key = keyDataCacheService.getCachedKeyData(keyUuid, material);
+        if (!tokenInstanceUuid.equals(key.tokenInstanceUuid())) {
+            throw new NotFoundException(TokenInstance.class, tokenInstanceUuid);
+        }
+        return new OperationKey(key, material);
+    }
+
+    private static boolean everyItemSigned(SignDataResponseDto signed) {
+        return signed.getSignatures().stream().allMatch(item -> item.getData() != null);
+    }
+
+    private static boolean everyItemChecked(VerifyDataResponseDto verified) {
+        return verified.getVerifications().stream().allMatch(item -> item.getDetails() == null);
     }
 
     @Autowired

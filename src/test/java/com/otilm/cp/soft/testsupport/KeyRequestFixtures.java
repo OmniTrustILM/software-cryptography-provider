@@ -5,10 +5,12 @@ import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
 import com.otilm.cp.soft.attribute.KeyAttributes;
+import com.otilm.cp.soft.attribute.MLDSAKeyAttributes;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,13 +26,22 @@ public final class KeyRequestFixtures {
 
     /** A request creating a 2048-bit RSA key pair under a token of the given name. */
     public static CreateKeyRequestV2Dto rsaKeyPair(String tokenName, String alias) {
+        return keyPair(tokenName, rsaAttributes(alias));
+    }
+
+    /** A request creating an ML-DSA-65 key pair that signs the message itself, under a token of the given name. */
+    public static CreateKeyRequestV2Dto mldsaKeyPair(String tokenName, String alias) {
+        return keyPair(tokenName, mldsaAttributes(alias));
+    }
+
+    private static CreateKeyRequestV2Dto keyPair(String tokenName, List<RequestAttribute> keyAttributes) {
         CreateKeyRequestV2Dto request = new CreateKeyRequestV2Dto();
         request.setTokenAttributes(TokenContextFixtures.newToken(tokenName));
         request.setTokenProfileAttributes(List.of());
         request.setKeyRequestType(KeyRequestType.KEY_PAIR);
         request.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         request.setKeyCreationId(UUID.randomUUID().toString());
-        request.setCreateKeyAttributes(rsaAttributes(alias));
+        request.setCreateKeyAttributes(keyAttributes);
         return request;
     }
 
@@ -53,5 +64,21 @@ public final class KeyRequestFixtures {
         attributes.add(keySize);
 
         return attributes;
+    }
+
+    private static List<RequestAttribute> mldsaAttributes(String alias) {
+        RequestAttributeV2 level = new RequestAttributeV2();
+        level.setName(MLDSAKeyAttributes.ATTRIBUTE_DATA_MLDSA_LEVEL);
+        level.setContent(List.of(new IntegerAttributeContentV2("MLDSA_65", 3)));
+
+        RequestAttributeV2 prehash = new RequestAttributeV2();
+        prehash.setName(MLDSAKeyAttributes.ATTRIBUTE_DATA_MLDSA_PREHASH);
+        prehash.setContent(List.of(new BooleanAttributeContentV2(false)));
+
+        return List
+                .of(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, alias),
+                        TokenContextFixtures
+                                .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, KeyAlgorithm.MLDSA.getCode()),
+                        level, prehash);
     }
 }

@@ -1,6 +1,7 @@
 package com.otilm.cp.soft.service;
 
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.cp.soft.model.OpenedToken;
 import com.otilm.cp.soft.model.TokenContext;
 import com.otilm.cp.soft.model.TokenState;
 import java.util.List;
@@ -18,6 +19,15 @@ public interface TokenContextService {
      * @return the token and the code that opens its keystore
      */
     TokenContext resolve(List<RequestAttribute> tokenAttributes);
+
+    /**
+     * Reads only the version of the token's row while its material is cached. A token still to be created, or one still
+     * without a stored code, is left to {@link #resolve}.
+     *
+     * @param tokenAttributes the token attributes supplied with the request
+     * @return the token and its material, or empty where the token has to be resolved first
+     */
+    Optional<OpenedToken> open(List<RequestAttribute> tokenAttributes);
 
     /**
      * Finds the token the attributes address, without bringing one into existence.
