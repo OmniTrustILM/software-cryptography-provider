@@ -54,11 +54,9 @@ import com.otilm.cp.soft.util.RsaEncodingConstants;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
 import jakarta.transaction.Transactional;
 import java.util.Base64;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,10 +69,6 @@ import org.springframework.stereotype.Service;
 @Service
 @Transactional
 public class CryptographicOperationsV2ServiceImpl implements CryptographicOperationsV2Service {
-
-    private static final Set<SignatureAlgorithm> RSA_PSS_ALGORITHMS = EnumSet
-            .of(SignatureAlgorithm.SHA256_WITH_RSA_PSS, SignatureAlgorithm.SHA384_WITH_RSA_PSS,
-                    SignatureAlgorithm.SHA512_WITH_RSA_PSS);
 
     private CryptographicOperationsService cryptographicOperationsService;
 
@@ -110,7 +104,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
      */
     private static boolean fitsRsaKey(SignatureAlgorithm algorithm, int modulusBits) {
         int digestBytes = SignatureAlgorithms.digestOf(algorithm).getDigestSizeBytes();
-        if (RSA_PSS_ALGORITHMS.contains(algorithm)) {
+        if (SignatureAlgorithms.isRsaPss(algorithm)) {
             int encodedBytes = (modulusBits + 6) / 8;
             return encodedBytes >= 2 * digestBytes + RsaEncodingConstants.PSS_PADDING_BYTES;
         }
@@ -315,7 +309,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         }
         return switch (key.getAlgorithm()) {
             case RSA -> {
-                RsaSignatureScheme scheme = RSA_PSS_ALGORITHMS.contains(selected)
+                RsaSignatureScheme scheme = SignatureAlgorithms.isRsaPss(selected)
                         ? RsaSignatureScheme.PSS
                         : RsaSignatureScheme.PKCS1_v1_5;
                 yield List

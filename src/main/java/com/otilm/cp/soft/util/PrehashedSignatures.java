@@ -1,6 +1,7 @@
 package com.otilm.cp.soft.util;
 
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -9,8 +10,6 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
-import java.util.EnumSet;
-import java.util.Set;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
@@ -22,14 +21,6 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
  * The digest is signed as it stands, so it is never hashed again.
  */
 public final class PrehashedSignatures {
-
-    private static final Set<SignatureAlgorithm> RSA_PSS = EnumSet
-            .of(SignatureAlgorithm.SHA256_WITH_RSA_PSS, SignatureAlgorithm.SHA384_WITH_RSA_PSS,
-                    SignatureAlgorithm.SHA512_WITH_RSA_PSS);
-
-    private static final Set<SignatureAlgorithm> ECDSA = EnumSet
-            .of(SignatureAlgorithm.SHA256_WITH_ECDSA, SignatureAlgorithm.SHA384_WITH_ECDSA,
-                    SignatureAlgorithm.SHA512_WITH_ECDSA);
 
     private static final String PROVIDER = BouncyCastleProvider.PROVIDER_NAME;
 
@@ -68,10 +59,11 @@ public final class PrehashedSignatures {
                     "A " + hash.getCode() + " digest is " + hash.getDigestSizeBytes() + " bytes, not " + digest.length);
         }
         try {
-            if (RSA_PSS.contains(algorithm)) {
+            // The scheme comes from the tables the data path offers and signs by, so the two paths cannot disagree.
+            if (SignatureAlgorithms.isRsaPss(algorithm)) {
                 return signPss(hash, key, digest);
             }
-            if (ECDSA.contains(algorithm)) {
+            if (SignatureAlgorithms.offeredFor(KeyAlgorithm.ECDSA).contains(algorithm)) {
                 return signUnhashed("NONEwithECDSA", key, digest);
             }
             return signUnhashed("NONEwithRSA", key, derDigestInfo(hash, digest));
