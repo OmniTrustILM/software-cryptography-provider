@@ -377,7 +377,8 @@ it, a key it has since lost still in it and still usable. Every change to a toke
 of its row, and that version is read on every request, so material older than the row is
 recognised and extracted again. `KeyMaterialCache` keeps what was extracted; `KeyStoreCacheServiceImpl` decides
 whether it is still what the token holds. That read is what a cache hit now costs, against opening a keystore, which
-is what it saves.
+is what it saves. A cached key row carries the version of the material it was read beside and is read again once that
+version moves, because in a newer version its alias may belong to another key.
 
 **`token_instance.code` is the only encrypted column.** It holds the PKCS12 keystore
 password, and `TokenInstance.getCode()`/`setCode()` do the crypto through

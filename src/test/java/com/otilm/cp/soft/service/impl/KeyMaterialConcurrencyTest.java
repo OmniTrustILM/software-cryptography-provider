@@ -15,10 +15,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,9 +40,6 @@ class KeyMaterialConcurrencyTest {
     private static final String CODE = "123";
 
     private static final int REQUESTS = 8;
-
-    /** Shorter than an extraction. Later requests therefore arrive while the first is still under way. */
-    private static final long ARRIVAL_GAP_MILLIS = 10;
 
     private KeyStoreCacheService keyStoreCacheService;
 
@@ -91,7 +88,7 @@ class KeyMaterialConcurrencyTest {
         keystores().evict(tokenUuid);
 
         // when
-        Set<CachedKeyMaterial> served = loadedOneAfterAnother();
+        Set<CachedKeyMaterial> served = loadedAllAtOnce();
 
         // then
         assertEquals(1, served.size(), "every request must be served the material one of them extracted");
@@ -105,22 +102,27 @@ class KeyMaterialConcurrencyTest {
         keystores().put(tokenUuid, outdated);
 
         // when
-        Set<CachedKeyMaterial> served = loadedOneAfterAnother();
+        Set<CachedKeyMaterial> served = loadedAllAtOnce();
 
         // then
         assertEquals(1, served.size(), "every request must be served the material one of them extracted");
         assertNotSame(outdated, served.iterator().next(), "material older than the token must be extracted again");
     }
 
-    private Set<CachedKeyMaterial> loadedOneAfterAnother() throws Exception {
+    private Set<CachedKeyMaterial> loadedAllAtOnce() throws Exception {
+        CountDownLatch parked = new CountDownLatch(REQUESTS);
+        CountDownLatch released = new CountDownLatch(1);
         List<Future<CachedKeyMaterial>> answers = new ArrayList<>();
-        try (ScheduledExecutorService threads = Executors.newScheduledThreadPool(REQUESTS)) {
-            for (int arrival = 0; arrival < REQUESTS; arrival++) {
-                answers
-                        .add(threads
-                                .schedule(() -> keyStoreCacheService.loadKeyMaterial(tokenUuid),
-                                        arrival * ARRIVAL_GAP_MILLIS, TimeUnit.MILLISECONDS));
+        try (ExecutorService threads = Executors.newFixedThreadPool(REQUESTS)) {
+            for (int request = 0; request < REQUESTS; request++) {
+                answers.add(threads.submit(() -> {
+                    parked.countDown();
+                    released.await();
+                    return keyStoreCacheService.loadKeyMaterial(tokenUuid);
+                }));
             }
+            parked.await();
+            released.countDown();
         }
         Set<CachedKeyMaterial> served = Collections.newSetFromMap(new IdentityHashMap<>());
         for (Future<CachedKeyMaterial> answer : answers) {

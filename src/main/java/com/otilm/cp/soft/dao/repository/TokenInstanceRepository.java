@@ -22,10 +22,6 @@ public interface TokenInstanceRepository extends JpaRepository<TokenInstance, Lo
     @Lock(LockModeType.OPTIMISTIC)
     Optional<TokenInstance> findByUuid(UUID uuid);
 
-    @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
-    @Query("select t from TokenInstance t where t.uuid = :uuid")
-    Optional<TokenInstance> findAdvancingItsVersion(UUID uuid);
-
     @Query(TOKEN_VERSION + " where t.name = :name")
     Optional<TokenVersion> findVersionByName(String name);
 

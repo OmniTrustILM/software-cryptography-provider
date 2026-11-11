@@ -35,7 +35,7 @@ public interface TokenInstanceService {
 
     /**
      * Moves the token's version when the transaction commits. A process holding material of the older version then
-     * takes it out again.
+     * extracts it again.
      */
     void advanceVersion(UUID uuid) throws NotFoundException;
 

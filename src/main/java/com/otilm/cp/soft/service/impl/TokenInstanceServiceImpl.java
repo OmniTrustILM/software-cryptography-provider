@@ -20,6 +20,9 @@ import com.otilm.cp.soft.service.TokenInstanceService;
 import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.TokenMetadataUtil;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +41,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     private TokenInstanceRepository tokenInstanceRepository;
     private KeyStoreCacheService keyStoreCacheService;
+    private EntityManager entityManager;
 
     @Value("${token.deleteOnRemove}")
     private boolean deleteOnRemove;
@@ -69,9 +73,10 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     public void advanceVersion(UUID uuid) throws NotFoundException {
-        tokenInstanceRepository
-                .findAdvancingItsVersion(uuid)
+        TokenInstance token = tokenInstanceRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstance.class, uuid));
+        entityManager.lock(token, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
     }
 
     @Override
@@ -249,5 +254,10 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     @Autowired
     public void setKeyStoreCacheService(KeyStoreCacheService keyStoreCacheService) {
         this.keyStoreCacheService = keyStoreCacheService;
+    }
+
+    @PersistenceContext
+    public void setEntityManager(EntityManager entityManager) {
+        this.entityManager = entityManager;
     }
 }

@@ -17,10 +17,10 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -83,8 +83,7 @@ public class KeyMaterialCache {
 
     /** The material kept for the token, or {@code null} where none is kept. */
     public CachedKeyMaterial kept(UUID tokenInstanceUuid) {
-        Cache cache = cacheManager.getCache(CacheConfig.KEYSTORES_CACHE);
-        return cache == null ? null : cache.get(tokenInstanceUuid, CachedKeyMaterial.class);
+        return keystores().get(tokenInstanceUuid, CachedKeyMaterial.class);
     }
 
     /**
@@ -92,18 +91,17 @@ public class KeyMaterialCache {
      * has reloaded in the meantime stays, so concurrent requests reload it only once.
      */
     public void evictIfStillCached(UUID tokenInstanceUuid, CachedKeyMaterial outdated) {
-        Cache cache = cacheManager.getCache(CacheConfig.KEYSTORES_CACHE);
-        if (cache instanceof CaffeineCache keystores) {
-            keystores.getNativeCache().asMap().remove(tokenInstanceUuid, outdated);
-        } else if (cache != null) {
-            cache.evict(tokenInstanceUuid);
-        }
+        keystores().getNativeCache().asMap().remove(tokenInstanceUuid, outdated);
     }
 
     /** Gives up what is kept for a token, so the next request for it takes the material out afresh. */
     @CacheEvict(value = CacheConfig.KEYSTORES_CACHE, key = "#tokenInstanceUuid")
     public void forget(UUID tokenInstanceUuid) {
         logger.debug("Evicted cached key material for token instance {}", tokenInstanceUuid);
+    }
+
+    private CaffeineCache keystores() {
+        return (CaffeineCache) Objects.requireNonNull(cacheManager.getCache(CacheConfig.KEYSTORES_CACHE));
     }
 
     private void extractAliasKeyMaterial(KeyStore ks, String alias, char[] password,

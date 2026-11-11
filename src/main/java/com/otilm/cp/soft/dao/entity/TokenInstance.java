@@ -41,8 +41,8 @@ public class TokenInstance extends UniquelyIdentified {
      * The version of this row, which the persistence layer advances on every change to it.
      *
      * <p>
-     * Every change to a token's keys rewrites its keystore and so advances this, which is what lets anything derived
-     * from the row say which version of it that was.
+     * Every change to the token's keys advances the version too. Cached key material and key rows carry the version
+     * they came from, so a newer version marks them outdated.
      * </p>
      *
      * @return the version of this row

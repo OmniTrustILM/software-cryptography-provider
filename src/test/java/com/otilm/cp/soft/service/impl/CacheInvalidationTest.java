@@ -8,9 +8,11 @@ import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
+import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
+import com.otilm.api.model.connector.cryptography.v2.key.DestroyKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.SignDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataRequestV2Dto;
@@ -23,6 +25,7 @@ import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.exception.TokenInstanceException;
 import com.otilm.cp.soft.model.CachedKeyMaterial;
+import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.CryptographicOperationsV2Service;
 import com.otilm.cp.soft.service.KeyDataCacheService;
@@ -81,6 +84,8 @@ class CacheInvalidationTest {
     private CryptographicOperationsService cryptographicOperationsService;
     @Autowired
     private CryptographicOperationsV2Service cryptographicOperationsV2Service;
+    @Autowired
+    private CryptographicKeyV2Service cryptographicKeyV2Service;
 
     private TokenInstance tokenInstance;
 
@@ -367,6 +372,26 @@ class CacheInvalidationTest {
         assertThrows(ResourceMissingException.class, () -> cryptographicOperationsV2Service.verifyData(verifying));
     }
 
+    @Test
+    void publicKeyDestroyedThroughV2_isNotVerifiedWithThroughV2() throws NotFoundException {
+        UUID tokenUuid = tokenInstance.getUuid();
+        KeyPairDataResponseDto created = keyManagementService.createKeyPair(tokenUuid, buildRsa2048Request("halved"));
+        UUID publicKey = UUID.fromString(created.getPublicKeyData().getUuid());
+        SignDataRequestV2Dto signing = v2Signing(tokenUuid, UUID.fromString(created.getPrivateKeyData().getUuid()));
+        VerifyDataRequestV2Dto verifying = SignatureFixtures
+                .v2Verifying(signing, cryptographicOperationsV2Service.signData(signing),
+                        List.of(KeyAttributes.buildKeyReferenceMetadata(publicKey.toString())));
+        cryptographicOperationsV2Service.verifyData(verifying);
+        CachedKeyMaterial material = keyStoreCacheService.loadKeyMaterial(tokenUuid);
+        Object row = keydata().get(publicKey).get();
+
+        cryptographicKeyV2Service.destroyKey(v2Destruction(tokenUuid, publicKey));
+        putBack(tokenUuid, material);
+        keydata().put(publicKey, row);
+
+        assertThrows(ResourceMissingException.class, () -> cryptographicOperationsV2Service.verifyData(verifying));
+    }
+
     // -----------------------------------------------------------------------
     // Keydata cache — a key whose alias now names another key
     // -----------------------------------------------------------------------
@@ -457,6 +482,15 @@ class CacheInvalidationTest {
                 .v2Signing(TokenContextFixtures.existingToken(tokenUuid, null, PASSWORD),
                         List.of(KeyAttributes.buildKeyReferenceMetadata(privateKey.toString())),
                         SignatureAlgorithm.SHA256_WITH_RSA);
+    }
+
+    private DestroyKeyRequestV2Dto v2Destruction(UUID tokenUuid, UUID key) {
+        DestroyKeyRequestV2Dto request = new DestroyKeyRequestV2Dto();
+        request.setTokenAttributes(TokenContextFixtures.existingToken(tokenUuid, null, PASSWORD));
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyMeta(List.of(KeyAttributes.buildKeyReferenceMetadata(key.toString())));
+        request.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
+        return request;
     }
 
     private Cache keydata() {

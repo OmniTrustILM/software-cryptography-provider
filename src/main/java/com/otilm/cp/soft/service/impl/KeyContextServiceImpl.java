@@ -79,7 +79,7 @@ public class KeyContextServiceImpl implements KeyContextService {
         return tokenContextService
                 .open(tokenAttributes)
                 .map(token -> operationKeyOf(token, keyMeta))
-                .orElseGet(() -> resolvedForOperation(tokenAttributes, keyMeta));
+                .orElseGet(() -> resolvedInTransaction(tokenAttributes, keyMeta));
     }
 
     @Override
@@ -97,7 +97,8 @@ public class KeyContextServiceImpl implements KeyContextService {
     /**
      * Resolving a token can create it or store its code. Both roll back with a key read that fails.
      */
-    private OperationKey resolvedForOperation(List<RequestAttribute> tokenAttributes, List<MetadataAttribute> keyMeta) {
+    private OperationKey resolvedInTransaction(List<RequestAttribute> tokenAttributes,
+            List<MetadataAttribute> keyMeta) {
         return resolutionTransaction
                 .execute(status -> operationKeyOf(opened(tokenContextService.resolve(tokenAttributes)), keyMeta));
     }

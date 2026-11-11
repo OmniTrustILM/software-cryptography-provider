@@ -23,7 +23,7 @@ public interface KeyContextService {
 
     /**
      * Resolves the addressed key with its token's material and holds the request to the token's code. A token not
-     * usable yet goes through {@link #resolve}.
+     * usable yet goes through {@link TokenContextService#resolve}, in one transaction with the key read.
      *
      * @param tokenAttributes the token attributes supplied with the request
      * @param keyMeta the key metadata the connector published when the key was created
