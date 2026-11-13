@@ -53,6 +53,20 @@ public class KeyAttributes {
     public static final String ATTRIBUTE_META_KEY_ALIAS_DESCRIPTION = "Alias of the Key";
 
     public static BaseAttribute buildDataKeyAlias() {
+        return buildDataKeyAlias(true);
+    }
+
+    /**
+     * The alias as the V2 interfaces publish it. A V2 creation or import that leaves it out has the key named after the
+     * identifier of the operation.
+     *
+     * @return the optional alias attribute
+     */
+    public static BaseAttribute buildOptionalDataKeyAlias() {
+        return buildDataKeyAlias(false);
+    }
+
+    private static BaseAttribute buildDataKeyAlias(boolean required) {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_KEY_ALIAS_UUID);
@@ -63,7 +77,7 @@ public class KeyAttributes {
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();
         attributeProperties.setLabel(ATTRIBUTE_DATA_KEY_ALIAS_LABEL);
-        attributeProperties.setRequired(true);
+        attributeProperties.setRequired(required);
         attributeProperties.setVisible(true);
         attributeProperties.setList(false);
         attributeProperties.setMultiSelect(false);
