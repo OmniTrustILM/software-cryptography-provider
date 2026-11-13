@@ -68,7 +68,7 @@ public final class KeyImportFixtures {
         request
                 .setImportKeyAttributes(List
                         .of(TokenContextFixtures
-                                .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2, "imported-" + System.nanoTime())));
+                                .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, "imported-" + System.nanoTime())));
 
         EncryptedKeyMaterialV2Dto material = new EncryptedKeyMaterialV2Dto();
         material.setEncryptedPrivateKeyInfo(KeyMaterialFixtures.protect(key, PASSPHRASE));

@@ -4,7 +4,7 @@
   "body" : [ {
     "contentType" : "string",
     "description" : "Alias for the Key that should be unique within the Token",
-    "name" : "data_keyAliasV2",
+    "name" : "data_keyAlias",
     "properties" : {
       "extensibleList" : false,
       "group" : null,
@@ -18,7 +18,7 @@
       "visible" : true
     },
     "type" : "data",
-    "uuid" : "d720fcbe-6cab-465e-95ca-a58bec721bf7",
+    "uuid" : "61a228de-c54e-461e-b0d7-ad156a547b51",
     "version" : 2
   }, {
     "content" : [ {

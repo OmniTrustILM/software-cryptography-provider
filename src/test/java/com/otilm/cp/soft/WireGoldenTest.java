@@ -54,7 +54,7 @@ class WireGoldenTest {
     private static final String MESSAGE = "d2lyZSBnb2xkZW4gbWVzc2FnZQ==";
     private static final String UNKNOWN_UUID = "00000000-0000-4000-8000-000000000000";
     private static final String KEY_SPEC_GROUP_UUID = "05927c10-b5ca-43cb-a69f-098885b8c307";
-    private static final String KEY_ALIAS_UUID = "d720fcbe-6cab-465e-95ca-a58bec721bf7";
+    private static final String KEY_ALIAS_UUID = "61a228de-c54e-461e-b0d7-ad156a547b51";
     private static final String TOKEN_CODE_UUID = "181aae19-d2a3-40ca-b5c7-570c8dfbb3cb";
     private static final String IMPORTED_KEY_REFERENCE = "3f1c6a2e-8d4b-4e7a-9c15-6b2d0e8f4a73";
     /** v3 attributes as core writes them, with the content type on the attribute and on every content item. */
@@ -189,7 +189,7 @@ class WireGoldenTest {
                   %s,%s,
                   {"name":"data_rsaKeySize","content":[{"reference":null,"data":2048}],"version":"v2"},
                   {"name":"keyExportable","content":[{"reference":null,"data":true}],"version":"v2"}]}"""
-                .formatted(token, string("data_keyAliasV2", "wire-v2-key"), string("data_keyAlgorithm", "RSA")));
+                .formatted(token, string("data_keyAlias", "wire-v2-key"), string("data_keyAlgorithm", "RSA")));
         assertGolden("v2-create-key", pair);
         assertGolden("v2-token-status-active", post("/v2/cryptographyProvider/tokens/status", "{" + token + "}"));
         JsonNode created = JSON.readTree(pair.body());

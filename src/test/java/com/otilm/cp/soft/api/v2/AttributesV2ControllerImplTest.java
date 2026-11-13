@@ -127,21 +127,21 @@ class AttributesV2ControllerImplTest {
     @Test
     void narrowsTheAnswerToTheDefinitionsAskedFor() {
         // given
-        UUID alias = UUID.fromString(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2_UUID);
+        UUID alias = UUID.fromString(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID);
 
         // when
         AttributeDefinitionsDto definitions = controller.listDefinitions(List.of(alias));
 
         // then
         assertEquals(1, definitions.getDefinitions().size());
-        assertEquals(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2, definitions.getDefinitions().get(0).getName());
+        assertEquals(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, definitions.getDefinitions().get(0).getName());
     }
 
     /** Asking about several at once must not fail because one of them is unknown here. */
     @Test
     void leavesOutADefinitionItDoesNotPublish() {
         // given
-        UUID alias = UUID.fromString(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2_UUID);
+        UUID alias = UUID.fromString(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID);
 
         // when
         AttributeDefinitionsDto definitions = controller.listDefinitions(List.of(alias, UUID.randomUUID()));
@@ -320,7 +320,7 @@ class AttributesV2ControllerImplTest {
     void refusesACallbackForAnAttributeNoCallbackResolves() {
         // given
         AttributeCallbackRequestDto request = new AttributeCallbackRequestDto();
-        request.setAttributeUuid(UUID.fromString(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2_UUID));
+        request.setAttributeUuid(UUID.fromString(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID));
 
         // when
         // then

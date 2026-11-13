@@ -328,7 +328,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
      * operation names the same key.
      */
     private static String alias(List<RequestAttribute> attributes, String operationId) {
-        String alias = AttributeValue.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2, attributes);
+        String alias = AttributeValue.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, attributes);
         return alias == null || alias.isBlank()
                 ? UUID.nameUUIDFromBytes(operationId.getBytes(StandardCharsets.UTF_8)).toString()
                 : alias;
@@ -361,10 +361,10 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
     }
 
-    /** The attributes with the alias {@link #alias} settles on, stated as the shared creation reads it. */
+    /** The attributes with the alias {@link #alias} settles on in place of whatever the request stated for it. */
     private static List<RequestAttribute> withAlias(List<RequestAttribute> attributes, String keyCreationId) {
         List<RequestAttribute> named = new ArrayList<>(attributes);
-        named.removeIf(attribute -> KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2.equals(attribute.getName()));
+        named.removeIf(attribute -> KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS.equals(attribute.getName()));
         RequestAttributeV2 alias = new RequestAttributeV2();
         alias.setName(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS);
         alias.setContent(List.of(new StringAttributeContentV2(alias(attributes, keyCreationId))));
