@@ -13,7 +13,7 @@
       "multiSelect" : false,
       "protectionLevel" : "none",
       "readOnly" : false,
-      "required" : true,
+      "required" : false,
       "resource" : null,
       "visible" : true
     },

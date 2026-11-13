@@ -88,7 +88,7 @@ public final class AttributeDefinitionRegistry {
         attributes.add(TokenInstanceAttributes.buildOptions());
         attributes.add(TokenInstanceAttributes.buildGroupBasedOnSelect());
         attributes.add(TokenInstanceAttributes.buildDataSelectExistingToken(List.of()));
-        attributes.add(KeyAttributes.buildDataKeyAlias());
+        attributes.add(KeyAttributes.buildOptionalDataKeyAlias());
         attributes.add(KeyExportableAttribute.definition());
         attributes.add(KeyAttributes.buildDataKeyAlgorithmSelect());
         attributes.add(KeySpecV2Attributes.buildGroup());
