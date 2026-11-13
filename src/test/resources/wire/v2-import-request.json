@@ -41,7 +41,7 @@
   "keyRequestType": "keyPair",
   "importKeyAttributes": [
     {
-      "name": "data_keyAlias",
+      "name": "data_keyAliasV2",
       "content": [
         {
           "reference": "wire-v2-imported",

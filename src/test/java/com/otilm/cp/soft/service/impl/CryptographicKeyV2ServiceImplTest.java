@@ -62,8 +62,21 @@ class CryptographicKeyV2ServiceImplTest {
 
         // when
         // then
-        assertEquals(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID, alias.getUuid());
+        assertEquals(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2_UUID, alias.getUuid());
+        assertEquals(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2, alias.getName());
         assertEquals(false, properties(alias).isRequired());
+    }
+
+    @Test
+    void v2AliasSharesNoIdentityWithV1() {
+        // given
+        BaseAttribute v1 = KeyAttributes.buildDataKeyAlias();
+        BaseAttribute v2 = KeyAttributes.buildOptionalDataKeyAlias();
+
+        // when
+        // then
+        assertNotEquals(v1.getUuid(), v2.getUuid());
+        assertNotEquals(v1.getName(), v2.getName());
     }
 
     @Test
@@ -172,7 +185,7 @@ class CryptographicKeyV2ServiceImplTest {
     private static CreateKeyRequestV2Dto withoutAlias(CreateKeyRequestV2Dto request) {
         request
                 .getCreateKeyAttributes()
-                .removeIf(attribute -> KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS.equals(attribute.getName()));
+                .removeIf(attribute -> KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2.equals(attribute.getName()));
         return request;
     }
 

@@ -145,7 +145,7 @@ class KeyV2ControllerImplTest {
         String alias = "key-" + System.nanoTime();
         CreateKeyRequestV2Dto refused = KeyRequestFixtures.rsaKeyPair(token, alias);
         List<RequestAttribute> attributes = new ArrayList<>(parameters);
-        attributes.add(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, alias));
+        attributes.add(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2, alias));
         refused.setCreateKeyAttributes(attributes);
 
         // when

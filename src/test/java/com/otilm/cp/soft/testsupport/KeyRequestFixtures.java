@@ -55,7 +55,7 @@ public final class KeyRequestFixtures {
 
     private static List<RequestAttribute> rsaAttributes(String alias) {
         List<RequestAttribute> attributes = new ArrayList<>();
-        attributes.add(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, alias));
+        attributes.add(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2, alias));
         attributes.add(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, "RSA"));
 
         RequestAttributeV2 keySize = new RequestAttributeV2();
@@ -76,7 +76,7 @@ public final class KeyRequestFixtures {
         prehash.setContent(List.of(new BooleanAttributeContentV2(false)));
 
         return List
-                .of(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, alias),
+                .of(TokenContextFixtures.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2, alias),
                         TokenContextFixtures
                                 .string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALGORITHM, KeyAlgorithm.MLDSA.getCode()),
                         level, prehash);

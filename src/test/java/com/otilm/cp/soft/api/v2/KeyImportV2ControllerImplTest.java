@@ -456,7 +456,7 @@ class KeyImportV2ControllerImplTest {
         List<BaseAttribute> attributes = controller.listImportKeyAttributes(request);
 
         // then
-        assertEquals(List.of(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS),
+        assertEquals(List.of(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_V2),
                 attributes.stream().map(BaseAttribute::getName).toList());
     }
 }

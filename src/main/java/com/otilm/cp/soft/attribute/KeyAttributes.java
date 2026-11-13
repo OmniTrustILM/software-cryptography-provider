@@ -31,6 +31,9 @@ public class KeyAttributes {
     public static final String ATTRIBUTE_DATA_KEY_ALIAS_LABEL = "Cryptographic Key Alias";
     public static final String ATTRIBUTE_DATA_KEY_ALIAS_DESCRIPTION = "Alias for the Key that should be unique within the Token";
 
+    public static final String ATTRIBUTE_DATA_KEY_ALIAS_V2 = "data_keyAliasV2";
+    public static final String ATTRIBUTE_DATA_KEY_ALIAS_V2_UUID = "d720fcbe-6cab-465e-95ca-a58bec721bf7";
+
     public static final String ATTRIBUTE_DATA_KEY_ALGORITHM = "data_keyAlgorithm";
     public static final String ATTRIBUTE_DATA_KEY_ALGORITHM_UUID = "72159c04-d1a9-4703-8b23-469224425d5f";
     public static final String ATTRIBUTE_DATA_KEY_ALGORITHM_LABEL = "Cryptographic Key Algorithm";
@@ -53,24 +56,25 @@ public class KeyAttributes {
     public static final String ATTRIBUTE_META_KEY_ALIAS_DESCRIPTION = "Alias of the Key";
 
     public static BaseAttribute buildDataKeyAlias() {
-        return buildDataKeyAlias(true);
+        return buildDataKeyAlias(ATTRIBUTE_DATA_KEY_ALIAS_UUID, ATTRIBUTE_DATA_KEY_ALIAS, true);
     }
 
     /**
      * The alias as the V2 interfaces publish it. A V2 creation or import that leaves it out has the key named after the
-     * identifier of the operation.
+     * identifier of the operation. It has an identity of its own because the platform keeps one definition per
+     * identifier, so sharing V1's would let one generation change whether the other requires the alias.
      *
      * @return the optional alias attribute
      */
     public static BaseAttribute buildOptionalDataKeyAlias() {
-        return buildDataKeyAlias(false);
+        return buildDataKeyAlias(ATTRIBUTE_DATA_KEY_ALIAS_V2_UUID, ATTRIBUTE_DATA_KEY_ALIAS_V2, false);
     }
 
-    private static BaseAttribute buildDataKeyAlias(boolean required) {
+    private static BaseAttribute buildDataKeyAlias(String uuid, String name, boolean required) {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
-        attribute.setUuid(ATTRIBUTE_DATA_KEY_ALIAS_UUID);
-        attribute.setName(ATTRIBUTE_DATA_KEY_ALIAS);
+        attribute.setUuid(uuid);
+        attribute.setName(name);
         attribute.setDescription(ATTRIBUTE_DATA_KEY_ALIAS_DESCRIPTION);
         attribute.setType(AttributeType.DATA);
         attribute.setContentType(AttributeContentType.STRING);
