@@ -4,6 +4,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
@@ -35,7 +36,6 @@ import com.otilm.api.model.connector.cryptography.v2.key.PrivateKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
-import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
 import com.otilm.cp.soft.dao.entity.KeyData;
@@ -67,6 +67,7 @@ import com.otilm.cp.soft.util.PrivateKeyDescriptor;
 import com.otilm.cp.soft.util.RequestFingerprint;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
 import jakarta.transaction.Transactional;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
@@ -136,7 +137,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         // V1's key specification offers keys V2 cannot sign with, so V2 asks for its own. The exportable intent is V2's
         // alone, since a v1 caller neither states it nor is answered by anything that reads it.
         return List
-                .of(KeyAttributes.buildDataKeyAlias(), KeyAttributes.buildDataKeyAlgorithmSelect(),
+                .of(KeyAttributes.buildOptionalDataKeyAlias(), KeyAttributes.buildDataKeyAlgorithmSelect(),
                         KeySpecV2Attributes.buildGroup(), KeyExportableAttribute.definition());
     }
 
@@ -160,7 +161,9 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
         CreateKeyRequestDto creation = new CreateKeyRequestDto();
         creation.setTokenProfileAttributes(request.getTokenProfileAttributes());
-        creation.setCreateKeyAttributes(withFixedParameters(request.getCreateKeyAttributes()));
+        creation
+                .setCreateKeyAttributes(
+                        withAlias(withFixedParameters(request.getCreateKeyAttributes()), request.getKeyCreationId()));
 
         KeyPairDataResponseDto created;
         try {
@@ -211,7 +214,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         tokenContextService.locate(request.getTokenAttributes());
 
         // The material states the algorithm and its parameter set, so an import asks only where to keep the key.
-        return List.of(KeyAttributes.buildDataKeyAlias());
+        return List.of(KeyAttributes.buildOptionalDataKeyAlias());
     }
 
     @Override
@@ -250,8 +253,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         KeyPairDataResponseDto imported;
         try {
             imported = keyManagementService
-                    .storeImportedKeyPair(token.instance().getUuid(), alias(request.getImportKeyAttributes()),
-                            material);
+                    .storeImportedKeyPair(token.instance().getUuid(),
+                            alias(request.getImportKeyAttributes(), request.getKeyImportId()), material);
         } catch (NotFoundException e) {
             throw new ResourceMissingException("The addressed token does not exist", e);
         }
@@ -319,14 +322,16 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
     }
 
-    private static String alias(List<RequestAttribute> importKeyAttributes) {
-        StringAttributeContentV2 content = AttributeDefinitionUtils
-                .getSingleItemAttributeContentValue(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, importKeyAttributes,
-                        StringAttributeContentV2.class);
-        if (content == null || content.getData() == null) {
-            throw new KeyManagementException("The import does not say what to call the key in the token");
-        }
-        return content.getData();
+    /**
+     * The alias a request states, or one derived from the identifier of the operation when it states none. The platform
+     * sends a fresh identifier for every creation and import, so each key gets its own, and a repeat of the same
+     * operation names the same key.
+     */
+    private static String alias(List<RequestAttribute> attributes, String operationId) {
+        String alias = AttributeValue.string(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS, attributes);
+        return alias == null || alias.isBlank()
+                ? UUID.nameUUIDFromBytes(operationId.getBytes(StandardCharsets.UTF_8)).toString()
+                : alias;
     }
 
     /**
@@ -354,6 +359,17 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             throw new ValidationException(
                     ValidationError.create("The exportable intent must be stated once, as a single boolean value"));
         }
+    }
+
+    /** The attributes with the alias {@link #alias} settles on in place of whatever the request stated for it. */
+    private static List<RequestAttribute> withAlias(List<RequestAttribute> attributes, String keyCreationId) {
+        List<RequestAttribute> named = new ArrayList<>(attributes);
+        named.removeIf(attribute -> KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS.equals(attribute.getName()));
+        RequestAttributeV2 alias = new RequestAttributeV2();
+        alias.setName(KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS);
+        alias.setContent(List.of(new StringAttributeContentV2(alias(attributes, keyCreationId))));
+        named.add(alias);
+        return named;
     }
 
     /**
