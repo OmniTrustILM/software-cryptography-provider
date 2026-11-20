@@ -15,6 +15,13 @@ import com.otilm.api.model.connector.cryptography.v2.operations.VerifyDataReques
 import com.otilm.api.model.connector.cryptography.v2.operations.data.SignatureDataV2Dto;
 import com.otilm.cp.soft.api.v2.OperationsV2ControllerImpl;
 import com.otilm.cp.soft.attribute.KeyAttributes;
+import com.otilm.cp.soft.collection.EcdsaCurveName;
+import com.otilm.cp.soft.collection.FalconDegree;
+import com.otilm.cp.soft.collection.MLDSASecurityCategory;
+import com.otilm.cp.soft.collection.MLKEMSecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSAHash;
+import com.otilm.cp.soft.collection.SLHDSASecurityCategory;
+import com.otilm.cp.soft.collection.SLHDSASignatureMode;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
@@ -22,7 +29,9 @@ import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.jupiter.params.provider.Arguments;
 
 /**
  * Import requests carrying key material the platform would have sent.
@@ -53,6 +62,42 @@ public final class KeyImportFixtures {
     public static ImportKeyRequestV2Dto rsaImport(String tokenName, int keySize) {
         return importOf(tokenName,
                 generatedKey((keyStore, alias, code) -> KeyStoreUtil.generateRsaKey(keyStore, alias, keySize, code)));
+    }
+
+    /**
+     * A key of every algorithm V2 imports and every curve this provider offers, each named after its parameter set. The
+     * RSA key has an import-only size, to catch a length read off a creation default.
+     */
+    public static Stream<Arguments> everyKeyV2Imports() {
+        Stream<Arguments> rsa = Stream
+                .of(Arguments
+                        .of("RSA-3072", (Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                .generateRsaKey(keyStore, alias, 3072, code)));
+        Stream<Arguments> curves = Stream
+                .of(EcdsaCurveName.values())
+                .map(curve -> Arguments
+                        .of("ECDSA " + curve.getName(), (Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                .generateEcdsaKey(keyStore, alias, curve, code)));
+        Stream<Arguments> postQuantum = Stream
+                .of(Arguments
+                        .of("Falcon-1024",
+                                (Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                        .generateFalconKey(keyStore, alias, FalconDegree.FALCON_1024, code)),
+                        Arguments
+                                .of("ML-DSA-65",
+                                        (Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                                .generateMLDSAKey(keyStore, alias, MLDSASecurityCategory.MLDSA_65,
+                                                        false, code)),
+                        Arguments
+                                .of("SLH-DSA-SHA2-128F",
+                                        (Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                                .generateSlhDsaKey(keyStore, alias, SLHDSAHash.SHA2,
+                                                        SLHDSASecurityCategory.CATEGORY_1, SLHDSASignatureMode.FAST,
+                                                        false, code)),
+                        Arguments
+                                .of("ML-KEM-768", (Generation) (keyStore, alias, code) -> KeyStoreUtil
+                                        .generateMLKEMKey(keyStore, alias, MLKEMSecurityCategory.CATEGORY_3, code)));
+        return Stream.concat(rsa, Stream.concat(curves, postQuantum));
     }
 
     /** A request importing the given key into a token of the given name. */
