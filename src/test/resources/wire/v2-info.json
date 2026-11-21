@@ -27,7 +27,7 @@
       "version" : "v2"
     }, {
       "code" : "cryptography",
-      "features" : [ "keyImport", "keyExport", "prehashedSigning" ],
+      "features" : [ "keyImport", "keyExport", "dataDigestSigning" ],
       "version" : "v2"
     } ]
   }

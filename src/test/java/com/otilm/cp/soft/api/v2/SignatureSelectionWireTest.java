@@ -89,9 +89,9 @@ class SignatureSelectionWireTest {
     }
 
     @Test
-    void answersParameterUnsupportedForAPrehashedPostQuantumRequest() throws Exception {
+    void answersParameterUnsupportedForADataDigestPostQuantumRequest() throws Exception {
         // given
-        String body = prehashedBody(SignatureAlgorithm.ML_DSA_65, new byte[7]);
+        String body = dataDigestBody(SignatureAlgorithm.ML_DSA_65, new byte[7]);
 
         // when
         // then
@@ -106,7 +106,7 @@ class SignatureSelectionWireTest {
     @Test
     void answersValidationFailedForAWrongLengthDigest() throws Exception {
         // given
-        String body = prehashedBody(SignatureAlgorithm.SHA256_WITH_RSA, new byte[31]);
+        String body = dataDigestBody(SignatureAlgorithm.SHA256_WITH_RSA, new byte[31]);
 
         // when
         // then
@@ -119,9 +119,9 @@ class SignatureSelectionWireTest {
                 .andExpect(jsonPath("$.detail").value("The supplied attributes or data break a value rule."));
     }
 
-    private String prehashedBody(SignatureAlgorithm algorithm, byte[] digest) throws Exception {
+    private String dataDigestBody(SignatureAlgorithm algorithm, byte[] digest) throws Exception {
         CreateKeyRequestV2Dto creation = KeyRequestFixtures
-                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-wire-prehashed"), "key-" + System.nanoTime());
+                .rsaKeyPair(TokenContextFixtures.uniqueName("v2-wire-data-digest"), "key-" + System.nanoTime());
         KeyPairDataResponseV2Dto created = (KeyPairDataResponseV2Dto) keys.createKey(creation).getBody();
         assertNotNull(created);
 
@@ -133,7 +133,7 @@ class SignatureSelectionWireTest {
         signing.setTokenProfileAttributes(List.of());
         signing.setKeyMeta(created.getPrivateKeyData().getKeyMeta());
         signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
-        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
+        signing.setSignatureInputMode(SignatureInputMode.DATA_DIGEST);
         signing.setSignatureAttributes(List.of(SignatureAlgorithmAttribute.request(algorithm)));
         signing.setData(List.of(item));
         return CORE_MAPPER.writeValueAsString(signing);
