@@ -116,13 +116,13 @@ class InfoV2ControllerImplTest {
      * against it, so the flag is declared only because the connector honours it.
      */
     @Test
-    void declaresPrehashedSigning() {
+    void declaresDataDigestSigning() {
         // given
         // when
         List<FeatureFlag> features = interfaceInfo(ConnectorInterface.CRYPTOGRAPHY).getFeatures();
 
         // then
-        assertTrue(features.contains(FeatureFlag.PREHASHED_SIGNING));
+        assertTrue(features.contains(FeatureFlag.DATA_DIGEST_SIGNING));
     }
 
     private ConnectorInterfaceInfo interfaceInfo(ConnectorInterface code) {

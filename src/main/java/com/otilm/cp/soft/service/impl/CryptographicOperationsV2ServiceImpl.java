@@ -149,7 +149,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         // the build here, instead of being signed as data.
         return switch (Objects.requireNonNullElse(request.getSignatureInputMode(), SignatureInputMode.DATA)) {
             case DATA -> signAsData(request);
-            case PREHASHED_DIGEST -> signDigests(request);
+            case DATA_DIGEST -> signDigests(request);
         };
     }
 
@@ -175,7 +175,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
         SignatureAlgorithm selected = SignatureAlgorithmAttribute.selectedAlgorithm(request.getSignatureAttributes());
         if (!PrehashedSignatures.admits(selected)) {
             throw new ParameterUnsupportedException(
-                    "Prehashed signing is not defined for the selected signature algorithm");
+                    "Data digest signing is not defined for the selected signature algorithm");
         }
         if (!supportedAlgorithms(operationKey).contains(selected)) {
             throw new ParameterUnsupportedException("The selected signature algorithm is unavailable for this key");

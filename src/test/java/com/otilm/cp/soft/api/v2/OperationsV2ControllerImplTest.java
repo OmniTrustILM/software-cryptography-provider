@@ -675,14 +675,14 @@ class OperationsV2ControllerImplTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("prehashedSelections")
-    void signsAPrehashedDigestThatVerifiesOverItsMessage(SignatureAlgorithm algorithm, String keyAlgorithm,
-            String jdkName, String hash) throws GeneralSecurityException {
+    @MethodSource("dataDigestSelections")
+    void signsADataDigestThatVerifiesOverItsMessage(SignatureAlgorithm algorithm, String keyAlgorithm, String jdkName,
+            String hash) throws GeneralSecurityException {
         // given
         KeyPair pair = "RSA".equals(keyAlgorithm)
-                ? rsaKeyPair("v2-prehashed-" + algorithm.getCode())
-                : ecdsaKeyPair("v2-prehashed-" + algorithm.getCode());
-        SignDataRequestV2Dto signing = prehashed(pair, algorithm, item("one", digestOf(hash, MESSAGE)));
+                ? rsaKeyPair("v2-data-digest-" + algorithm.getCode())
+                : ecdsaKeyPair("v2-data-digest-" + algorithm.getCode());
+        SignDataRequestV2Dto signing = dataDigest(pair, algorithm, item("one", digestOf(hash, MESSAGE)));
 
         // when
         SignDataResponseV2Dto signed = controller.signData(signing).getBody();
@@ -693,7 +693,7 @@ class OperationsV2ControllerImplTest {
                 signed.getSignatures().get(0).getData()));
     }
 
-    static Stream<Arguments> prehashedSelections() {
+    static Stream<Arguments> dataDigestSelections() {
         return Stream
                 .of(Arguments.of(SignatureAlgorithm.SHA256_WITH_RSA, "RSA", "SHA256withRSA", "SHA-256"),
                         Arguments.of(SignatureAlgorithm.SHA384_WITH_RSA_PSS, "RSA", "RSASSA-PSS", "SHA-384"),
@@ -701,14 +701,14 @@ class OperationsV2ControllerImplTest {
     }
 
     @Test
-    void signsEveryItemOfAPrehashedBatch() throws GeneralSecurityException {
+    void signsEveryItemOfADataDigestBatch() throws GeneralSecurityException {
         // given
-        KeyPair pair = rsaKeyPair("v2-prehashed-batch");
+        KeyPair pair = rsaKeyPair("v2-data-digest-batch");
         Map<String, byte[]> messages = new LinkedHashMap<>();
         messages.put("one", new byte[]{1});
         messages.put("two", new byte[]{2});
         messages.put("three", new byte[]{3});
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA,
+        SignDataRequestV2Dto signing = dataDigest(pair, SignatureAlgorithm.SHA256_WITH_RSA,
                 messages
                         .entrySet()
                         .stream()
@@ -733,8 +733,8 @@ class OperationsV2ControllerImplTest {
     @Test
     void refusesAPostQuantumCodeBeforeCheckingLength() {
         // given
-        KeyPair pair = mldsaKeyPair("v2-prehashed-pq");
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.ML_DSA_65, item("one", new byte[7]));
+        KeyPair pair = mldsaKeyPair("v2-data-digest-pq");
+        SignDataRequestV2Dto signing = dataDigest(pair, SignatureAlgorithm.ML_DSA_65, item("one", new byte[7]));
 
         // when
         // then
@@ -742,11 +742,11 @@ class OperationsV2ControllerImplTest {
     }
 
     @Test
-    void refusesAPrehashedCodeTheKeyCannotMake() {
+    void refusesADataDigestCodeTheKeyCannotMake() {
         // given
-        KeyPair pair = ecdsaKeyPair("v2-prehashed-mismatch");
+        KeyPair pair = ecdsaKeyPair("v2-data-digest-mismatch");
         // The item is the wrong length too, so the key's refusal has to come before the length check.
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, item("one", new byte[31]));
+        SignDataRequestV2Dto signing = dataDigest(pair, SignatureAlgorithm.SHA256_WITH_RSA, item("one", new byte[31]));
 
         // when
         // then
@@ -756,8 +756,8 @@ class OperationsV2ControllerImplTest {
     @Test
     void refusesABatchWithOneWrongLengthDigest() {
         // given
-        KeyPair pair = rsaKeyPair("v2-prehashed-wrong-length");
-        SignDataRequestV2Dto signing = prehashed(pair, SignatureAlgorithm.SHA256_WITH_RSA, item("one", new byte[32]),
+        KeyPair pair = rsaKeyPair("v2-data-digest-wrong-length");
+        SignDataRequestV2Dto signing = dataDigest(pair, SignatureAlgorithm.SHA256_WITH_RSA, item("one", new byte[32]),
                 item("two", new byte[31]), item("three", new byte[32]));
         double succeeded = signedCount("success");
         double failed = signedCount("error");
@@ -1044,10 +1044,10 @@ class OperationsV2ControllerImplTest {
         return verifier.verify(signature);
     }
 
-    private static SignDataRequestV2Dto prehashed(KeyPair pair, SignatureAlgorithm algorithm,
+    private static SignDataRequestV2Dto dataDigest(KeyPair pair, SignatureAlgorithm algorithm,
             SignatureDataV2Dto... items) {
         SignDataRequestV2Dto signing = signing(pair, List.of(SignatureAlgorithmAttribute.request(algorithm)));
-        signing.setSignatureInputMode(SignatureInputMode.PREHASHED_DIGEST);
+        signing.setSignatureInputMode(SignatureInputMode.DATA_DIGEST);
         signing.setData(List.of(items));
         return signing;
     }
