@@ -180,8 +180,8 @@ milliseconds.
 **Key listing is not implemented.** `keyList` is an enforced feature flag, so leaving it undeclared means the platform
 never asks this connector to list or resolve keys. Both operations answer `OPERATION_NOT_SUPPORTED`.
 
-**A digest is signed as the caller computed it, never hashed again.** `prehashedSigning` is an enforced feature flag,
-and declaring it is what lets the platform send this connector a digest instead of data; under `PREHASHED_DIGEST` each
+**A digest is signed as the caller computed it, never hashed again.** `dataDigestSigning` is an enforced feature flag,
+and declaring it is what lets the platform send this connector a digest instead of data; under `DATA_DIGEST` each
 data item is that digest, while the data mode is unchanged. The mode covers the RSA and ECDSA algorithms whose
 signature is defined over a hash, and encodes each signature as the data path does; `PrehashedSignatures` has the
 details. An algorithm the mode does not cover, such as a post-quantum one, is refused with `PARAMETER_UNSUPPORTED`
