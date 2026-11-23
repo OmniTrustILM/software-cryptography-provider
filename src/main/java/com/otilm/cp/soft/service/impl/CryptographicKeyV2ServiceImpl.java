@@ -68,7 +68,6 @@ import com.otilm.cp.soft.util.RequestFingerprint;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
 import jakarta.transaction.Transactional;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.Key;
@@ -638,11 +637,12 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         return null;
     }
 
-    private static byte[] algorithmIdentifierOf(byte[] spki) {
+    /** Reached only with an SPKI the public descriptor has already accepted, so its failure is tested directly. */
+    static byte[] algorithmIdentifierOf(byte[] spki) {
         try {
             return SubjectPublicKeyInfo.getInstance(spki).getAlgorithm().getEncoded(ASN1Encoding.DER);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("A key this provider created has an unreadable public key", e);
         }
     }
 
