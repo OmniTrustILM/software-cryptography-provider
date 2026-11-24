@@ -5,6 +5,12 @@ import com.otilm.api.model.connector.cryptography.v2.KeyScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.TokenProfileScopedRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.CreateKeyAttributesRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyEntryStatus;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyHandleV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysResponseV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.ResourceMissingException;
@@ -15,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -143,6 +150,44 @@ class V2ReadOnlyCallsTest {
         assertThrows(ResourceMissingException.class, () -> operations.listSignAttributes(request));
 
         // then
+        assertNoTokenNamed(name);
+    }
+
+    @Test
+    void bringsNoTokenIntoExistenceToListItsKeys() {
+        // given
+        String name = TokenContextFixtures.uniqueName("v2-read-list");
+        ListKeysRequestV2Dto request = new ListKeysRequestV2Dto();
+        request.setTokenAttributes(TokenContextFixtures.newToken(name));
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyRequestType(KeyRequestType.KEY_PAIR);
+        request.setOffset(0);
+        request.setLimit(10);
+
+        // when
+        ListKeysResponseV2Dto page = controller.listKeys(request);
+
+        // then
+        assertEquals(0L, page.getTotalItems());
+        assertTrue(page.getItems().isEmpty());
+        assertNoTokenNamed(name);
+    }
+
+    @Test
+    void bringsNoTokenIntoExistenceToResolveAHandle() {
+        // given
+        String name = TokenContextFixtures.uniqueName("v2-read-resolve");
+        ResolveKeysRequestV2Dto request = new ResolveKeysRequestV2Dto();
+        request.setTokenAttributes(TokenContextFixtures.newToken(name));
+        request.setTokenProfileAttributes(List.of());
+        request.setKeyRequestType(KeyRequestType.KEY_PAIR);
+        request.setKeys(List.of(new KeyHandleV2Dto("0", List.of(KeyAttributes.buildAliasMetadata("any")))));
+
+        // when
+        ResolveKeysResponseV2Dto resolved = controller.resolveKeys(request);
+
+        // then
+        assertEquals(KeyEntryStatus.NOT_FOUND, resolved.getResults().get(0).getStatus());
         assertNoTokenNamed(name);
     }
 
