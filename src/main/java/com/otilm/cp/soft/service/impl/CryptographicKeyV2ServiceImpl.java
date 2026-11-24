@@ -67,6 +67,7 @@ import com.otilm.cp.soft.util.PrivateKeyDescriptor;
 import com.otilm.cp.soft.util.RequestFingerprint;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
 import jakarta.transaction.Transactional;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.Key;
@@ -81,6 +82,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -597,14 +600,13 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         KeyPairDataResponseV2Dto response = new KeyPairDataResponseV2Dto();
         response.setKeyPairMeta(keyContextService.publishPair(publicKey));
         response.setPublicKeyData(publicKeyData(publicKey));
-        response.setPrivateKeyData(privateKeyData(privateKey));
+        response.setPrivateKeyData(privateKeyData(privateKey, spki(publicKey)));
         return response;
     }
 
     private PublicKeyDataResponseV2Dto publicKeyData(KeyData key) {
         PublicKeyDataV2Dto descriptor = new PublicKeyDataV2Dto();
         descriptor.setAlgorithm(key.getAlgorithm());
-        descriptor.setLength(key.getLength());
         descriptor.setPublicKeySpki(spki(key));
 
         PublicKeyDataResponseV2Dto response = new PublicKeyDataResponseV2Dto();
@@ -613,10 +615,13 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         return response;
     }
 
-    private PrivateKeyDataResponseV2Dto privateKeyData(KeyData key) {
+    private PrivateKeyDataResponseV2Dto privateKeyData(KeyData key, byte[] pairSpki) {
         PrivateKeyDataV2Dto descriptor = new PrivateKeyDataV2Dto();
         descriptor.setAlgorithm(key.getAlgorithm());
-        descriptor.setLength(key.getLength());
+        descriptor.setAlgorithmIdentifier(algorithmIdentifierOf(pairSpki));
+        if (key.getAlgorithm() == KeyAlgorithm.RSA) {
+            descriptor.setLength(key.getLength());
+        }
 
         PrivateKeyDataResponseV2Dto response = new PrivateKeyDataResponseV2Dto();
         response.setKeyMeta(keyContextService.publish(key));
@@ -630,6 +635,15 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             return Base64.getDecoder().decode(spki.getValue());
         }
         return null;
+    }
+
+    /** Reached only with an SPKI the public descriptor has already accepted, so its failure is tested directly. */
+    static byte[] algorithmIdentifierOf(byte[] spki) {
+        try {
+            return SubjectPublicKeyInfo.getInstance(spki).getAlgorithm().getEncoded(ASN1Encoding.DER);
+        } catch (IOException | RuntimeException e) {
+            throw new IllegalStateException("A key this provider created has an unreadable public key", e);
+        }
     }
 
     /** A secret key is neither taken in nor let out, which the contract names apart from an unoffered operation. */

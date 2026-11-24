@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -115,6 +116,19 @@ class CryptographicKeyV2ServiceImplTest {
         assertEquals(original.getPrivateKeyData().getKeyMeta().toString(),
                 repeated.getPrivateKeyData().getKeyMeta().toString());
         assertEquals(2, keyDataRepository.findByKeyCreationId(request.getKeyCreationId()).size());
+    }
+
+    @Test
+    void anSpkiThatCannotBeReadIsReportedAsAnUnreadablePublicKey() {
+        // given
+        byte[] sequenceWithoutTheSpkiFields = {0x30, 0x00};
+
+        // when
+        // then
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> CryptographicKeyV2ServiceImpl.algorithmIdentifierOf(sequenceWithoutTheSpkiFields));
+        assertEquals("A key this provider created has an unreadable public key", failure.getMessage());
+        assertInstanceOf(IllegalArgumentException.class, failure.getCause());
     }
 
     @Test

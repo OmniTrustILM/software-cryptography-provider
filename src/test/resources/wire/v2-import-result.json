@@ -28,6 +28,7 @@
       "privateKeyData" : {
         "keyData" : {
           "algorithm" : "RSA",
+          "algorithmIdentifier" : "MA0GCSqGSIb3DQEBAQUA",
           "length" : 2048,
           "type" : "Private"
         },
@@ -74,7 +75,6 @@
       "publicKeyData" : {
         "keyData" : {
           "algorithm" : "RSA",
-          "length" : 2048,
           "publicKeySpki" : "<bytes>",
           "type" : "Public"
         },
