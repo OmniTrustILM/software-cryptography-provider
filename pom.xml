@@ -240,6 +240,17 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <executions>
+                    <!-- These dependencies run in every test JVM. Only the provider's classes contribute to its report. -->
+                    <execution>
+                        <id>prepare-agent</id>
+                        <configuration>
+                            <excludes>
+                                <exclude>org.bouncycastle.*</exclude>
+                                <exclude>org.hibernate.*</exclude>
+                                <exclude>org.springframework.*</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
                     <!-- Fails the build when project-wide coverage drops below the floor. -->
                     <execution>
                         <id>check-coverage</id>
