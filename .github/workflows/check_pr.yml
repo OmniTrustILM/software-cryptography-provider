@@ -38,7 +38,7 @@ jobs:
       - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mvn -B -U verify
+        run: mvn -B -U verify -DforkCount=2 -DreuseForks=true
 
       # Only build outputs are handed to the Sonar workflow. The PR context it needs comes
       # from the workflow_run event and the API, both of which the base repository controls,
