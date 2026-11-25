@@ -23,3 +23,4 @@ jobs:
       cache-scope: software-cryptography-provider
       build-args: |
         VERSION=${{ github.ref_name }}
+        MAVEN_TEST_CLASS=${{ github.event_name == 'pull_request' && github.base_ref == 'main' && 'PrehashedSignaturesTest' || '' }}

@@ -5,8 +5,9 @@ COPY src /home/app/src
 COPY pom.xml /home/app
 COPY docker /home/app/docker
 
-# Tests run here, so an image is never produced from a source tree that fails them.
-RUN mvn -f /home/app/pom.xml clean package
+# Main-targeting PRs select a native crypto smoke test. Other builds run the full suite.
+ARG MAVEN_TEST_CLASS
+RUN mvn -f /home/app/pom.xml clean package ${MAVEN_TEST_CLASS:+"-Dtest=$MAVEN_TEST_CLASS"}
 
 # Optimize stage
 FROM eclipse-temurin:21-jdk-alpine AS optimize
