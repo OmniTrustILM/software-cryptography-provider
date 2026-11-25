@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PrehashedSignaturesTest {
+class DataDigestSignaturesTest {
 
     private static final byte[] MESSAGE = "A message whose digest is signed".getBytes(StandardCharsets.UTF_8);
 
@@ -80,7 +80,7 @@ class PrehashedSignaturesTest {
         KeyPair pair = algorithm.name().endsWith("ECDSA") ? p384 : rsa;
 
         // when
-        byte[] signature = PrehashedSignatures.sign(algorithm, pair.getPrivate(), digest);
+        byte[] signature = DataDigestSignatures.sign(algorithm, pair.getPrivate(), digest);
 
         // then
         assertTrue(verifies(algorithm, pair.getPublic(), signature, 0));
@@ -110,7 +110,7 @@ class PrehashedSignaturesTest {
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(MESSAGE);
 
         // when
-        byte[] signature = PrehashedSignatures.sign(SignatureAlgorithm.SHA256_WITH_RSA, rsa.getPrivate(), digest);
+        byte[] signature = DataDigestSignatures.sign(SignatureAlgorithm.SHA256_WITH_RSA, rsa.getPrivate(), digest);
 
         // then
         byte[] prefix = HexFormat.of().parseHex("3031300d060960864801650304020105000420");
@@ -130,7 +130,7 @@ class PrehashedSignaturesTest {
         byte[] digest = MessageDigest.getInstance(SignatureAlgorithms.digestOf(algorithm).getCode()).digest(MESSAGE);
 
         // when
-        byte[] signature = PrehashedSignatures.sign(algorithm, p256.getPrivate(), digest);
+        byte[] signature = DataDigestSignatures.sign(algorithm, p256.getPrivate(), digest);
 
         // then
         assertTrue(verifies(algorithm, p256.getPublic(), signature, 0));
@@ -140,7 +140,7 @@ class PrehashedSignaturesTest {
     void pssSignatureFailsUnderAnotherSaltLength() throws Exception {
         // given
         byte[] digest = MessageDigest.getInstance("SHA-256").digest(MESSAGE);
-        byte[] signature = PrehashedSignatures.sign(SignatureAlgorithm.SHA256_WITH_RSA_PSS, rsa.getPrivate(), digest);
+        byte[] signature = DataDigestSignatures.sign(SignatureAlgorithm.SHA256_WITH_RSA_PSS, rsa.getPrivate(), digest);
 
         // when
         boolean underSaltTwenty = verifies(SignatureAlgorithm.SHA256_WITH_RSA_PSS, rsa.getPublic(), signature, 20);
@@ -156,12 +156,12 @@ class PrehashedSignaturesTest {
         PrivateKey key = rsa.getPrivate();
 
         // when
-        boolean admitted = PrehashedSignatures.admits(SignatureAlgorithm.ML_DSA_65);
+        boolean admitted = DataDigestSignatures.admits(SignatureAlgorithm.ML_DSA_65);
 
         // then
         assertFalse(admitted);
         assertThrows(IllegalArgumentException.class,
-                () -> PrehashedSignatures.sign(SignatureAlgorithm.ML_DSA_65, key, digest));
+                () -> DataDigestSignatures.sign(SignatureAlgorithm.ML_DSA_65, key, digest));
     }
 
     @ParameterizedTest
@@ -173,9 +173,9 @@ class PrehashedSignaturesTest {
         KeyPair pair = algorithm.name().endsWith("ECDSA") ? p256 : rsa;
 
         // when
-        Executable tooShort = () -> PrehashedSignatures.sign(algorithm, pair.getPrivate(), new byte[expected - 1]);
-        Executable tooLong = () -> PrehashedSignatures.sign(algorithm, pair.getPrivate(), new byte[expected + 1]);
-        Executable muchLonger = () -> PrehashedSignatures.sign(algorithm, pair.getPrivate(), new byte[96]);
+        Executable tooShort = () -> DataDigestSignatures.sign(algorithm, pair.getPrivate(), new byte[expected - 1]);
+        Executable tooLong = () -> DataDigestSignatures.sign(algorithm, pair.getPrivate(), new byte[expected + 1]);
+        Executable muchLonger = () -> DataDigestSignatures.sign(algorithm, pair.getPrivate(), new byte[96]);
 
         // then
         assertThrows(IllegalArgumentException.class, tooShort);
@@ -192,7 +192,7 @@ class PrehashedSignaturesTest {
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(SignatureAlgorithm.class)));
 
         // when
-        boolean allAdmitted = ADMITTED.stream().allMatch(PrehashedSignatures::admits);
+        boolean allAdmitted = ADMITTED.stream().allMatch(DataDigestSignatures::admits);
 
         // then
         assertEquals(ADMITTED, covered);

@@ -26,8 +26,8 @@ import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.KeyDataCacheService;
 import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.util.CipherUtil;
+import com.otilm.cp.soft.util.DataDigestSignatures;
 import com.otilm.cp.soft.util.KeyStoreUtil;
-import com.otilm.cp.soft.util.PrehashedSignatures;
 import com.otilm.cp.soft.util.SecureRandomUtil;
 import com.otilm.cp.soft.util.SignatureUtil;
 import java.security.PrivateKey;
@@ -211,7 +211,7 @@ public class CryptographicOperationsServiceImpl implements CryptographicOperatio
             SignatureResponseData signed = new SignatureResponseData();
             signed.setIdentifier(digest.getIdentifier());
             try {
-                signed.setData(PrehashedSignatures.sign(algorithm, privateKey, digest.getData()));
+                signed.setData(DataDigestSignatures.sign(algorithm, privateKey, digest.getData()));
             } catch (SignatureException e) {
                 signed.setDetails("Signature failed: " + e.getMessage());
             }

@@ -20,11 +20,11 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
  * Signs a digest the caller already computed, for the RSA and ECDSA algorithms whose signature is defined over a hash.
  * The digest is signed as it stands, so it is never hashed again.
  */
-public final class PrehashedSignatures {
+public final class DataDigestSignatures {
 
     private static final String PROVIDER = BouncyCastleProvider.PROVIDER_NAME;
 
-    private PrehashedSignatures() {
+    private DataDigestSignatures() {
     }
 
     /**
