@@ -77,7 +77,9 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -98,6 +100,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * refusals for work this connector never defers.
  */
 @SpringBootTest
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OperationsV2ControllerImplTest {
 
     private static final byte[] MESSAGE = "the message to sign".getBytes(StandardCharsets.UTF_8);
@@ -113,6 +116,13 @@ class OperationsV2ControllerImplTest {
     private KeyDataRepository keyDataRepository;
 
     private PrometheusMeterRegistry registry;
+
+    private KeyPair rsa2048;
+
+    @BeforeAll
+    void createReadOnlyRsaKey() {
+        rsa2048 = rsaKeyPair("v2-operations-rsa", 2048);
+    }
 
     @Autowired
     void setController(OperationsV2ControllerImpl controller) {
@@ -147,9 +157,8 @@ class OperationsV2ControllerImplTest {
     @Test
     void signsAndVerifiesThroughKeysAddressedByMetadata() {
         // given
-        KeyPair pair = rsaKeyPair("v2-sign");
         SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
-        apply(signing, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(signing, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         signing.setSignatureAttributes(rsaSignatureAttributes());
         signing.setData(List.of(item("one", MESSAGE)));
@@ -163,7 +172,7 @@ class OperationsV2ControllerImplTest {
         assertEquals("one", signed.getSignatures().get(0).getIdentifier());
 
         VerifyDataRequestV2Dto verification = new VerifyDataRequestV2Dto();
-        apply(verification, pair.tokenAttributes(), pair.publicKeyMeta());
+        apply(verification, rsa2048.tokenAttributes(), rsa2048.publicKeyMeta());
         verification.setSignatureAttributes(rsaSignatureAttributes());
         verification.setData(List.of(item("one", MESSAGE)));
         verification.setSignatures(SignatureFixtures.forVerification(signed.getSignatures()));
@@ -181,9 +190,8 @@ class OperationsV2ControllerImplTest {
     void verifiesEachSignatureAgainstItsOwnDataWhateverOrderTheyArriveIn() {
         // given
         byte[] second = "a second message".getBytes(StandardCharsets.UTF_8);
-        KeyPair pair = rsaKeyPair("v2-verify-order");
         SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
-        apply(signing, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(signing, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         signing.setSignatureAttributes(rsaSignatureAttributes());
         signing.setData(List.of(item("one", MESSAGE), item("two", second)));
@@ -192,7 +200,7 @@ class OperationsV2ControllerImplTest {
 
         // when
         VerifyDataRequestV2Dto verification = new VerifyDataRequestV2Dto();
-        apply(verification, pair.tokenAttributes(), pair.publicKeyMeta());
+        apply(verification, rsa2048.tokenAttributes(), rsa2048.publicKeyMeta());
         verification.setSignatureAttributes(rsaSignatureAttributes());
         verification.setData(List.of(item("one", MESSAGE), item("two", second)));
         verification
@@ -221,9 +229,8 @@ class OperationsV2ControllerImplTest {
     void encryptsAndDecryptsThroughKeysAddressedByMetadata(EncryptionAlgorithm algorithm) {
         // given
         byte[] second = "a second message".getBytes(StandardCharsets.UTF_8);
-        KeyPair pair = rsaKeyPair("v2-cipher");
         CipherDataRequestV2Dto encryption = new CipherDataRequestV2Dto();
-        apply(encryption, pair.tokenAttributes(), pair.publicKeyMeta());
+        apply(encryption, rsa2048.tokenAttributes(), rsa2048.publicKeyMeta());
         encryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         encryption.setCipherData(List.of(cipherItem("one", MESSAGE), cipherItem("two", second)));
 
@@ -234,7 +241,7 @@ class OperationsV2ControllerImplTest {
         assertEquals(List.of("one", "two"), encrypted.stream().map(CipherDataV2Dto::getIdentifier).toList());
 
         CipherDataRequestV2Dto decryption = new CipherDataRequestV2Dto();
-        apply(decryption, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(decryption, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         decryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         decryption.setCipherData(encrypted);
 
@@ -254,9 +261,8 @@ class OperationsV2ControllerImplTest {
     @Test
     void refusesDataThatIsNotCiphertextForTheKey() {
         // given
-        KeyPair pair = rsaKeyPair("v2-cipher-garbage");
         CipherDataRequestV2Dto decryption = new CipherDataRequestV2Dto();
-        apply(decryption, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(decryption, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         decryption.setCipherAttributes(rsaCipherAttributes());
         decryption.setCipherData(List.of(cipherItem("one", MESSAGE)));
 
@@ -268,9 +274,8 @@ class OperationsV2ControllerImplTest {
     @Test
     void rsaKeyPublishesReservedSignatureAlgorithm() {
         // given
-        KeyPair pair = rsaKeyPair("v2-sign-attrs");
         KeyScopedRequestV2Dto request = new KeyScopedRequestV2Dto();
-        apply(request, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(request, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
 
         // when
         List<BaseAttribute> attributes = controller.listSignAttributes(request);
@@ -357,9 +362,8 @@ class OperationsV2ControllerImplTest {
 
     @Test
     void rsaPssSha384SelectionProducesExternallyVerifiableSignature() throws GeneralSecurityException {
-        KeyPair pair = rsaKeyPair("v2-rsa-pss-sign");
         SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
-        apply(signing, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(signing, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         signing
                 .setSignatureAttributes(
@@ -369,7 +373,7 @@ class OperationsV2ControllerImplTest {
         SignDataResponseV2Dto signed = controller.signData(signing).getBody();
         assertNotNull(signed);
 
-        assertTrue(verifiesExternally(pair.publicKeySpki(), "RSA", "SHA384withRSAandMGF1", MESSAGE,
+        assertTrue(verifiesExternally(rsa2048.publicKeySpki(), "RSA", "SHA384withRSAandMGF1", MESSAGE,
                 signed.getSignatures().get(0).getData()));
     }
 
@@ -393,9 +397,8 @@ class OperationsV2ControllerImplTest {
 
     @Test
     void rsaKeyRefusesAnEcdsaSignatureSelection() {
-        KeyPair pair = rsaKeyPair("v2-rsa-wrong-signature");
         SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
-        apply(signing, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(signing, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         signing.setExecutionMode(OperationExecutionMode.SYNCHRONOUS);
         signing
                 .setSignatureAttributes(
@@ -408,8 +411,7 @@ class OperationsV2ControllerImplTest {
     @Test
     void rsaKeyRefusesToVerifyUnderAnEcdsaSignatureSelection() {
         // given
-        KeyPair pair = rsaKeyPair("v2-rsa-wrong-verification");
-        VerifyDataRequestV2Dto verification = verification(pair, SignatureAlgorithm.SHA256_WITH_ECDSA);
+        VerifyDataRequestV2Dto verification = verification(rsa2048, SignatureAlgorithm.SHA256_WITH_ECDSA);
 
         // when
         // then
@@ -455,8 +457,7 @@ class OperationsV2ControllerImplTest {
     @MethodSource("selectionsNamingNoAlgorithm")
     void refusesASignatureSelectionThatNamesNoAlgorithm(String selection, List<RequestAttribute> attributes) {
         // given
-        KeyPair pair = rsaKeyPair("v2-no-selection");
-        SignDataRequestV2Dto signing = signing(pair, attributes);
+        SignDataRequestV2Dto signing = signing(rsa2048, attributes);
 
         // when
         // then
@@ -588,13 +589,12 @@ class OperationsV2ControllerImplTest {
     @Test
     void publishesReservedAlgorithmForEncryptingAndDecrypting() {
         // given
-        KeyPair pair = rsaKeyPair("v2-cipher-attrs");
         KeyScopedRequestV2Dto request = new KeyScopedRequestV2Dto();
-        apply(request, pair.tokenAttributes(), pair.publicKeyMeta());
+        apply(request, rsa2048.tokenAttributes(), rsa2048.publicKeyMeta());
 
         // when
         List<BaseAttribute> encryption = controller.listEncryptAttributes(request);
-        apply(request, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(request, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         List<BaseAttribute> decryption = controller.listDecryptAttributes(request);
 
         // then
@@ -615,10 +615,9 @@ class OperationsV2ControllerImplTest {
     void decryptsCiphertextFromExplicitExternalEncryptionProfile(EncryptionAlgorithm algorithm)
             throws GeneralSecurityException {
         // given
-        KeyPair pair = rsaKeyPair("v2-cipher-external");
         PublicKey publicKey = KeyFactory
                 .getInstance("RSA")
-                .generatePublic(new X509EncodedKeySpec(pair.publicKeySpki()));
+                .generatePublic(new X509EncodedKeySpec(rsa2048.publicKeySpki()));
         Cipher cipher = Cipher.getInstance(algorithm.getCode());
         if (algorithm == EncryptionAlgorithm.RSA_PKCS1_V1_5) {
             cipher.init(Cipher.ENCRYPT_MODE, publicKey);
@@ -635,7 +634,7 @@ class OperationsV2ControllerImplTest {
                             new MGF1ParameterSpec(digest), PSource.PSpecified.DEFAULT));
         }
         CipherDataRequestV2Dto decryption = new CipherDataRequestV2Dto();
-        apply(decryption, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(decryption, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         decryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         decryption.setCipherData(List.of(cipherItem("one", cipher.doFinal(MESSAGE))));
 
@@ -679,9 +678,7 @@ class OperationsV2ControllerImplTest {
     void signsADataDigestThatVerifiesOverItsMessage(SignatureAlgorithm algorithm, String keyAlgorithm, String jdkName,
             String hash) throws GeneralSecurityException {
         // given
-        KeyPair pair = "RSA".equals(keyAlgorithm)
-                ? rsaKeyPair("v2-data-digest-" + algorithm.getCode())
-                : ecdsaKeyPair("v2-data-digest-" + algorithm.getCode());
+        KeyPair pair = "RSA".equals(keyAlgorithm) ? rsa2048 : ecdsaKeyPair("v2-data-digest-" + algorithm.getCode());
         SignDataRequestV2Dto signing = dataDigest(pair, algorithm, item("one", digestOf(hash, MESSAGE)));
 
         // when
@@ -703,12 +700,11 @@ class OperationsV2ControllerImplTest {
     @Test
     void signsEveryItemOfADataDigestBatch() throws GeneralSecurityException {
         // given
-        KeyPair pair = rsaKeyPair("v2-data-digest-batch");
         Map<String, byte[]> messages = new LinkedHashMap<>();
         messages.put("one", new byte[]{1});
         messages.put("two", new byte[]{2});
         messages.put("three", new byte[]{3});
-        SignDataRequestV2Dto signing = dataDigest(pair, SignatureAlgorithm.SHA256_WITH_RSA,
+        SignDataRequestV2Dto signing = dataDigest(rsa2048, SignatureAlgorithm.SHA256_WITH_RSA,
                 messages
                         .entrySet()
                         .stream()
@@ -724,7 +720,7 @@ class OperationsV2ControllerImplTest {
         assertEquals(List.copyOf(messages.keySet()),
                 signed.getSignatures().stream().map(SignatureResponseItemV2Dto::getIdentifier).toList());
         for (var signature : signed.getSignatures()) {
-            assertTrue(verifiesWithJdk(pair.publicKeySpki(), "RSA", "SHA256withRSA", "SHA-256",
+            assertTrue(verifiesWithJdk(rsa2048.publicKeySpki(), "RSA", "SHA256withRSA", "SHA-256",
                     messages.get(signature.getIdentifier()), signature.getData()));
         }
         assertEquals(succeeded + 1, signedCount("success"));
@@ -756,9 +752,8 @@ class OperationsV2ControllerImplTest {
     @Test
     void refusesABatchWithOneWrongLengthDigest() {
         // given
-        KeyPair pair = rsaKeyPair("v2-data-digest-wrong-length");
-        SignDataRequestV2Dto signing = dataDigest(pair, SignatureAlgorithm.SHA256_WITH_RSA, item("one", new byte[32]),
-                item("two", new byte[31]), item("three", new byte[32]));
+        SignDataRequestV2Dto signing = dataDigest(rsa2048, SignatureAlgorithm.SHA256_WITH_RSA,
+                item("one", new byte[32]), item("two", new byte[31]), item("three", new byte[32]));
         double succeeded = signedCount("success");
         double failed = signedCount("error");
 
@@ -772,8 +767,7 @@ class OperationsV2ControllerImplTest {
     @Test
     void signsWhenTheRequestNamesDataMode() {
         // given
-        KeyPair pair = rsaKeyPair("v2-sign-data-mode");
-        SignDataRequestV2Dto signing = signing(pair, rsaSignatureAttributes());
+        SignDataRequestV2Dto signing = signing(rsa2048, rsaSignatureAttributes());
         signing.setSignatureInputMode(SignatureInputMode.DATA);
 
         // when
@@ -787,9 +781,8 @@ class OperationsV2ControllerImplTest {
     @Test
     void refusesToDeferSigningAndTracksNothing() {
         // given
-        KeyPair pair = rsaKeyPair("v2-sign-async");
         SignDataRequestV2Dto signing = new SignDataRequestV2Dto();
-        apply(signing, pair.tokenAttributes(), pair.privateKeyMeta());
+        apply(signing, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
         signing.setExecutionMode(OperationExecutionMode.ASYNCHRONOUS);
         signing.setSignatureAttributes(rsaSignatureAttributes());
         signing.setData(List.of(item("one", MESSAGE)));
@@ -801,10 +794,6 @@ class OperationsV2ControllerImplTest {
         assertThrows(NotSupportedException.class, () -> controller.signData(signing));
         assertThrows(OperationNotTrackedException.class, () -> controller.getSignStatus(tracking));
         assertThrows(OperationNotTrackedException.class, () -> controller.cancelSign(tracking));
-    }
-
-    private KeyPair rsaKeyPair(String prefix) {
-        return rsaKeyPair(prefix, 2048);
     }
 
     private KeyPair rsaKeyPair(String prefix, int keySize) {
