@@ -52,6 +52,7 @@ import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMateri
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
 import com.otilm.cp.soft.dao.entity.KeyData;
+import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.KeyManagementException;
@@ -67,11 +68,14 @@ import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.metrics.ConnectorEvent;
 import com.otilm.cp.soft.metrics.ConnectorMetrics;
+import com.otilm.cp.soft.model.CachedKeyMaterial;
 import com.otilm.cp.soft.model.KeyContext;
 import com.otilm.cp.soft.model.TokenContext;
+import com.otilm.cp.soft.model.TokenVersion;
 import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.KeyManagementService;
+import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.ExportedKeyMaterial;
@@ -88,17 +92,22 @@ import java.security.Key;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -148,6 +157,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     private KeyDataRepository keyDataRepository;
 
     private KeyManagementService keyManagementService;
+
+    private KeyStoreCacheService keyStoreCacheService;
 
     private TokenContextService tokenContextService;
 
@@ -588,8 +599,28 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         return tokenContextService
                 .locate(tokenAttributes)
                 .map(token -> TokenKeys
-                        .of(keyDataRepository.findAllByTokenInstanceUuid(token.instance().getUuid()), token))
-                .orElseGet(() -> TokenKeys.of(List.of(), null));
+                        .of(keyDataRepository.findAllByTokenInstanceUuid(token.instance().getUuid()),
+                                () -> keystoreEntriesOf(token)))
+                .orElseGet(() -> TokenKeys.of(List.of(), () -> KeystoreEntries.NONE));
+    }
+
+    /**
+     * Locating a token with a stored code has already loaded its key material, so the keystore is opened here only for
+     * a token without a stored code.
+     */
+    private KeystoreEntries keystoreEntriesOf(TokenContext token) {
+        TokenInstance instance = token.instance();
+        if (!instance.hasCode()) {
+            return KeystoreEntries.of(KeyStoreUtil.loadKeystore(instance.getData(), token.code()));
+        }
+        try {
+            CachedKeyMaterial material = keyStoreCacheService
+                    .loadKeyMaterial(
+                            new TokenVersion(instance.getUuid(), instance.getName(), instance.getTimestamp(), true));
+            return KeystoreEntries.of(material);
+        } catch (NotFoundException e) {
+            throw new IllegalStateException("The token is gone", e);
+        }
     }
 
     private KeyResolutionV2Dto resolve(KeyHandleV2Dto handle, TokenKeys keys) {
@@ -730,8 +761,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         if (publicKey != null) {
             return algorithmIdentifierOf(spki(publicKey));
         }
-        Certificate certificate = keys.certificateOf(privateKey);
-        return certificate == null ? null : algorithmIdentifierOf(certificate.getPublicKey().getEncoded());
+        PublicKey certified = keys.publicKeyOf(privateKey);
+        return certified == null ? null : algorithmIdentifierOf(certified.getEncoded());
     }
 
     /**
@@ -746,18 +777,19 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
         private final Map<String, KeyData> publicKeysByAssociation;
 
-        private final TokenContext token;
+        private final Supplier<KeystoreEntries> openEntries;
 
-        private KeyStore keyStore;
+        private KeystoreEntries entries;
 
-        private TokenKeys(List<KeyData> privateKeys, Map<String, KeyData> publicKeysByAssociation, TokenContext token) {
+        private TokenKeys(List<KeyData> privateKeys, Map<String, KeyData> publicKeysByAssociation,
+                Supplier<KeystoreEntries> openEntries) {
             this.privateKeys = privateKeys;
             this.privateKeysByAlias = privateKeys.stream().collect(Collectors.groupingBy(key -> folded(key.getName())));
             this.publicKeysByAssociation = publicKeysByAssociation;
-            this.token = token;
+            this.openEntries = openEntries;
         }
 
-        static TokenKeys of(List<KeyData> rows, TokenContext token) {
+        static TokenKeys of(List<KeyData> rows, Supplier<KeystoreEntries> openEntries) {
             List<KeyData> privateKeys = rows
                     .stream()
                     .filter(key -> key.getType() == KeyType.PRIVATE_KEY)
@@ -769,7 +801,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
                     .stream()
                     .filter(key -> key.getType() == KeyType.PUBLIC_KEY && key.getAssociation() != null)
                     .collect(Collectors.toMap(KeyData::getAssociation, Function.identity(), (first, later) -> first));
-            return new TokenKeys(privateKeys, publicKeysByAssociation, token);
+            return new TokenKeys(privateKeys, publicKeysByAssociation, openEntries);
         }
 
         List<KeyData> privateKeys() {
@@ -793,35 +825,62 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
         /** A pair that shared its keystore entry with another loses it when that pair is destroyed. */
         boolean holdsKeyUnder(KeyData privateKey) {
+            return entries().keyAliases().contains(folded(privateKey.getName()));
+        }
+
+        /** Only an alias of its own addresses one certificate, whose public key this is. */
+        PublicKey publicKeyOf(KeyData privateKey) {
+            return sharesAlias(privateKey) ? null : entries().publicKeys().get(folded(privateKey.getName()));
+        }
+
+        /** The entries are read once a pair needs them. */
+        private KeystoreEntries entries() {
+            if (entries == null) {
+                entries = openEntries.get();
+            }
+            return entries;
+        }
+    }
+
+    /** The PKCS#12 keystore folds an alias to look a key up, so every alias is compared folded the same way. */
+    private static String folded(String alias) {
+        return Strings.toLowerCase(alias);
+    }
+
+    /**
+     * The folded aliases a token's keystore holds a key under, and the public key of the certificate beside each.
+     */
+    private record KeystoreEntries(Set<String> keyAliases, Map<String, PublicKey> publicKeys) {
+
+        static final KeystoreEntries NONE = new KeystoreEntries(Set.of(), Map.of());
+
+        static KeystoreEntries of(CachedKeyMaterial material) {
+            Set<String> keyAliases = new HashSet<>();
+            material.privateKeys().keySet().forEach(alias -> keyAliases.add(folded(alias)));
+            Map<String, PublicKey> publicKeys = new HashMap<>();
+            material.publicKeys().forEach((alias, publicKey) -> publicKeys.put(folded(alias), publicKey));
+            return new KeystoreEntries(Collections.unmodifiableSet(keyAliases),
+                    Collections.unmodifiableMap(publicKeys));
+        }
+
+        static KeystoreEntries of(KeyStore keyStore) {
+            Set<String> keyAliases = new HashSet<>();
+            Map<String, PublicKey> publicKeys = new HashMap<>();
             try {
-                return keyStore().isKeyEntry(privateKey.getName());
+                for (String alias : Collections.list(keyStore.aliases())) {
+                    if (keyStore.isKeyEntry(alias)) {
+                        keyAliases.add(folded(alias));
+                    }
+                    Certificate certificate = keyStore.getCertificate(alias);
+                    if (certificate != null) {
+                        publicKeys.put(folded(alias), certificate.getPublicKey());
+                    }
+                }
             } catch (KeyStoreException e) {
                 throw new IllegalStateException("The keystore of the token cannot be read", e);
             }
-        }
-
-        /** Only an alias of its own addresses one certificate. */
-        Certificate certificateOf(KeyData privateKey) {
-            if (sharesAlias(privateKey)) {
-                return null;
-            }
-            try {
-                return keyStore().getCertificate(privateKey.getName());
-            } catch (KeyStoreException e) {
-                throw new IllegalStateException("The keystore of the token cannot be read", e);
-            }
-        }
-
-        /** The keystore is opened once a pair needs it. */
-        private KeyStore keyStore() {
-            if (keyStore == null) {
-                keyStore = KeyStoreUtil.loadKeystore(token.instance().getData(), token.code());
-            }
-            return keyStore;
-        }
-
-        private static String folded(String alias) {
-            return Strings.toLowerCase(alias);
+            return new KeystoreEntries(Collections.unmodifiableSet(keyAliases),
+                    Collections.unmodifiableMap(publicKeys));
         }
     }
 
@@ -988,6 +1047,11 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     @Autowired
     public void setKeyManagementService(KeyManagementService keyManagementService) {
         this.keyManagementService = keyManagementService;
+    }
+
+    @Autowired
+    public void setKeyStoreCacheService(KeyStoreCacheService keyStoreCacheService) {
+        this.keyStoreCacheService = keyStoreCacheService;
     }
 
     @Autowired

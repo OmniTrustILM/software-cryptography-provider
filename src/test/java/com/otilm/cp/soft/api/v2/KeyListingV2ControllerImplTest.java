@@ -47,6 +47,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -57,6 +58,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 
 /**
  * A listed pair carries the handle and descriptors its creation returned, so the platform onboards it like a key it
@@ -197,6 +202,39 @@ class KeyListingV2ControllerImplTest {
         assertEquals(KeyEntryStatus.UNREADABLE, entry.getStatus());
         assertEquals("The token holds no key under this alias.", entry.getDiagnostic());
         assertNull(entry.getKey());
+    }
+
+    /** Locating a token with a stored code loads its cached key material, which then answers the listing. */
+    @Test
+    void listsTheKeysOfATokenWithAStoredCodeWithoutOpeningItsKeystore() {
+        // given
+        String token = TokenContextFixtures.uniqueName("v2-list-cached");
+        create(KeyRequestFixtures.rsaKeyPair(token, "cached"));
+        controller.listKeys(listRequest(token, 0, 10));
+
+        try (MockedStatic<KeyStoreUtil> keystores = mockStatic(KeyStoreUtil.class, CALLS_REAL_METHODS)) {
+            // when
+            ListKeysResponseV2Dto page = controller.listKeys(listRequest(token, 0, 10));
+
+            // then
+            assertEquals(KeyEntryStatus.AVAILABLE, page.getItems().get(0).getStatus());
+            keystores.verify(() -> KeyStoreUtil.loadKeystore(any(), any()), never());
+        }
+    }
+
+    /** A token deactivated through the V1 interfaces has no code stored, so the request's code opens its keystore. */
+    @Test
+    void listsTheKeysOfATokenWithNoStoredCode() {
+        // given
+        String token = TokenContextFixtures.uniqueName("v2-list-no-code");
+        KeyData privateKey = half(create(KeyRequestFixtures.rsaKeyPair(token, "uncached")), KeyType.PRIVATE_KEY);
+        forgetCode(privateKey);
+
+        // when
+        ListKeysResponseV2Dto page = controller.listKeys(listRequest(token, 0, 10));
+
+        // then
+        assertEquals(KeyEntryStatus.AVAILABLE, page.getItems().get(0).getStatus());
     }
 
     /** The keystore folds only ASCII letters, so aliases that differ in any other case address a key each. */
@@ -480,6 +518,13 @@ class KeyListingV2ControllerImplTest {
             key.setName(alias);
             keyDataRepository.saveAndFlush(key);
         }
+    }
+
+    private void forgetCode(KeyData key) {
+        transaction.executeWithoutResult(status -> {
+            TokenInstance token = tokenInstanceRepository.findByUuid(key.getTokenInstanceUuid()).orElseThrow();
+            token.setCode(null);
+        });
     }
 
     private void rewriteKeystore(KeyData key, Consumer<KeyStore> change) {
