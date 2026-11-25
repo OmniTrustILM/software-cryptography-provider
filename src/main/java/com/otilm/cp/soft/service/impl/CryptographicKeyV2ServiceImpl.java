@@ -6,7 +6,10 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
+import com.otilm.api.model.common.attribute.common.AttributeContent;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
+import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
@@ -28,17 +31,28 @@ import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyAttributesRequ
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyResultRequestV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.ImportableKeyTypeV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyEntryStatus;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyEntryV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyExportableAttribute;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyHandleV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairOperationStatusResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.KeyResolutionV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListedKeyEntryV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListedKeyPairV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PrivateKeyDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PrivateKeyDataV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.PublicKeyDataV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.material.EncryptedKeyMaterialV2Dto;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.attribute.KeySpecV2Attributes;
 import com.otilm.cp.soft.dao.entity.KeyData;
+import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
 import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.KeyManagementException;
@@ -46,6 +60,7 @@ import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
+import com.otilm.cp.soft.exception.KeyTypeNotListableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
 import com.otilm.cp.soft.exception.OperationNotTrackedException;
@@ -53,11 +68,14 @@ import com.otilm.cp.soft.exception.ParameterUnsupportedException;
 import com.otilm.cp.soft.exception.ResourceMissingException;
 import com.otilm.cp.soft.metrics.ConnectorEvent;
 import com.otilm.cp.soft.metrics.ConnectorMetrics;
+import com.otilm.cp.soft.model.CachedKeyMaterial;
 import com.otilm.cp.soft.model.KeyContext;
 import com.otilm.cp.soft.model.TokenContext;
+import com.otilm.cp.soft.model.TokenVersion;
 import com.otilm.cp.soft.service.CryptographicKeyV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.KeyManagementService;
+import com.otilm.cp.soft.service.KeyStoreCacheService;
 import com.otilm.cp.soft.service.TokenContextService;
 import com.otilm.cp.soft.util.AttributeValue;
 import com.otilm.cp.soft.util.ExportedKeyMaterial;
@@ -74,16 +92,26 @@ import java.security.Key;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.util.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,6 +157,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     private KeyDataRepository keyDataRepository;
 
     private KeyManagementService keyManagementService;
+
+    private KeyStoreCacheService keyStoreCacheService;
 
     private TokenContextService tokenContextService;
 
@@ -539,6 +569,321 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
     }
 
+    @Override
+    public ListKeysResponseV2Dto listKeys(ListKeysRequestV2Dto request) {
+        requireListableKeyPair(request.getKeyRequestType());
+        TokenKeys keys = tokenKeys(request.getTokenAttributes());
+
+        ListKeysResponseV2Dto response = new ListKeysResponseV2Dto();
+        response
+                .setItems(keys
+                        .privateKeys()
+                        .stream()
+                        .skip(request.getOffset())
+                        .limit(request.getLimit())
+                        .map(key -> admit(key, keys, new ListedKeyEntryV2Dto()))
+                        .toList());
+        response.setTotalItems((long) keys.privateKeys().size());
+        return response;
+    }
+
+    @Override
+    public ResolveKeysResponseV2Dto resolveKeys(ResolveKeysRequestV2Dto request) {
+        requireListableKeyPair(request.getKeyRequestType());
+        TokenKeys keys = tokenKeys(request.getTokenAttributes());
+        return new ResolveKeysResponseV2Dto(request.getKeys().stream().map(handle -> resolve(handle, keys)).toList());
+    }
+
+    /** A token no request has used yet holds no keys. */
+    private TokenKeys tokenKeys(List<RequestAttribute> tokenAttributes) {
+        return tokenContextService
+                .locate(tokenAttributes)
+                .map(token -> TokenKeys
+                        .of(keyDataRepository.findAllByTokenInstanceUuid(token.instance().getUuid()),
+                                () -> keystoreEntriesOf(token)))
+                .orElseGet(() -> TokenKeys.of(List.of(), () -> KeystoreEntries.NONE));
+    }
+
+    /**
+     * Locating a token with a stored code has already loaded its key material, so the keystore is opened here only for
+     * a token without a stored code.
+     */
+    private KeystoreEntries keystoreEntriesOf(TokenContext token) {
+        TokenInstance instance = token.instance();
+        if (!instance.hasCode()) {
+            return KeystoreEntries.of(KeyStoreUtil.loadKeystore(instance.getData(), token.code()));
+        }
+        try {
+            CachedKeyMaterial material = keyStoreCacheService
+                    .loadKeyMaterial(
+                            new TokenVersion(instance.getUuid(), instance.getName(), instance.getTimestamp(), true));
+            return KeystoreEntries.of(material);
+        } catch (NotFoundException e) {
+            throw new IllegalStateException("The token is gone", e);
+        }
+    }
+
+    private KeyResolutionV2Dto resolve(KeyHandleV2Dto handle, TokenKeys keys) {
+        KeyResolutionV2Dto resolution = new KeyResolutionV2Dto();
+        resolution.setIdentifier(handle.getIdentifier());
+        Optional<String> alias = issuedAlias(handle.getKeyMeta());
+        if (alias.isEmpty()) {
+            return blocked(resolution, KeyEntryStatus.INVALID_HANDLE,
+                    "The handle is not the single key alias this connector issues.");
+        }
+        return keys
+                .privateKeyNamed(alias.get())
+                .map(key -> admit(key, keys, resolution))
+                .orElseGet(() -> blocked(resolution, KeyEntryStatus.NOT_FOUND,
+                        "The token holds no private key under the alias the handle names."));
+    }
+
+    /** The alias a handle names when it has the shape {@link KeyContextService#publishPair} issues. */
+    private static Optional<String> issuedAlias(List<MetadataAttribute> handle) {
+        if (handle.size() != 1) {
+            return Optional.empty();
+        }
+        MetadataAttribute attribute = handle.get(0);
+        boolean namesAnAlias = KeyAttributes.ATTRIBUTE_META_KEY_ALIAS.equals(attribute.getName())
+                && attribute.getContentType() == AttributeContentType.STRING;
+        return namesAnAlias && soleData(attribute) instanceof String alias ? Optional.of(alias) : Optional.empty();
+    }
+
+    private static Object soleData(MetadataAttribute attribute) {
+        List<? extends AttributeContent> content = attribute.getContent();
+        return content != null && content.size() == 1 && content.get(0) != null ? content.get(0).getData() : null;
+    }
+
+    /**
+     * Reports the connector's status for the pair, which Core weighs when it decides admission. Only an available pair
+     * carries the key, described as its creation describes it.
+     */
+    private <T extends KeyEntryV2Dto> T admit(KeyData privateKey, TokenKeys keys, T entry) {
+        entry.setStorageName(privateKey.getName());
+        if (keys.sharesAlias(privateKey)) {
+            return withheld(entry, KeyEntryStatus.UNADDRESSABLE,
+                    "Several private keys in the token share this alias, which the keystore reads without regard to "
+                            + "case, so it addresses none of them.",
+                    privateKey, keys);
+        }
+        try {
+            if (!heldByTheKeystore(privateKey, keys)) {
+                return withheld(entry, KeyEntryStatus.UNREADABLE, "The token holds no key under this alias.",
+                        privateKey, keys);
+            }
+            if (signsUnderNoPlatformAlgorithm(privateKey)) {
+                return withheld(entry, KeyEntryStatus.UNSUPPORTED_TYPE,
+                        "No platform signature algorithm names the parameter set of the key.", privateKey, keys);
+            }
+            entry.setKey(listedPair(privateKey, keys));
+        } catch (UnreadableKeyException e) {
+            logger.debug("The key rows of the pair {} cannot be read", privateKey.getUuid(), e);
+            return withheld(entry, KeyEntryStatus.UNREADABLE, e.getMessage(), privateKey, keys);
+        }
+        entry.setStatus(KeyEntryStatus.AVAILABLE);
+        return entry;
+    }
+
+    /** A pair whose public half was destroyed on its own is listed without it. */
+    private ListedKeyPairV2Dto listedPair(KeyData privateKey, TokenKeys keys) {
+        ListedKeyPairV2Dto pair = new ListedKeyPairV2Dto();
+        pair.setKeyPairMeta(keyContextService.publishPair(privateKey));
+        KeyData publicKey = keys.publicHalfOf(privateKey);
+        try {
+            if (publicKey != null) {
+                pair.setPublicKeyData(publicKeyData(publicKey));
+            }
+            pair.setPrivateKeyData(privateKeyResponse(privateKey, algorithmIdentifierOf(privateKey, keys)));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new UnreadableKeyException("The public key stored for the pair cannot be read.", e);
+        }
+        return pair;
+    }
+
+    private static final String UNREADABLE_PARAMETERS = "The parameters stored for the private key cannot be read.";
+
+    private static final class UnreadableKeyException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        UnreadableKeyException(String diagnostic, RuntimeException cause) {
+            super(diagnostic, cause);
+        }
+    }
+
+    private static boolean heldByTheKeystore(KeyData privateKey, TokenKeys keys) {
+        try {
+            return keys.holdsKeyUnder(privateKey);
+        } catch (IllegalStateException e) {
+            throw new UnreadableKeyException("The keystore of the token cannot be read.", e);
+        }
+    }
+
+    private static boolean signsUnderNoPlatformAlgorithm(KeyData privateKey) {
+        try {
+            if (privateKey.getValue() instanceof CustomKeyValue value) {
+                return signsUnderNoPlatformAlgorithm(privateKey.getAlgorithm(), value.getValues());
+            }
+        } catch (RuntimeException e) {
+            throw new UnreadableKeyException(UNREADABLE_PARAMETERS, e);
+        }
+        throw new UnreadableKeyException(UNREADABLE_PARAMETERS, null);
+    }
+
+    /** A blocked key still carries the private-key descriptor Core displays. */
+    private static <T extends KeyEntryV2Dto> T withheld(T entry, KeyEntryStatus status, String diagnostic,
+            KeyData privateKey, TokenKeys keys) {
+        entry.setKeyData(withheldKeyDescriptor(privateKey, keys));
+        return blocked(entry, status, diagnostic);
+    }
+
+    /** Names the key's parameters where they can still be read. */
+    private static PrivateKeyDataV2Dto withheldKeyDescriptor(KeyData privateKey, TokenKeys keys) {
+        try {
+            return privateKeyDescriptor(privateKey, algorithmIdentifierOf(privateKey, keys));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return privateKeyDescriptor(privateKey, null);
+        }
+    }
+
+    private static <T extends KeyEntryV2Dto> T blocked(T entry, KeyEntryStatus status, String diagnostic) {
+        entry.setStatus(status);
+        entry.setDiagnostic(diagnostic);
+        return entry;
+    }
+
+    /**
+     * The AlgorithmIdentifier of a private key, read from its public row or, once that row is gone, from the
+     * certificate the keystore keeps beside the key.
+     */
+    private static byte[] algorithmIdentifierOf(KeyData privateKey, TokenKeys keys) {
+        KeyData publicKey = keys.publicHalfOf(privateKey);
+        if (publicKey != null) {
+            return algorithmIdentifierOf(spki(publicKey));
+        }
+        PublicKey certified = keys.publicKeyOf(privateKey);
+        return certified == null ? null : algorithmIdentifierOf(certified.getEncoded());
+    }
+
+    /**
+     * The key rows of one token, with the private halves sorted by alias and then by row UUID. Aliases are folded as
+     * the PKCS#12 keystore folds them, since that is how it looks a key up.
+     */
+    private static final class TokenKeys {
+
+        private final List<KeyData> privateKeys;
+
+        private final Map<String, List<KeyData>> privateKeysByAlias;
+
+        private final Map<String, KeyData> publicKeysByAssociation;
+
+        private final Supplier<KeystoreEntries> openEntries;
+
+        private KeystoreEntries entries;
+
+        private TokenKeys(List<KeyData> privateKeys, Map<String, KeyData> publicKeysByAssociation,
+                Supplier<KeystoreEntries> openEntries) {
+            this.privateKeys = privateKeys;
+            this.privateKeysByAlias = privateKeys.stream().collect(Collectors.groupingBy(key -> folded(key.getName())));
+            this.publicKeysByAssociation = publicKeysByAssociation;
+            this.openEntries = openEntries;
+        }
+
+        static TokenKeys of(List<KeyData> rows, Supplier<KeystoreEntries> openEntries) {
+            List<KeyData> privateKeys = rows
+                    .stream()
+                    .filter(key -> key.getType() == KeyType.PRIVATE_KEY)
+                    .sorted(Comparator
+                            .comparing(KeyData::getName, String.CASE_INSENSITIVE_ORDER)
+                            .thenComparing(KeyData::getUuid))
+                    .toList();
+            Map<String, KeyData> publicKeysByAssociation = rows
+                    .stream()
+                    .filter(key -> key.getType() == KeyType.PUBLIC_KEY && key.getAssociation() != null)
+                    .collect(Collectors.toMap(KeyData::getAssociation, Function.identity(), (first, later) -> first));
+            return new TokenKeys(privateKeys, publicKeysByAssociation, openEntries);
+        }
+
+        List<KeyData> privateKeys() {
+            return privateKeys;
+        }
+
+        /**
+         * Creation refuses an alias the token holds in another case. Only rows stored before that rule share an alias.
+         */
+        boolean sharesAlias(KeyData privateKey) {
+            return privateKeysByAlias.getOrDefault(folded(privateKey.getName()), List.of()).size() > 1;
+        }
+
+        Optional<KeyData> privateKeyNamed(String alias) {
+            return privateKeysByAlias.getOrDefault(folded(alias), List.of()).stream().findFirst();
+        }
+
+        KeyData publicHalfOf(KeyData privateKey) {
+            return publicKeysByAssociation.get(privateKey.getAssociation());
+        }
+
+        /** A pair that shared its keystore entry with another loses it when that pair is destroyed. */
+        boolean holdsKeyUnder(KeyData privateKey) {
+            return entries().keyAliases().contains(folded(privateKey.getName()));
+        }
+
+        /** Only an alias of its own addresses one certificate, whose public key this is. */
+        PublicKey publicKeyOf(KeyData privateKey) {
+            return sharesAlias(privateKey) ? null : entries().publicKeys().get(folded(privateKey.getName()));
+        }
+
+        /** The entries are read once a pair needs them. */
+        private KeystoreEntries entries() {
+            if (entries == null) {
+                entries = openEntries.get();
+            }
+            return entries;
+        }
+    }
+
+    /** The PKCS#12 keystore folds an alias to look a key up, so every alias is compared folded the same way. */
+    private static String folded(String alias) {
+        return Strings.toLowerCase(alias);
+    }
+
+    /**
+     * The folded aliases a token's keystore holds a key under, and the public key of the certificate beside each.
+     */
+    private record KeystoreEntries(Set<String> keyAliases, Map<String, PublicKey> publicKeys) {
+
+        static final KeystoreEntries NONE = new KeystoreEntries(Set.of(), Map.of());
+
+        static KeystoreEntries of(CachedKeyMaterial material) {
+            Set<String> keyAliases = new HashSet<>();
+            material.privateKeys().keySet().forEach(alias -> keyAliases.add(folded(alias)));
+            Map<String, PublicKey> publicKeys = new HashMap<>();
+            material.publicKeys().forEach((alias, publicKey) -> publicKeys.put(folded(alias), publicKey));
+            return new KeystoreEntries(Collections.unmodifiableSet(keyAliases),
+                    Collections.unmodifiableMap(publicKeys));
+        }
+
+        static KeystoreEntries of(KeyStore keyStore) {
+            Set<String> keyAliases = new HashSet<>();
+            Map<String, PublicKey> publicKeys = new HashMap<>();
+            try {
+                for (String alias : Collections.list(keyStore.aliases())) {
+                    if (keyStore.isKeyEntry(alias)) {
+                        keyAliases.add(folded(alias));
+                    }
+                    Certificate certificate = keyStore.getCertificate(alias);
+                    if (certificate != null) {
+                        publicKeys.put(folded(alias), certificate.getPublicKey());
+                    }
+                }
+            } catch (KeyStoreException e) {
+                throw new IllegalStateException("The keystore of the token cannot be read", e);
+            }
+            return new KeystoreEntries(Collections.unmodifiableSet(keyAliases),
+                    Collections.unmodifiableMap(publicKeys));
+        }
+    }
+
     /**
      * Answers a repeated request with the key its first attempt made, or refuses a different request wearing its id.
      * Both halves of a pair carry the identifier, and both were written together, so either states the terms.
@@ -598,7 +943,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
 
     private KeyPairDataResponseV2Dto keyPair(KeyData publicKey, KeyData privateKey) {
         KeyPairDataResponseV2Dto response = new KeyPairDataResponseV2Dto();
-        response.setKeyPairMeta(keyContextService.publishPair(publicKey));
+        response.setKeyPairMeta(keyContextService.publishPair(privateKey));
         response.setPublicKeyData(publicKeyData(publicKey));
         response.setPrivateKeyData(privateKeyData(privateKey, spki(publicKey)));
         return response;
@@ -616,17 +961,24 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     }
 
     private PrivateKeyDataResponseV2Dto privateKeyData(KeyData key, byte[] pairSpki) {
+        return privateKeyResponse(key, algorithmIdentifierOf(pairSpki));
+    }
+
+    private PrivateKeyDataResponseV2Dto privateKeyResponse(KeyData key, byte[] algorithmIdentifier) {
+        PrivateKeyDataResponseV2Dto response = new PrivateKeyDataResponseV2Dto();
+        response.setKeyMeta(keyContextService.publish(key));
+        response.setKeyData(privateKeyDescriptor(key, algorithmIdentifier));
+        return response;
+    }
+
+    private static PrivateKeyDataV2Dto privateKeyDescriptor(KeyData key, byte[] algorithmIdentifier) {
         PrivateKeyDataV2Dto descriptor = new PrivateKeyDataV2Dto();
         descriptor.setAlgorithm(key.getAlgorithm());
-        descriptor.setAlgorithmIdentifier(algorithmIdentifierOf(pairSpki));
+        descriptor.setAlgorithmIdentifier(algorithmIdentifier);
         if (key.getAlgorithm() == KeyAlgorithm.RSA) {
             descriptor.setLength(key.getLength());
         }
-
-        PrivateKeyDataResponseV2Dto response = new PrivateKeyDataResponseV2Dto();
-        response.setKeyMeta(keyContextService.publish(key));
-        response.setKeyData(descriptor);
-        return response;
+        return descriptor;
     }
 
     /** The stored public key, whose value is the SPKI this provider recorded when the key was created. */
@@ -656,6 +1008,12 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     private static void requireExportableKeyPair(KeyRequestType keyRequestType) {
         if (keyRequestType != KeyRequestType.KEY_PAIR) {
             throw new KeyTypeNotExportableException("A secret key cannot be exported from this token");
+        }
+    }
+
+    private static void requireListableKeyPair(KeyRequestType keyRequestType) {
+        if (keyRequestType != KeyRequestType.KEY_PAIR) {
+            throw new KeyTypeNotListableException("This token holds no secret keys to list");
         }
     }
 
@@ -689,6 +1047,11 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
     @Autowired
     public void setKeyManagementService(KeyManagementService keyManagementService) {
         this.keyManagementService = keyManagementService;
+    }
+
+    @Autowired
+    public void setKeyStoreCacheService(KeyStoreCacheService keyStoreCacheService) {
+        this.keyStoreCacheService = keyStoreCacheService;
     }
 
     @Autowired

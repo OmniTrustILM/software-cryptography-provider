@@ -1,6 +1,7 @@
 package com.otilm.cp.soft.api.v2;
 
 import com.otilm.api.model.common.error.ErrorCode;
+import com.otilm.cp.soft.attribute.KeyAttributes;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,8 @@ class V2ErrorShapeTest {
 
     private static final String OPERATIONS = "/v2/cryptographyProvider/operations";
     private static final String KEYS = "/v2/cryptographyProvider/keys";
+    private static final String SECRET_KEYS_IN_TOKEN = "\"tokenAttributes\":[],\"tokenProfileAttributes\":[],"
+            + "\"keyRequestType\":\"secret\"";
 
     private MockMvc mockMvc;
 
@@ -135,29 +138,52 @@ class V2ErrorShapeTest {
                 .andExpect(jsonPath("$.errorCode").value(ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND.name()));
     }
 
-    /** The contract names a code of its own for an operation the connector declines. */
     @Test
-    void aDeclinedOperationIsNamedAsSuch() throws Exception {
+    void listingSecretKeysIsNamedAsSuch() throws Exception {
         // given
-        String keyPairsInToken = "\"tokenAttributes\":[],\"tokenProfileAttributes\":[],"
-                + "\"keyRequestType\":\"keyPair\"";
-        String alias = "{\"uuid\":\"a5575bb8-dd88-4b60-bb73-75b862da78aa\",\"name\":\"meta_keyAlias\",\"version\":2,"
-                + "\"type\":\"meta\",\"contentType\":\"string\","
-                + "\"properties\":{\"label\":\"Key Alias\",\"visible\":true},\"content\":[{\"data\":\"key\"}]}";
-
         // when
         // then
         mockMvc
                 .perform(post(KEYS + "/list")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{" + keyPairsInToken + ",\"offset\":0,\"limit\":10}"))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.errorCode").value(ErrorCode.OPERATION_NOT_SUPPORTED.name()));
+                        .content("{" + SECRET_KEYS_IN_TOKEN + ",\"offset\":0,\"limit\":10}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.KEY_TYPE_NOT_LISTABLE.name()));
+    }
+
+    @Test
+    void resolvingSecretKeysIsNamedAsSuch() throws Exception {
+        // given
+        String alias = "{\"uuid\":\"" + KeyAttributes.ATTRIBUTE_META_KEY_ALIAS_UUID + "\",\"name\":\""
+                + KeyAttributes.ATTRIBUTE_META_KEY_ALIAS
+                + "\",\"version\":2,\"type\":\"meta\",\"contentType\":\"string\","
+                + "\"properties\":{\"label\":\"Key Alias\",\"visible\":true},\"content\":[{\"data\":\"key\"}]}";
+
+        // when
+        // then
         mockMvc
                 .perform(post(KEYS + "/resolve")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{" + keyPairsInToken + ",\"keys\":[{\"identifier\":\"0\",\"keyMeta\":[" + alias
+                        .content("{" + SECRET_KEYS_IN_TOKEN + ",\"keys\":[{\"identifier\":\"0\",\"keyMeta\":[" + alias
                                 + "]}]}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.errorCode").value(ErrorCode.KEY_TYPE_NOT_LISTABLE.name()));
+    }
+
+    /** The contract names a code of its own for an operation the connector declines. */
+    @Test
+    void aDeclinedOperationIsNamedAsSuch() throws Exception {
+        // given
+        String aliasCallback = "{\"connectorInterface\":\"cryptography\",\"interfaceVersion\":\"v2\","
+                + "\"attributeUuid\":\"" + KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS_UUID + "\"," + "\"attributeName\":\""
+                + KeyAttributes.ATTRIBUTE_DATA_KEY_ALIAS + "\"," + "\"contextAttributes\":[],\"currentAttributes\":[]}";
+
+        // when
+        // then
+        mockMvc
+                .perform(post("/v2/attributes/callback").contentType(MediaType.APPLICATION_JSON).content(aliasCallback))
                 .andExpect(status().isNotImplemented())
                 .andExpect(jsonPath("$.errorCode").value(ErrorCode.OPERATION_NOT_SUPPORTED.name()));
     }
