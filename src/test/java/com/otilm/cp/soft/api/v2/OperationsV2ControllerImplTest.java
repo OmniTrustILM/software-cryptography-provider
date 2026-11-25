@@ -67,6 +67,7 @@ import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +90,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -119,9 +121,13 @@ class OperationsV2ControllerImplTest {
 
     private KeyPair rsa2048;
 
+    private KeyPair otherRsa2048;
+
     @BeforeAll
-    void createReadOnlyRsaKey() {
+    void createReadOnlyRsaKeys() {
         rsa2048 = rsaKeyPair("v2-operations-rsa", 2048);
+        otherRsa2048 = rsaKeyPair("v2-operations-other-rsa", 2048);
+        assertFalse(Arrays.equals(rsa2048.publicKeySpki(), otherRsa2048.publicKeySpki()));
     }
 
     @Autowired
@@ -227,10 +233,16 @@ class OperationsV2ControllerImplTest {
     @EnumSource(value = EncryptionAlgorithm.class,
             names = {"RSA_PKCS1_V1_5", "RSA_OAEP_SHA1", "RSA_OAEP_SHA256", "RSA_OAEP_SHA384", "RSA_OAEP_SHA512"})
     void encryptsAndDecryptsThroughKeysAddressedByMetadata(EncryptionAlgorithm algorithm) {
+        for (KeyPair pair : cipherKeys(algorithm)) {
+            assertCipherRoundTrip(pair, algorithm);
+        }
+    }
+
+    private void assertCipherRoundTrip(KeyPair pair, EncryptionAlgorithm algorithm) {
         // given
         byte[] second = "a second message".getBytes(StandardCharsets.UTF_8);
         CipherDataRequestV2Dto encryption = new CipherDataRequestV2Dto();
-        apply(encryption, rsa2048.tokenAttributes(), rsa2048.publicKeyMeta());
+        apply(encryption, pair.tokenAttributes(), pair.publicKeyMeta());
         encryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         encryption.setCipherData(List.of(cipherItem("one", MESSAGE), cipherItem("two", second)));
 
@@ -241,7 +253,7 @@ class OperationsV2ControllerImplTest {
         assertEquals(List.of("one", "two"), encrypted.stream().map(CipherDataV2Dto::getIdentifier).toList());
 
         CipherDataRequestV2Dto decryption = new CipherDataRequestV2Dto();
-        apply(decryption, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
+        apply(decryption, pair.tokenAttributes(), pair.privateKeyMeta());
         decryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         decryption.setCipherData(encrypted);
 
@@ -614,10 +626,22 @@ class OperationsV2ControllerImplTest {
             names = {"RSA_PKCS1_V1_5", "RSA_OAEP_SHA1", "RSA_OAEP_SHA256", "RSA_OAEP_SHA384", "RSA_OAEP_SHA512"})
     void decryptsCiphertextFromExplicitExternalEncryptionProfile(EncryptionAlgorithm algorithm)
             throws GeneralSecurityException {
+        for (KeyPair pair : cipherKeys(algorithm)) {
+            assertDecryptsExternalCiphertext(pair, algorithm);
+        }
+    }
+
+    // Switch keys under one fixed profile so routing the next request to the previous key fails.
+    private List<KeyPair> cipherKeys(EncryptionAlgorithm algorithm) {
+        return algorithm == EncryptionAlgorithm.RSA_OAEP_SHA256 ? List.of(rsa2048, otherRsa2048) : List.of(rsa2048);
+    }
+
+    private void assertDecryptsExternalCiphertext(KeyPair pair, EncryptionAlgorithm algorithm)
+            throws GeneralSecurityException {
         // given
         PublicKey publicKey = KeyFactory
                 .getInstance("RSA")
-                .generatePublic(new X509EncodedKeySpec(rsa2048.publicKeySpki()));
+                .generatePublic(new X509EncodedKeySpec(pair.publicKeySpki()));
         Cipher cipher = Cipher.getInstance(algorithm.getCode());
         if (algorithm == EncryptionAlgorithm.RSA_PKCS1_V1_5) {
             cipher.init(Cipher.ENCRYPT_MODE, publicKey);
@@ -634,7 +658,7 @@ class OperationsV2ControllerImplTest {
                             new MGF1ParameterSpec(digest), PSource.PSpecified.DEFAULT));
         }
         CipherDataRequestV2Dto decryption = new CipherDataRequestV2Dto();
-        apply(decryption, rsa2048.tokenAttributes(), rsa2048.privateKeyMeta());
+        apply(decryption, pair.tokenAttributes(), pair.privateKeyMeta());
         decryption.setCipherAttributes(List.of(EncryptionAlgorithmAttribute.request(algorithm)));
         decryption.setCipherData(List.of(cipherItem("one", cipher.doFinal(MESSAGE))));
 
@@ -677,8 +701,16 @@ class OperationsV2ControllerImplTest {
     @MethodSource("dataDigestSelections")
     void signsADataDigestThatVerifiesOverItsMessage(SignatureAlgorithm algorithm, String keyAlgorithm, String jdkName,
             String hash) throws GeneralSecurityException {
-        // given
         KeyPair pair = "RSA".equals(keyAlgorithm) ? rsa2048 : ecdsaKeyPair("v2-data-digest-" + algorithm.getCode());
+        assertDigestSignature(pair, algorithm, keyAlgorithm, jdkName, hash);
+        if (algorithm == SignatureAlgorithm.SHA256_WITH_RSA) {
+            assertDigestSignature(otherRsa2048, algorithm, keyAlgorithm, jdkName, hash);
+        }
+    }
+
+    private void assertDigestSignature(KeyPair pair, SignatureAlgorithm algorithm, String keyAlgorithm, String jdkName,
+            String hash) throws GeneralSecurityException {
+        // given
         SignDataRequestV2Dto signing = dataDigest(pair, algorithm, item("one", digestOf(hash, MESSAGE)));
 
         // when
