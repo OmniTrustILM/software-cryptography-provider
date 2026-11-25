@@ -6,6 +6,7 @@ import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.connector.common.v2.OperationExecutionMode;
 import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
@@ -30,18 +31,26 @@ import com.otilm.cp.soft.attribute.EcdsaKeyAttributes;
 import com.otilm.cp.soft.attribute.KeyAttributes;
 import com.otilm.cp.soft.collection.EcdsaCurveName;
 import com.otilm.cp.soft.dao.entity.KeyData;
+import com.otilm.cp.soft.dao.entity.TokenInstance;
 import com.otilm.cp.soft.dao.repository.KeyDataRepository;
+import com.otilm.cp.soft.dao.repository.TokenInstanceRepository;
 import com.otilm.cp.soft.exception.KeyTypeNotListableException;
 import com.otilm.cp.soft.testsupport.KeyRequestFixtures;
 import com.otilm.cp.soft.testsupport.TokenContextFixtures;
+import com.otilm.cp.soft.util.KeyStoreUtil;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,6 +69,10 @@ class KeyListingV2ControllerImplTest {
 
     private KeyDataRepository keyDataRepository;
 
+    private TokenInstanceRepository tokenInstanceRepository;
+
+    private TransactionTemplate transaction;
+
     @Autowired
     void setController(KeyV2ControllerImpl controller) {
         this.controller = controller;
@@ -68,6 +81,16 @@ class KeyListingV2ControllerImplTest {
     @Autowired
     void setKeyDataRepository(KeyDataRepository keyDataRepository) {
         this.keyDataRepository = keyDataRepository;
+    }
+
+    @Autowired
+    void setTokenInstanceRepository(TokenInstanceRepository tokenInstanceRepository) {
+        this.tokenInstanceRepository = tokenInstanceRepository;
+    }
+
+    @Autowired
+    void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transaction = new TransactionTemplate(transactionManager);
     }
 
     @Test
@@ -156,6 +179,26 @@ class KeyListingV2ControllerImplTest {
                         (PrivateKeyDataV2Dto) entry.getKeyData()));
     }
 
+    /**
+     * A pair stored before aliases were compared without regard to case loses its entry to its namesake's destruction.
+     */
+    @Test
+    void listsAPairTheKeystoreHoldsNoKeyForAsUnreadable() {
+        // given
+        String token = TokenContextFixtures.uniqueName("v2-list-entry-gone");
+        KeyData privateKey = half(create(KeyRequestFixtures.rsaKeyPair(token, "orphaned")), KeyType.PRIVATE_KEY);
+        rewriteKeystore(privateKey, keyStore -> KeyStoreUtil.deleteAliasFromKeyStore(keyStore, "orphaned"));
+
+        // when
+        ListKeysResponseV2Dto page = controller.listKeys(listRequest(token, 0, 10));
+
+        // then
+        ListedKeyEntryV2Dto entry = page.getItems().get(0);
+        assertEquals(KeyEntryStatus.UNREADABLE, entry.getStatus());
+        assertEquals("The token holds no key under this alias.", entry.getDiagnostic());
+        assertNull(entry.getKey());
+    }
+
     /** The keystore folds only ASCII letters, so aliases that differ in any other case address a key each. */
     @Test
     void listsKeysWhoseAliasesDifferOnlyInNonAsciiCaseAsAvailable() {
@@ -230,6 +273,24 @@ class KeyListingV2ControllerImplTest {
         assertNotNull(entry.getDiagnostic());
         assertSamePrivateKeyDescriptor(created.getPrivateKeyData().getKeyData(),
                 (PrivateKeyDataV2Dto) entry.getKeyData());
+    }
+
+    @Test
+    void listsAPairWhosePrivateKeyStoresNoParametersAsUnreadable() {
+        // given
+        String token = TokenContextFixtures.uniqueName("v2-list-no-parameters");
+        KeyData privateKey = half(create(KeyRequestFixtures.rsaKeyPair(token, "bare")), KeyType.PRIVATE_KEY);
+        privateKey.setFormat(KeyFormat.SPKI);
+        privateKey.setValue(new SpkiKeyValue("AAAA"));
+        keyDataRepository.saveAndFlush(privateKey);
+
+        // when
+        ListKeysResponseV2Dto page = controller.listKeys(listRequest(token, 0, 10));
+
+        // then
+        ListedKeyEntryV2Dto entry = page.getItems().get(0);
+        assertEquals(KeyEntryStatus.UNREADABLE, entry.getStatus());
+        assertEquals("The parameters stored for the private key cannot be read.", entry.getDiagnostic());
     }
 
     @Test
@@ -325,6 +386,22 @@ class KeyListingV2ControllerImplTest {
         assertEquals(KeyEntryStatus.NOT_FOUND, resolved.getResults().get(0).getStatus());
     }
 
+    /** Version 1 creation accepts any alias, blank ones included. */
+    @Test
+    void resolvesAWhitespaceAliasToItsKey() {
+        // given
+        String token = TokenContextFixtures.uniqueName("v2-resolve-blank");
+        rename(create(KeyRequestFixtures.rsaKeyPair(token, "spaced")), "   ");
+
+        // when
+        ResolveKeysResponseV2Dto resolved = controller
+                .resolveKeys(resolveRequest(token,
+                        new KeyHandleV2Dto("0", List.of(KeyAttributes.buildAliasMetadata("   ")))));
+
+        // then
+        assertEquals(KeyEntryStatus.AVAILABLE, resolved.getResults().get(0).getStatus());
+    }
+
     @Test
     void resolvesAHandleNamingNoAliasAsInvalid() {
         // given
@@ -394,11 +471,34 @@ class KeyListingV2ControllerImplTest {
         return keyDataRepository.findByUuid(UUID.fromString(reference)).orElseThrow();
     }
 
+    /** Moves the pair's keystore entry along with its rows, as a pair stored under that alias would be held. */
     private void rename(KeyPairDataResponseV2Dto created, String alias) {
+        KeyData privateKey = half(created, KeyType.PRIVATE_KEY);
+        rewriteKeystore(privateKey, keyStore -> moveEntry(keyStore, privateKey.getName(), alias));
         for (KeyType type : List.of(KeyType.PRIVATE_KEY, KeyType.PUBLIC_KEY)) {
             KeyData key = half(created, type);
             key.setName(alias);
             keyDataRepository.saveAndFlush(key);
+        }
+    }
+
+    private void rewriteKeystore(KeyData key, Consumer<KeyStore> change) {
+        transaction.executeWithoutResult(status -> {
+            TokenInstance token = tokenInstanceRepository.findByUuid(key.getTokenInstanceUuid()).orElseThrow();
+            KeyStore keyStore = KeyStoreUtil.loadKeystore(token.getData(), TokenContextFixtures.CODE);
+            change.accept(keyStore);
+            token.setData(KeyStoreUtil.saveKeystore(keyStore, TokenContextFixtures.CODE));
+        });
+    }
+
+    private static void moveEntry(KeyStore keyStore, String from, String to) {
+        char[] code = TokenContextFixtures.CODE.toCharArray();
+        try {
+            KeyStore.Entry entry = keyStore.getEntry(from, new KeyStore.PasswordProtection(code));
+            keyStore.deleteEntry(from);
+            keyStore.setEntry(to, entry, new KeyStore.PasswordProtection(code));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(e);
         }
     }
 

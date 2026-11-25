@@ -615,9 +615,7 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         MetadataAttribute attribute = handle.get(0);
         boolean namesAnAlias = KeyAttributes.ATTRIBUTE_META_KEY_ALIAS.equals(attribute.getName())
                 && attribute.getContentType() == AttributeContentType.STRING;
-        return namesAnAlias && soleData(attribute) instanceof String alias && !alias.isBlank()
-                ? Optional.of(alias)
-                : Optional.empty();
+        return namesAnAlias && soleData(attribute) instanceof String alias ? Optional.of(alias) : Optional.empty();
     }
 
     private static Object soleData(MetadataAttribute attribute) {
@@ -638,6 +636,10 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
                     privateKey, keys);
         }
         try {
+            if (!heldByTheKeystore(privateKey, keys)) {
+                return withheld(entry, KeyEntryStatus.UNREADABLE, "The token holds no key under this alias.",
+                        privateKey, keys);
+            }
             if (signsUnderNoPlatformAlgorithm(privateKey)) {
                 return withheld(entry, KeyEntryStatus.UNSUPPORTED_TYPE,
                         "No platform signature algorithm names the parameter set of the key.", privateKey, keys);
@@ -667,6 +669,8 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         return pair;
     }
 
+    private static final String UNREADABLE_PARAMETERS = "The parameters stored for the private key cannot be read.";
+
     private static final class UnreadableKeyException extends RuntimeException {
 
         private static final long serialVersionUID = 1L;
@@ -676,13 +680,23 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
         }
     }
 
+    private static boolean heldByTheKeystore(KeyData privateKey, TokenKeys keys) {
+        try {
+            return keys.holdsKeyUnder(privateKey);
+        } catch (IllegalStateException e) {
+            throw new UnreadableKeyException("The keystore of the token cannot be read.", e);
+        }
+    }
+
     private static boolean signsUnderNoPlatformAlgorithm(KeyData privateKey) {
         try {
-            return signsUnderNoPlatformAlgorithm(privateKey.getAlgorithm(),
-                    ((CustomKeyValue) privateKey.getValue()).getValues());
+            if (privateKey.getValue() instanceof CustomKeyValue value) {
+                return signsUnderNoPlatformAlgorithm(privateKey.getAlgorithm(), value.getValues());
+            }
         } catch (RuntimeException e) {
-            throw new UnreadableKeyException("The parameters stored for the private key cannot be read.", e);
+            throw new UnreadableKeyException(UNREADABLE_PARAMETERS, e);
         }
+        throw new UnreadableKeyException(UNREADABLE_PARAMETERS, null);
     }
 
     /** A blocked key still carries the private-key descriptor Core displays. */
@@ -777,19 +791,33 @@ public class CryptographicKeyV2ServiceImpl implements CryptographicKeyV2Service 
             return publicKeysByAssociation.get(privateKey.getAssociation());
         }
 
-        /** The keystore is opened once a pair needs it, and only an alias of its own addresses one certificate. */
+        /** A pair that shared its keystore entry with another loses it when that pair is destroyed. */
+        boolean holdsKeyUnder(KeyData privateKey) {
+            try {
+                return keyStore().isKeyEntry(privateKey.getName());
+            } catch (KeyStoreException e) {
+                throw new IllegalStateException("The keystore of the token cannot be read", e);
+            }
+        }
+
+        /** Only an alias of its own addresses one certificate. */
         Certificate certificateOf(KeyData privateKey) {
             if (sharesAlias(privateKey)) {
                 return null;
             }
-            if (keyStore == null) {
-                keyStore = KeyStoreUtil.loadKeystore(token.instance().getData(), token.code());
-            }
             try {
-                return keyStore.getCertificate(privateKey.getName());
+                return keyStore().getCertificate(privateKey.getName());
             } catch (KeyStoreException e) {
                 throw new IllegalStateException("The keystore of the token cannot be read", e);
             }
+        }
+
+        /** The keystore is opened once a pair needs it. */
+        private KeyStore keyStore() {
+            if (keyStore == null) {
+                keyStore = KeyStoreUtil.loadKeystore(token.instance().getData(), token.code());
+            }
+            return keyStore;
         }
 
         private static String folded(String alias) {
