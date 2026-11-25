@@ -208,7 +208,8 @@ public final class KeyImportFixtures {
     /** A key generated the way a user's own key would have been, before the platform protected it. */
     public static PrivateKey generatedKey(Generation generation) {
         try {
-            KeyStore keyStore = KeyStoreUtil.loadKeystore(KeyStoreUtil.createNewKeystore("PKCS12", CODE), CODE);
+            KeyStore keyStore = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
+            keyStore.load(null, CODE.toCharArray());
             generation.into(keyStore, "source", CODE);
             return (PrivateKey) keyStore.getKey("source", CODE.toCharArray());
         } catch (Exception e) {

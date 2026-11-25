@@ -132,7 +132,8 @@ class ImportedKeyDescriptionTest {
     void describesAnImportedKeyAsAGeneratedOneOfTheSameParameterSetIsDescribed(String named, KeyAlgorithm algorithm,
             Generator generator, Map<String, String> asGenerated) throws Exception {
         // given
-        KeyStore keyStore = KeyStoreUtil.loadKeystore(KeyStoreUtil.createNewKeystore("PKCS12", CODE), CODE);
+        KeyStore keyStore = KeyStore.getInstance("PKCS12", BouncyCastleProvider.PROVIDER_NAME);
+        keyStore.load(null, CODE.toCharArray());
         generator.into(keyStore);
         KeyPair generatedPair = new KeyPair(keyStore.getCertificate("k").getPublicKey(),
                 (java.security.PrivateKey) keyStore.getKey("k", CODE.toCharArray()));

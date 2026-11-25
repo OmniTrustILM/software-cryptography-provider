@@ -72,7 +72,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <li>Token instances that already use the new format are not re-written.</li>
  * </ul>
  */
-@SpringBootTest(classes = Application.class)
+// The migration scans every token, so give it a database containing only this class's fixtures.
+@SpringBootTest(classes = Application.class,
+        properties = "spring.datasource.url=jdbc:hsqldb:mem:mlkemMigration;sql.syntax_pgs=true")
 class V202604211200__MigrateMLKEMKeyStorageFormatITest {
 
     private static final String PASSWORD = "integration-test-password";
