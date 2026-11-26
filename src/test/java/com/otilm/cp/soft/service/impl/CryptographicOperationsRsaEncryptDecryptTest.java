@@ -15,10 +15,13 @@ import com.otilm.api.model.connector.cryptography.operations.data.CipherRequestD
 import com.otilm.cp.soft.attribute.RsaCipherAttributes;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import java.security.GeneralSecurityException;
+import java.security.spec.MGF1ParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.crypto.Cipher;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,14 +68,17 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractRsaOperations
     @MethodSource("parameters")
     void testEncryptDecryptRsa(int keySize, RsaEncryptionScheme scheme, DigestAlgorithm hash, boolean useMgf)
             throws NotFoundException, GeneralSecurityException {
-        boolean checkRouting = keySize == 2048 && scheme == RsaEncryptionScheme.PKCS1_v1_5;
+        boolean checkRouting = keySize == 2048 && scheme == RsaEncryptionScheme.OAEP && hash == DigestAlgorithm.SHA_256
+                && useMgf;
         for (RsaPair pair : keysFor(keySize, checkRouting)) {
             assertCipherRoundTrip(pair, scheme, hash, useMgf);
             if (checkRouting) {
-                Cipher external = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-                external.init(Cipher.ENCRYPT_MODE, pair.publicKey());
+                Cipher external = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+                external
+                        .init(Cipher.ENCRYPT_MODE, pair.publicKey(), new OAEPParameterSpec("SHA-256", "MGF1",
+                                MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT));
                 CipherDataRequestDto request = new CipherDataRequestDto();
-                request.setCipherAttributes(buildRsaPkcs1EncryptAttributes());
+                request.setCipherAttributes(buildRsaOaepEncryptAttributes(hash, useMgf));
                 request.setCipherData(List.of(new CipherRequestData(external.doFinal(PLAINTEXT), "item-1")));
                 DecryptDataResponseDto opened = cryptographicOperationsService
                         .decryptData(pair.tokenUuid(), pair.privateUuid(), request);
