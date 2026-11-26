@@ -94,7 +94,9 @@ abstract class AbstractRsaOperationsTest extends AbstractCryptographicOperations
     @Override
     @BeforeEach
     void setUp() {
-        // Replaces the per-case token: cases share the fixtures, and each still opens its keystore and reads both rows.
+        // No per-case token: a case that needs one calls newRsaPair rather than reaching a committed fixture's. Cases
+        // share the fixtures, and each still opens its keystore and reads both rows.
+        tokenInstance = null;
         evictFixtureCaches();
     }
 
