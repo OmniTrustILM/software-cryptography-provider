@@ -18,6 +18,7 @@ import java.security.GeneralSecurityException;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
@@ -134,9 +135,11 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractRsaOperations
         request.setCipherAttributes(buildRsaPkcs1EncryptAttributes());
         request.setCipherData(List.of(new CipherRequestData(PLAINTEXT, "item-1")));
 
+        UUID tokenUuid = pair.tokenUuid();
+        UUID privateKeyUuid = pair.privateUuid();
         Assertions
                 .assertThrows(CryptographicOperationException.class,
-                        () -> cryptographicOperationsService.encryptData(pair.tokenUuid(), pair.privateUuid(), request),
+                        () -> cryptographicOperationsService.encryptData(tokenUuid, privateKeyUuid, request),
                         "encryptData with a private key should throw CryptographicOperationException");
     }
 
@@ -148,9 +151,11 @@ class CryptographicOperationsRsaEncryptDecryptTest extends AbstractRsaOperations
         request.setCipherAttributes(buildRsaPkcs1EncryptAttributes());
         request.setCipherData(List.of(new CipherRequestData(PLAINTEXT, "item-1")));
 
+        UUID tokenUuid = pair.tokenUuid();
+        UUID publicKeyUuid = pair.publicUuid();
         Assertions
                 .assertThrows(CryptographicOperationException.class,
-                        () -> cryptographicOperationsService.decryptData(pair.tokenUuid(), pair.publicUuid(), request),
+                        () -> cryptographicOperationsService.decryptData(tokenUuid, publicKeyUuid, request),
                         "decryptData with a public key should throw CryptographicOperationException");
     }
 
