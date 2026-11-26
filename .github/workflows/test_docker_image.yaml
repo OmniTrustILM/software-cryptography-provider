@@ -21,7 +21,7 @@ jobs:
     with:
       image: ilm/software-cryptography-provider
       cache-scope: software-cryptography-provider
-      # Check PR already runs the full suite on PRs to main, so these builds run only a crypto smoke test there.
+      # Check PR already runs the full suite on PRs to main, so these builds run only the image-smoke tests there.
       build-args: |
         VERSION=${{ github.ref_name }}
-        MAVEN_TEST_CLASS=${{ github.event_name == 'pull_request' && github.base_ref == 'main' && 'DataDigestSignaturesTest,SecretsUtilTest,KeyStoreUtilTest' || '' }}
+        MAVEN_TEST_GROUPS=${{ github.event_name == 'pull_request' && github.base_ref == 'main' && 'image-smoke' || '' }}

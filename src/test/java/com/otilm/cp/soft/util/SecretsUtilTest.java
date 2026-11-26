@@ -5,6 +5,7 @@ import java.util.Base64;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -23,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * trip: it has to stay readable by later releases, and values written by earlier ones have to stay readable now.
  * </p>
  */
+@Tag("image-smoke")
 class SecretsUtilTest {
 
     private static final String SECRET = "This is my secret value I want to protect";
