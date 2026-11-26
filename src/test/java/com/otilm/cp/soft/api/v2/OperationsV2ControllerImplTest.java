@@ -631,7 +631,8 @@ class OperationsV2ControllerImplTest {
         }
     }
 
-    // Switch keys under one fixed profile so routing the next request to the previous key fails.
+    // A second key under the same algorithm. Ciphertext made outside the connector for it opens only if the request
+    // reaches that key rather than the one used before.
     private List<KeyPair> cipherKeys(EncryptionAlgorithm algorithm) {
         return algorithm == EncryptionAlgorithm.RSA_OAEP_SHA256 ? List.of(rsa2048, otherRsa2048) : List.of(rsa2048);
     }

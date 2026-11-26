@@ -65,7 +65,7 @@ abstract class AbstractRsaOperationsTest extends AbstractCryptographicOperations
     }
 
     RsaPair newRsaPair(int size, String alias) throws NotFoundException, GeneralSecurityException {
-        // The wrong-key-type cases create their own token and pair inside the test transaction.
+        // Not registered for cleanup: call it only from a test, whose transaction rolls the token and pair back.
         super.setUp();
         return generatePair(size, alias);
     }
@@ -94,7 +94,11 @@ abstract class AbstractRsaOperationsTest extends AbstractCryptographicOperations
     @Override
     @BeforeEach
     void setUp() {
-        // Every case still opens its keystore and reads both key rows on first use.
+        // Replaces the per-case token: cases share the fixtures, and each still opens its keystore and reads both rows.
+        evictFixtureCaches();
+    }
+
+    private void evictFixtureCaches() {
         Cache tokens = Objects.requireNonNull(cacheManager.getCache(CacheConfig.KEYSTORES_CACHE));
         Cache rows = Objects.requireNonNull(cacheManager.getCache(CacheConfig.KEYDATA_CACHE));
         for (RsaPair pair : keys.values()) {
@@ -107,7 +111,7 @@ abstract class AbstractRsaOperationsTest extends AbstractCryptographicOperations
 
     @AfterAll
     void removeFixtureTokens() {
-        setUp();
+        evictFixtureCaches();
         transactions.executeWithoutResult(status -> {
             for (UUID token : fixtureTokens) {
                 keyDataRepository.deleteAll(keyDataRepository.findAllByTokenInstanceUuid(token));
