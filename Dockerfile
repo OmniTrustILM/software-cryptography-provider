@@ -5,7 +5,8 @@ COPY src /home/app/src
 COPY pom.xml /home/app
 COPY docker /home/app/docker
 
-# Main-targeting PRs select a native crypto smoke test. Other builds run the full suite.
+# Tests run here, so a published image is never built from a tree that fails them.
+# MAVEN_TEST_CLASS narrows the run to the listed test classes; left empty, the full suite runs.
 ARG MAVEN_TEST_CLASS
 RUN mvn -f /home/app/pom.xml clean package ${MAVEN_TEST_CLASS:+"-Dtest=$MAVEN_TEST_CLASS"}
 
