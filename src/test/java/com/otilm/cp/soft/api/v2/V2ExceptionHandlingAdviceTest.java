@@ -12,6 +12,7 @@ import com.otilm.cp.soft.exception.ConcurrentRequestException;
 import com.otilm.cp.soft.exception.CryptographicOperationException;
 import com.otilm.cp.soft.exception.KeyDecryptionFailedException;
 import com.otilm.cp.soft.exception.KeyManagementException;
+import com.otilm.cp.soft.exception.KeyTypeNotListableException;
 import com.otilm.cp.soft.exception.MetricsUnavailableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.ParameterUnsupportedException;
@@ -239,6 +240,18 @@ class V2ExceptionHandlingAdviceTest {
         // then
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
         assertEquals(ErrorCode.KEY_DECRYPTION_FAILED, body(response).getErrorCode());
+    }
+
+    @Test
+    void aKeyTypeItDoesNotListHasItsOwnCode() {
+        // given
+        // when
+        ResponseEntity<ProblemDetailExtended> response = advice
+                .handleKeyTypeNotListable(new KeyTypeNotListableException("no secret keys"));
+
+        // then
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
+        assertEquals(ErrorCode.KEY_TYPE_NOT_LISTABLE, body(response).getErrorCode());
     }
 
     @Test

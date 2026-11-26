@@ -177,8 +177,9 @@ cancellation operations answer `OPERATION_NOT_TRACKED`, and a request for asynch
 `OPERATION_NOT_SUPPORTED`. Declaring the flag would mean a job store and polling for work that finishes in
 milliseconds.
 
-**Key listing is not implemented.** `keyList` is an enforced feature flag, so leaving it undeclared means the platform
-never asks this connector to list or resolve keys. Both operations answer `OPERATION_NOT_SUPPORTED`.
+**Key listing reads the token's key rows and lists each pair as its creation describes it.** A v2 connector lists keys
+unless it declares `unlistableToken`, and a software token can always enumerate what it holds. The platform then
+addresses an onboarded key exactly like one it created.
 
 **A digest is signed as the caller computed it, never hashed again.** `dataDigestSigning` is an enforced feature flag,
 and declaring it is what lets the platform send this connector a digest instead of data; under `DATA_DIGEST` each

@@ -12,6 +12,7 @@ import com.otilm.cp.soft.exception.KeyMaterialMismatchException;
 import com.otilm.cp.soft.exception.KeyNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotExportableException;
 import com.otilm.cp.soft.exception.KeyTypeNotImportableException;
+import com.otilm.cp.soft.exception.KeyTypeNotListableException;
 import com.otilm.cp.soft.exception.MetricsUnavailableException;
 import com.otilm.cp.soft.exception.NotSupportedException;
 import com.otilm.cp.soft.exception.OperationConflictException;
@@ -133,6 +134,12 @@ public class V2ExceptionHandlingAdvice {
     public ResponseEntity<ProblemDetailExtended> handleKeyTypeNotImportable(KeyTypeNotImportableException e) {
         return problem(ErrorCode.KEY_TYPE_NOT_IMPORTABLE,
                 "This connector does not take in a key of that type or algorithm.", e);
+    }
+
+    /** Listing and resolution cover key pairs only. */
+    @ExceptionHandler(KeyTypeNotListableException.class)
+    public ResponseEntity<ProblemDetailExtended> handleKeyTypeNotListable(KeyTypeNotListableException e) {
+        return problem(ErrorCode.KEY_TYPE_NOT_LISTABLE, "This connector does not list keys of that type.", e);
     }
 
     /** The material did not open, so no key could be read out of it. */

@@ -15,6 +15,10 @@ import com.otilm.api.model.connector.cryptography.v2.key.ImportKeyResultRequestV
 import com.otilm.api.model.connector.cryptography.v2.key.ImportableKeyTypeV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairDataResponseV2Dto;
 import com.otilm.api.model.connector.cryptography.v2.key.KeyPairOperationStatusResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ListKeysResponseV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysRequestV2Dto;
+import com.otilm.api.model.connector.cryptography.v2.key.ResolveKeysResponseV2Dto;
 import java.util.List;
 
 /**
@@ -100,4 +104,22 @@ public interface CryptographicKeyV2Service {
      * @return the protected material and a description of what was exported
      */
     ExportKeyResponseV2Dto exportKey(ExportKeyRequestV2Dto request);
+
+    /**
+     * One page of the key pairs the addressed token holds. Each entry reports the connector's status and carries the
+     * pair, as its creation describes it, only when the pair is available or refused.
+     *
+     * @param request the token context and the page to return
+     * @return the page and the number of pairs in the whole listing
+     */
+    ListKeysResponseV2Dto listKeys(ListKeysRequestV2Dto request);
+
+    /**
+     * The connector's status for each handle a listing returned, with the key pair it names only when the pair is
+     * available or refused.
+     *
+     * @param request the token context and the handles to resolve
+     * @return one result per handle
+     */
+    ResolveKeysResponseV2Dto resolveKeys(ResolveKeysRequestV2Dto request);
 }
