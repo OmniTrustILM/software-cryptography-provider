@@ -184,7 +184,7 @@ addresses an onboarded key exactly like one it created.
 **A digest is signed as the caller computed it, never hashed again.** `dataDigestSigning` is an enforced feature flag,
 and declaring it is what lets the platform send this connector a digest instead of data; under `DATA_DIGEST` each
 data item is that digest, while the data mode is unchanged. The mode covers the RSA and ECDSA algorithms whose
-signature is defined over a hash, and encodes each signature as the data path does; `PrehashedSignatures` has the
+signature is defined over a hash, and encodes each signature as the data path does; `DataDigestSignatures` has the
 details. An algorithm the mode does not cover, such as a post-quantum one, is refused with `PARAMETER_UNSUPPORTED`
 before the key's capabilities or any item length are looked at, since no digest length can be right for it. A key that
 cannot make the selected algorithm is refused with `PARAMETER_UNSUPPORTED` next. Item lengths are checked last,

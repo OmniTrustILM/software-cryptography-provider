@@ -43,9 +43,9 @@ import com.otilm.cp.soft.service.CryptographicOperationsService;
 import com.otilm.cp.soft.service.CryptographicOperationsV2Service;
 import com.otilm.cp.soft.service.KeyContextService;
 import com.otilm.cp.soft.service.TokenContextService;
+import com.otilm.cp.soft.util.DataDigestSignatures;
 import com.otilm.cp.soft.util.KeyStoreUtil;
 import com.otilm.cp.soft.util.OperationDataMapper;
-import com.otilm.cp.soft.util.PrehashedSignatures;
 import com.otilm.cp.soft.util.RequestAttributes;
 import com.otilm.cp.soft.util.RsaEncodingConstants;
 import com.otilm.cp.soft.util.SignatureAlgorithms;
@@ -173,7 +173,7 @@ public class CryptographicOperationsV2ServiceImpl implements CryptographicOperat
     private SignDataResponseV2Dto signDigests(SignDataRequestV2Dto request) {
         OperationKey operationKey = resolveForOperation(request);
         SignatureAlgorithm selected = SignatureAlgorithmAttribute.selectedAlgorithm(request.getSignatureAttributes());
-        if (!PrehashedSignatures.admits(selected)) {
+        if (!DataDigestSignatures.admits(selected)) {
             throw new ParameterUnsupportedException(
                     "Data digest signing is not defined for the selected signature algorithm");
         }

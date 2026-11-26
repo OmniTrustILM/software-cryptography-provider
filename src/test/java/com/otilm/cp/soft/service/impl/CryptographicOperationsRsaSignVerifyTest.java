@@ -4,29 +4,26 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
-import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
-import com.otilm.api.model.connector.cryptography.key.CreateKeyRequestDto;
-import com.otilm.api.model.connector.cryptography.key.KeyPairDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.VerifyDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.otilm.cp.soft.attribute.RsaKeyAttributes;
+import java.security.GeneralSecurityException;
+import java.security.Signature;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class CryptographicOperationsRsaSignVerifyTest extends AbstractCryptographicOperationsTest {
+class CryptographicOperationsRsaSignVerifyTest extends AbstractRsaOperationsTest {
 
     static Stream<Arguments> parameters() {
         // RSA-1024 + PSS + SHA_512 is excluded: PSS with SHA-512 and the default salt length
@@ -56,20 +53,17 @@ class CryptographicOperationsRsaSignVerifyTest extends AbstractCryptographicOper
 
     @ParameterizedTest(name = "RSA-{0} {1} {2}")
     @MethodSource("parameters")
-    void testSignVerifyRsa(int keySize, RsaSignatureScheme scheme, DigestAlgorithm digest) throws NotFoundException {
-        // Create key pair
-        CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
-        createKeyRequestDto.setCreateKeyAttributes(buildRsaCreateKeyAttributes("test-rsa-" + keySize, keySize));
+    void testSignVerifyRsa(int keySize, RsaSignatureScheme scheme, DigestAlgorithm digest)
+            throws NotFoundException, GeneralSecurityException {
+        boolean checkRouting = keySize == 2048 && scheme == RsaSignatureScheme.PKCS1_v1_5
+                && digest == DigestAlgorithm.SHA_256;
+        for (RsaPair pair : keysFor(keySize, checkRouting)) {
+            assertSignatureRoundTrip(pair, scheme, digest, checkRouting);
+        }
+    }
 
-        KeyPairDataResponseDto keyPair = keyManagementService
-                .createKeyPair(tokenInstance.getUuid(), createKeyRequestDto);
-
-        Assertions.assertEquals(KeyAlgorithm.RSA, keyPair.getPrivateKeyData().getKeyData().getAlgorithm());
-        Assertions.assertEquals(KeyAlgorithm.RSA, keyPair.getPublicKeyData().getKeyData().getAlgorithm());
-
-        UUID privateKeyUuid = UUID.fromString(keyPair.getPrivateKeyData().getUuid());
-        UUID publicKeyUuid = UUID.fromString(keyPair.getPublicKeyData().getUuid());
-
+    private void assertSignatureRoundTrip(RsaPair pair, RsaSignatureScheme scheme, DigestAlgorithm digest,
+            boolean checkRouting) throws NotFoundException, GeneralSecurityException {
         // Sign
         byte[] plaintext = "Hello, ILM!".getBytes();
         SignDataRequestDto signRequest = new SignDataRequestDto();
@@ -77,7 +71,7 @@ class CryptographicOperationsRsaSignVerifyTest extends AbstractCryptographicOper
         signRequest.setData(List.of(new SignatureRequestData(plaintext, "item-1")));
 
         SignDataResponseDto signResponse = cryptographicOperationsService
-                .signData(tokenInstance.getUuid(), privateKeyUuid, signRequest);
+                .signData(pair.tokenUuid(), pair.privateUuid(), signRequest);
 
         Assertions.assertNotNull(signResponse.getSignatures());
         Assertions.assertEquals(1, signResponse.getSignatures().size());
@@ -86,6 +80,13 @@ class CryptographicOperationsRsaSignVerifyTest extends AbstractCryptographicOper
         Assertions.assertTrue(signatureBytes.length > 0);
         Assertions.assertNull(signResponse.getSignatures().get(0).getDetails());
 
+        if (checkRouting) {
+            Signature verifier = Signature.getInstance("SHA256withRSA");
+            verifier.initVerify(pair.publicKey());
+            verifier.update(plaintext);
+            Assertions.assertTrue(verifier.verify(signatureBytes));
+        }
+
         // Verify
         VerifyDataRequestDto verifyRequest = new VerifyDataRequestDto();
         verifyRequest.setSignatureAttributes(buildRsaSignatureAttributes(scheme, digest));
@@ -93,25 +94,11 @@ class CryptographicOperationsRsaSignVerifyTest extends AbstractCryptographicOper
         verifyRequest.setSignatures(List.of(new SignatureRequestData(signatureBytes, "item-1")));
 
         VerifyDataResponseDto verifyResponse = cryptographicOperationsService
-                .verifyData(tokenInstance.getUuid(), publicKeyUuid, verifyRequest);
+                .verifyData(pair.tokenUuid(), pair.publicUuid(), verifyRequest);
 
         Assertions.assertNotNull(verifyResponse.getVerifications());
         Assertions.assertEquals(1, verifyResponse.getVerifications().size());
         Assertions.assertTrue(verifyResponse.getVerifications().get(0).isResult());
-    }
-
-    private List<RequestAttribute> buildRsaCreateKeyAttributes(String alias, int keySize) {
-        List<RequestAttribute> attributes = new ArrayList<>();
-        attributes.add(buildAliasAttribute(alias));
-        attributes.add(buildAlgorithmAttribute(KeyAlgorithm.RSA));
-
-        RequestAttributeV2 rsaKeySize = new RequestAttributeV2();
-        rsaKeySize.setName(RsaKeyAttributes.ATTRIBUTE_DATA_RSA_KEY_SIZE);
-        rsaKeySize.setContentType(AttributeContentType.INTEGER);
-        rsaKeySize.setContent(List.of(new IntegerAttributeContentV2("RSA_" + keySize, keySize)));
-        attributes.add(rsaKeySize);
-
-        return attributes;
     }
 
     private List<RequestAttribute> buildRsaSignatureAttributes(RsaSignatureScheme scheme, DigestAlgorithm digest) {

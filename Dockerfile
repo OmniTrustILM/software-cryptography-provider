@@ -5,8 +5,10 @@ COPY src /home/app/src
 COPY pom.xml /home/app
 COPY docker /home/app/docker
 
-# Tests run here, so an image is never produced from a source tree that fails them.
-RUN mvn -f /home/app/pom.xml clean package
+# Tests run here, so a published image is never built from a tree that fails them.
+# MAVEN_TEST_GROUPS runs only the tests tagged with it, failing if there are none; left empty, the full suite runs.
+ARG MAVEN_TEST_GROUPS
+RUN mvn -f /home/app/pom.xml clean package ${MAVEN_TEST_GROUPS:+-DfailIfNoTests=true "-Dgroups=$MAVEN_TEST_GROUPS"}
 
 # Optimize stage
 FROM eclipse-temurin:21-jdk-alpine AS optimize
